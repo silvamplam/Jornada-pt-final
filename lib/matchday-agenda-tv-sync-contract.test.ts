@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { createHash } from "node:crypto";
+import { assertRecordedMigration } from "./migration-test-helpers";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import test from "node:test";
@@ -101,10 +101,7 @@ test("apply v2 é atómico, protege concorrência e permite canal não confirmad
 });
 
 test("extensão preserve mantém o RPC v2 retrocompatível e a migration original intacta", () => {
-  assert.equal(
-    createHash("sha256").update(migration).digest("hex"),
-    "585155247b0ba4b427aaea6fb30ce5807be9fd95d6a367d85defdedf4ee0b6dd",
-  );
+  assertRecordedMigration("supabase/migrations/20260904002633_apply_matchday_agenda_tv_sync_v2.sql");
   assert.match(
     preserveMigration,
     /create or replace function public\.apply_matchday_agenda_tv_sync_v2/u,

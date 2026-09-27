@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import test from "node:test";
+import { assertRecordedMigration } from "./migration-test-helpers";
 
 const migration = readFileSync(
   path.join(
@@ -14,7 +15,7 @@ const migration = readFileSync(
 const sql = migration.replace(/\s+/g, " ").trim();
 
 test("1: a primeira transição válida source→target é admissível", () => {
-  assert.match(migration, /^begin;[\s\S]*commit;\s*$/i);
+  assertRecordedMigration("supabase/migrations/20260826143142_matchday_editorial_continuity_transitions.sql");
   assert.match(
     sql,
     /create table public\.matchday_editorial_continuity_transitions \(/i,

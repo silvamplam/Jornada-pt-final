@@ -1,0 +1,104 @@
+{
+  "base": "a4da9d88174694b61d9b149b960c8a1f8b517dd8",
+  "files": 60,
+  "base_counts": {
+    "tests": 595,
+    "failed": 14,
+    "passed": 581,
+    "cancelled": 0,
+    "skipped": 0,
+    "todo": 0,
+    "topLevel": 595,
+    "suites": 0
+  },
+  "reconstructed_counts": {
+    "tests": 595,
+    "failed": 14,
+    "passed": 581,
+    "cancelled": 0,
+    "skipped": 0,
+    "todo": 0,
+    "topLevel": 595,
+    "suites": 0
+  },
+  "new_functional_failures": [],
+  "preexisting_or_task_scope_failures": [
+    {
+      "name": "a página pública lê a ordem viva e intercala os cinco blocos",
+      "file": "lib/editorial-matchday-live-zone-order.test.ts",
+      "message": "The input did not match the regular expression /liveEditorialBodyBlocks\\.map\\([\\s\\S]*?renderLivePublicZone/. Input:"
+    },
+    {
+      "name": "a API temática recompõe no servidor e chama uma única RPC atómica",
+      "file": "lib/editorial-matchday-profile-manual-overrides.test.ts",
+      "message": "The input did not match the regular expression /validateMatchdayEditorialProfileManualOverrides/. Input:"
+    },
+    {
+      "name": "UI pagina a Faixa dentro do tracking agregado",
+      "file": "lib/editorial-matchday-profile-workspace-migration.test.ts",
+      "message": "The input did not match the regular expression /trackingVisibleCounts/. Input:"
+    },
+    {
+      "name": "rota administrativa usa a v11 sobre o contrato v10",
+      "file": "lib/editorial-thematic-workspace-apply-token-cache.test.ts",
+      "message": "The input did not match the regular expression /rpc\\/apply_matchday_editorial_profile_workspace_v11/. Input:"
+    },
+    {
+      "name": "endpoint administrativo usa o Apply v9 preservando compatibilidade de erros anteriores",
+      "file": "lib/editorial-thematic-workspace-continuity-apply.test.ts",
+      "message": "The input did not match the regular expression /rpc\\/apply_matchday_editorial_profile_workspace_v11/. Input:"
+    },
+    {
+      "name": "Bank partilha classificação pesquisa e seleção com os restantes universos",
+      "file": "lib/matchday-live-desk-aggregate-tracking.test.ts",
+      "message": "The input did not match the regular expression /disabled=\\{visibleCandidateEntries\\.length === 0\\}/u. Input:"
+    },
+    {
+      "name": "working tree fica limitado ao cutover e artefactos protegidos",
+      "file": "lib/matchday-live-layout-authoritative-cutover.test.ts",
+      "message": "Expected values to be strictly deep-equal:"
+    },
+    {
+      "name": "working tree do Lote 5 nao contem ficheiros inesperados",
+      "file": "lib/matchday-live-layout-displaced-state-shadow.test.ts",
+      "message": "Expected values to be strictly deep-equal:"
+    },
+    {
+      "name": "working tree contem apenas os dois ficheiros do Passo 1 e artefactos antigos",
+      "file": "lib/matchday-live-layout-write-core-preparation.test.ts",
+      "message": "Expected values to be strictly deep-equal:"
+    },
+    {
+      "name": "7C3: drag das quatro participa no circuito transversal",
+      "file": "lib/matchday-selection-optional-parity-7c3.test.ts",
+      "message": "The input did not match the regular expression /setDraggingIdentity\\(itemIdentity\\)/u. Input:"
+    },
+    {
+      "name": "7C3: rota deixa de exigir quatro notícias ocupadas",
+      "file": "lib/matchday-selection-optional-parity-7c3.test.ts",
+      "message": "The input did not match the regular expression /input\\.selectionBankItemIds\\.length !== 4/u. Input:"
+    },
+    {
+      "name": "7C3: drag genérico reconhece também o payload das quatro",
+      "file": "lib/matchday-selection-optional-parity-7c3.test.ts",
+      "message": "The input did not match the regular expression /function dragged[\\s\\S]*parseMatchdayEditorialProfileSelectionDrag\\(raw\\)[\\s\\S]*identityForBankItemId\\(selectionDrag\\.bankItemId\\)/u. Input:"
+    },
+    {
+      "name": "Publicação em lote mostra cinco escolhas junto de Histórica e bloqueia sem escolha",
+      "file": "lib/redacao-automatica/newsroom-article-plan-output-classification.test.ts",
+      "message": "The input did not match the regular expression /<span>Histórica<\\/span>/. Input:"
+    },
+    {
+      "name": "Mesa page reads counts + page identities before hydrating at most the visible IDs",
+      "file": "lib/redacao-automatica/newsroom-mesa-scoped-egress.test.ts",
+      "message": "The input did not match the regular expression /identityWindow\\.slice\\(0, input\\.pagination\\.limit\\)/. Input:"
+    }
+  ],
+  "obsolete_representation_tests": [
+    "Section boundaries depended on indentation or comments removed from recorded remote statements",
+    "Remote statements can rely on the CLI transaction without literal BEGIN/COMMIT wrappers",
+    "The agenda-v2 immutable hash now identifies the recorded remote SQL",
+    "v18 final-state assertions use the explicit corrective migration rather than backdated historical source"
+  ],
+  "unchanged": "No application behavior or historical SQL was modified to satisfy these tests"
+}

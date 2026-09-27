@@ -66,6 +66,15 @@
       "baseline_passed": true,
       "first_failure": "CLI requests SSL by default; the disposable loopback PostgreSQL has no TLS",
       "correction": "Use sslmode=disable only on the explicit isolated loopback URL"
+    },
+    {
+      "run": 36325637252,
+      "commit": "b3c00fe6",
+      "phase": "migration",
+      "baseline_passed": true,
+      "first_migration": "20260901145408_matchday_live_layout_placements_shadow.sql",
+      "first_failure": "relation matchday_editorial_bank_items_id_matchday_key already exists (42P07)",
+      "correction": "The baseline omitted the later unique constraint but retained its implicit index; omit constraint-owned indexes together with their constraint"
     }
   ]
 }

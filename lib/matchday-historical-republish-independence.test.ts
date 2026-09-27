@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import test from "node:test";
+import { sqlIndexOf, assertRecordedMigration } from "./migration-test-helpers";
 
 const migrationPath =
   "supabase/migrations/20260902091016_matchday_historical_republish_independence.sql";
@@ -22,9 +23,9 @@ const page = readFileSync(
 );
 
 function section(startNeedle: string, endNeedle: string) {
-  const start = migration.indexOf(startNeedle);
+  const start = sqlIndexOf(migration, startNeedle);
   assert.ok(start >= 0, `inicio ausente: ${startNeedle}`);
-  const end = migration.indexOf(endNeedle, start + startNeedle.length);
+  const end = sqlIndexOf(migration, endNeedle, start + 1);
   assert.ok(end > start, `fim ausente: ${endNeedle}`);
   return migration.slice(start, end);
 }
@@ -43,10 +44,8 @@ const historicalBranch = section(
 );
 
 test("migration corretiva e forward-only, transacional e posterior", () => {
-  assert.match(migration, /^begin;/);
-  assert.match(migration, /notify pgrst, 'reload schema';\s*\n\s*commit;\s*$/);
-  assert.equal((migration.match(/^begin;/gm) ?? []).length, 1);
-  assert.equal((migration.match(/^commit;/gm) ?? []).length, 1);
+  assertRecordedMigration(migrationPath);
+  assert.match(migration, /notify pgrst, 'reload schema';/);
   assert.ok(migrationPath > retirementPath);
   const protectedChanges = execFileSync(
     "git",

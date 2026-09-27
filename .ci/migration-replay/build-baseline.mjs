@@ -114,7 +114,7 @@ for (const table of tables.values()) {
     post.push('alter table '+qualified(table)+' add constraint '+q(c.name)+' '+c.definition+';');
   }
   for(const index of table.indexes||[]) {
-    if (constraints.some(c=>c.name===index.name) || createdIndexes.has(index.name) || used(index.definition)) continue;
+    if ((table.constraints||[]).some(c=>c.name===index.name) || createdIndexes.has(index.name) || used(index.definition)) continue;
     post.push(index.definition+';');
   }
   if(table.rls) post.push('alter table '+qualified(table)+' enable row level security;');

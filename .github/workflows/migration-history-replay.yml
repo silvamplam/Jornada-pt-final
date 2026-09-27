@@ -40,6 +40,8 @@ jobs:
           grep 'supabase_2.117.0_linux_amd64.tar.gz$' checksums.txt | sed 's/supabase_2.117.0_linux_amd64.tar.gz/cli.tar.gz/' | sha256sum --check
           tar -xzf cli.tar.gz supabase
           ./supabase migration up --help
+      - name: Verify historical evidence and replay guards
+        run: node --test .ci/migration-replay/reconciliation.test.mjs
       - name: Replay the entire reconstructed history in a fresh network-less container
         run: bash .ci/migration-replay/run.sh
       - uses: actions/upload-artifact@v4

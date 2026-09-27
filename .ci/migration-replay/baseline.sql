@@ -1663,7 +1663,6 @@ grant TRUNCATE, REFERENCES, TRIGGER, MAINTAIN on table "public"."editorial_conte
 grant INSERT, SELECT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER, MAINTAIN on table "public"."editorial_contents" to "service_role";
 alter table "public"."matchday_editorial_bank_items" add constraint "matchday_editorial_bank_items_matchday_id_fkey" FOREIGN KEY (matchday_id) REFERENCES matchdays(id) ON DELETE CASCADE;
 CREATE UNIQUE INDEX matchday_editorial_bank_items_automatic_source_unique_idx ON public.matchday_editorial_bank_items USING btree (matchday_id, lower(btrim(source_type)), lower(btrim(source_id))) WHERE ((lower(btrim(COALESCE(source_type, ''::text))) = ANY (ARRAY['editorial_article'::text, 'editorial_content'::text])) AND (NULLIF(btrim(source_id), ''::text) IS NOT NULL));
-CREATE UNIQUE INDEX matchday_editorial_bank_items_id_matchday_key ON public.matchday_editorial_bank_items USING btree (id, matchday_id);
 CREATE INDEX matchday_editorial_bank_items_matchday_id_idx ON public.matchday_editorial_bank_items USING btree (matchday_id);
 CREATE INDEX matchday_editorial_bank_items_matchday_link_idx ON public.matchday_editorial_bank_items USING btree (matchday_id, link_url);
 CREATE UNIQUE INDEX matchday_editorial_bank_items_matchday_link_unique_idx ON public.matchday_editorial_bank_items USING btree (matchday_id, lower(btrim(link_url))) WHERE ((link_url IS NOT NULL) AND (btrim(link_url) <> ''::text));
@@ -1775,7 +1774,6 @@ grant INSERT, SELECT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER, MAINTAIN on
 alter table "public"."matchdays" add constraint "matchdays_season_id_fkey" FOREIGN KEY (season_id) REFERENCES seasons(id) ON DELETE CASCADE;
 CREATE INDEX matchdays_external_lookup_idx ON public.matchdays USING btree (external_provider, external_id);
 CREATE INDEX matchdays_featured_idx ON public.matchdays USING btree (is_featured, display_order);
-CREATE UNIQUE INDEX matchdays_id_season_key ON public.matchdays USING btree (id, season_id);
 CREATE INDEX matchdays_season_order_idx ON public.matchdays USING btree (season_id, display_order, number);
 alter table "public"."matchdays" enable row level security;
 alter table "public"."matchdays" owner to "postgres";
