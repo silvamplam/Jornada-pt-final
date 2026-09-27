@@ -811,16 +811,14 @@ test("o renderer posterior existe apenas na composição hierárquica e conserva
   assert.doesNotMatch(publicPage, /<PublicBeyondMatchdayNews[\s/>]/);
 });
 
-test("Para Lá mantém duas secundárias superiores com imagem e duas inferiores textuais", () => {
+test("Para Lá mantém uma dominante e quatro secundárias com imagem", () => {
   assert.match(beyondRenderer, /secondary\.map\(\(item, index\) =>/);
-  assert.match(beyondRenderer, /const isTextOnly = index >= 2/);
-  assert.match(beyondRenderer, /data-secondary-presentation={isTextOnly \? "text" : "image"}/);
-  assert.match(beyondRenderer, /{isTextOnly \? null : <StoryMedia item={item} \/>}/);
+  assert.doesNotMatch(beyondRenderer, /isTextOnly|public-beyond-matchday-text-only/);
+  assert.match(beyondRenderer, /data-secondary-presentation="image"/);
+  assert.match(beyondRenderer, /<StoryMedia item={item} \/>/);
   assert.match(beyondRenderer, /<StoryCopy item={item} showSubtitle \/>/);
   assert.match(beyondRenderer, /\(lead \|\| showSubtitle\) && item\.subtitle/);
   assert.match(beyondRenderer, /public-beyond-matchday-secondary-grid[\s\S]*grid-template-columns: repeat\(2, minmax\(0, 1fr\)\)/);
-  assert.match(beyondRenderer, /public-beyond-matchday-text-only[\s\S]*border-top: 1px solid #dbe4ee/);
-  assert.match(beyondRenderer, /public-beyond-matchday-text-only \.public-beyond-matchday-subtitle[\s\S]*-webkit-line-clamp: 2/);
 });
 
 test("o preview do draft inclui Vídeo, Destaque e Para Lá sem alterar current", () => {

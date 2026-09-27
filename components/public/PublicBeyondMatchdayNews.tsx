@@ -1,4 +1,4 @@
-import PublicEditorialImage from "./PublicEditorialImage";
+import PublicBeyondMatchdayImage from "./PublicBeyondMatchdayImage";
 import { editorialImageFramingProps } from "@/lib/editorial-image-framing";
 
 export type PublicBeyondMatchdayNewsItem = {
@@ -68,7 +68,7 @@ const styles = `
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
     gap: 28px;
-    align-items: start;
+    align-items: stretch;
   }
 
   .public-beyond-matchday-grid[data-secondary-count="0"] {
@@ -85,6 +85,7 @@ const styles = `
   }
 
   .public-beyond-matchday-media {
+    position: relative;
     display: block;
     width: 100%;
     overflow: hidden;
@@ -101,11 +102,19 @@ const styles = `
   }
 
   .public-beyond-matchday-media img {
+    position: absolute;
+    inset: 0;
     display: block;
     width: 100%;
     height: 100%;
     object-fit: cover;
     transition: transform 180ms ease;
+  }
+
+  .public-beyond-matchday-media img[data-editorial-image-fallback="true"] {
+    object-fit: contain;
+    object-position: center !important;
+    background: #080a0c;
   }
 
   .public-beyond-matchday-media:hover img,
@@ -163,13 +172,16 @@ const styles = `
   }
 
   .public-beyond-matchday-secondary-card[data-secondary-presentation="image"] .public-beyond-matchday-subtitle {
-    -webkit-line-clamp: 3;
-    line-clamp: 3;
+    font-size: 13px;
+    line-height: 1.4;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
   }
 
   .public-beyond-matchday-secondary-grid {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-auto-rows: 1fr;
     gap: 22px 18px;
   }
 
@@ -178,6 +190,7 @@ const styles = `
   }
 
   .public-beyond-matchday-secondary-card .public-beyond-matchday-copy {
+    align-content: start;
     gap: 4px;
     padding-top: 7px;
   }
@@ -190,30 +203,22 @@ const styles = `
     line-clamp: unset;
   }
 
-  .public-beyond-matchday-text-only {
-    display: grid;
-    align-content: start;
-    min-height: 0;
-    padding: 13px 0 0;
-    border-top: 1px solid #dbe4ee;
-  }
-
-  .public-beyond-matchday-text-only .public-beyond-matchday-copy {
-    padding-top: 0;
-  }
-
-  .public-beyond-matchday-text-only .public-beyond-matchday-subtitle {
-    font-size: 12.5px;
-    line-height: 1.4;
-    -webkit-line-clamp: 2;
-    line-clamp: 2;
-  }
-
   .public-beyond-matchday-title:hover,
   .public-beyond-matchday-title:focus-visible {
     text-decoration: underline;
     text-decoration-thickness: 1px;
     text-underline-offset: 3px;
+  }
+
+  @media (min-width: 901px) {
+    .public-beyond-matchday-grid[data-secondary-count="4"] .public-beyond-matchday-lead {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .public-beyond-matchday-grid[data-secondary-count="4"] .public-beyond-matchday-lead .public-beyond-matchday-media {
+      flex: 1 0 auto;
+    }
   }
 
   @media (max-width: 900px) {
@@ -244,6 +249,7 @@ const styles = `
 
     .public-beyond-matchday-secondary-grid {
       grid-template-columns: minmax(0, 1fr);
+      grid-auto-rows: auto;
       gap: 18px;
     }
 
@@ -265,23 +271,15 @@ const styles = `
     .public-beyond-matchday-secondary-card .public-beyond-matchday-title {
       font-size: 17px;
     }
-
-    .public-beyond-matchday-secondary-card.public-beyond-matchday-text-only {
-      display: block;
-      min-height: 0;
-      padding-top: 12px;
-    }
   }
 `;
 
 function StoryMedia({ item }: { item: PublicBeyondMatchdayNewsItem }) {
-  if (!item.imageUrl) return null;
-
   return (
     <a className="public-beyond-matchday-media" href={item.linkUrl} aria-label={item.title}>
-      <PublicEditorialImage imageSize="half"
+      <PublicBeyondMatchdayImage imageSize="half"
         {...editorialImageFramingProps("wide")}
-        src={item.imageUrl}
+        src={item.imageUrl?.trim() || ""}
         alt=""
         loading="lazy"
       />
@@ -364,8 +362,6 @@ export default function PublicBeyondMatchdayNews({
         {secondaryCount > 0 ? (
           <div className="public-beyond-matchday-secondary-grid">
             {secondary.map((item, index) => {
-              const isTextOnly = index >= 2;
-
               if (!item) {
                 return (
                   <div
@@ -379,12 +375,12 @@ export default function PublicBeyondMatchdayNews({
 
               return (
                 <article
-                  className={`public-beyond-matchday-secondary-card${isTextOnly ? " public-beyond-matchday-text-only" : ""}`}
+                  className="public-beyond-matchday-secondary-card"
                   data-public-slot-position={index + 2}
-                  data-secondary-presentation={isTextOnly ? "text" : "image"}
+                  data-secondary-presentation="image"
                   key={item.id}
                 >
-                  {isTextOnly ? null : <StoryMedia item={item} />}
+                  <StoryMedia item={item} />
                   <StoryCopy item={item} showSubtitle />
                 </article>
               );
