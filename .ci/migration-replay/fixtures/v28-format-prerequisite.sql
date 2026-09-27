@@ -14,9 +14,9 @@ begin
   select pg_get_functiondef('jornada_private.materialize_matchday_live_layout_physical_carryover_v18(uuid,uuid,uuid,uuid)'::regprocedure)
     into original;
   formatted := replace(original,
-    '  from public.matchday_roundup_items as roundup_row
-  where roundup_row.matchday_id=p_source_matchday_id;',
-    '  from public.matchday_roundup_items as roundup_row
+    '  select pg_catalog.count(*)::integer into v_roundup_count from public.matchday_roundup_items as roundup_row where roundup_row.matchday_id=p_source_matchday_id;',
+    '  select pg_catalog.count(*)::integer into v_roundup_count
+  from public.matchday_roundup_items as roundup_row
   where roundup_row.matchday_id = p_source_matchday_id;');
   formatted := replace(formatted,
     '    from public.matchday_roundup_items as source_row

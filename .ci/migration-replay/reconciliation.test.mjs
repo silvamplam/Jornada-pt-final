@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import test from 'node:test';
+import { tokens } from './sql-tokens.mjs';
 
 const directory='docs/migration-reconciliation/20260927';
 const history=JSON.parse(fs.readFileSync(directory+'/remote-history.json','utf8')).entries;
@@ -66,4 +67,20 @@ test('replay uses a new network-less PostgreSQL container and stops on errors',(
  assert.match(runner,/migration up --workdir \/project/);
  assert.doesNotMatch(runner,/--linked|migration repair|mztkeurmeadwbgebmuvv/);
  assert.match(fs.readFileSync('.ci/migration-replay/container-entrypoint.sh','utf8'),/cron.launch_active_jobs=off/);
+});
+test('v28 prerequisite changes three whitespace-only occurrences without anticipating its functional patch',()=>{
+ const prerequisite=fs.readFileSync('.ci/migration-replay/fixtures/v28-format-prerequisite.sql','utf8');
+ const historical=fs.readFileSync('supabase/migrations/20260905135209_matchday_live_layout_physical_carryover_v18.sql','utf8');
+ let formatted=historical,occurrences=0;
+ const replacements=[...prerequisite.matchAll(/formatted := replace\((?:original|formatted),\s*'([^']*)',\s*'([^']*)'\);/g)];
+ assert.equal(replacements.length,2);
+ for(const [,before,after] of replacements) {
+  assert.deepEqual(tokens(before),tokens(after));
+  occurrences+=formatted.split(before).length-1;
+  formatted=formatted.replaceAll(before,after);
+ }
+ assert.equal(occurrences,3);
+ assert.deepEqual(tokens(formatted),tokens(historical));
+ assert.ok(!formatted.includes('v_roundup_count := 0;'));
+ assert.ok(prerequisite.includes("current_database() <> 'jornada_migration_replay'"));
 });
