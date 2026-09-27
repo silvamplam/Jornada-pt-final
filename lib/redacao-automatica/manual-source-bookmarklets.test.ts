@@ -300,6 +300,19 @@ test("receiver da Mesa altera apenas imageUrl e nunca faz save automático", () 
   assert.match(SEND_IMAGE_TO_JORNADA_BOOKMARKLET, /JORNADA_MANUAL_IMAGE_V1/);
 });
 
+test("sucesso manual é transitório e remove manual_source_state da URL", () => {
+  const client = readFileSync(path.join(
+    process.cwd(),
+    "app/admin/editorial/redacao-automatica/mesa/_manual-source-entry.tsx",
+  ), "utf8");
+  assert.match(client, /searchParams\.delete\("manual_source_state"\)/);
+  assert.match(client, /window\.history\.replaceState\(/);
+  assert.match(client, /window\.setTimeout\(\(\) => setStatus\(""\), 3000\)/);
+  assert.match(client, /\{status && !open \?/);
+  assert.match(client, /Fonte recebida\. Confirma os campos antes de guardar\./);
+  assert.match(client, /Guardar em NOVAS/);
+});
+
 test("painel mantém os três campos e a rota de escrita continua administrativa", () => {
   const page = readFileSync(path.join(process.cwd(), "app/admin/editorial/redacao-automatica/mesa/page.tsx"), "utf8");
   const client = readFileSync(path.join(process.cwd(), "app/admin/editorial/redacao-automatica/mesa/_manual-source-entry.tsx"), "utf8");

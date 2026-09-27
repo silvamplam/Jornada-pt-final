@@ -88,6 +88,20 @@ export default function ManualSourceEntry({
   }, []);
 
   useEffect(() => {
+    if (!savedState) return;
+    const current = new URL(window.location.href);
+    current.searchParams.delete("manual_source_state");
+    const query = current.searchParams.toString();
+    window.history.replaceState(
+      window.history.state,
+      "",
+      `${current.pathname}${query ? `?${query}` : ""}${current.hash}`,
+    );
+    const timeout = window.setTimeout(() => setStatus(""), 3000);
+    return () => window.clearTimeout(timeout);
+  }, [savedState]);
+
+  useEffect(() => {
     function ready(target: MessageEventSource, origin: string) {
       if ("postMessage" in target) {
         (target as Window).postMessage({
@@ -229,7 +243,7 @@ export default function ManualSourceEntry({
       >
         Adicionar notícia
       </button>
-      {savedState && !open ? <span className={styles.manualSourceSaved} role="status">{status}</span> : null}
+      {status && !open ? <span className={styles.manualSourceSaved} role="status">{status}</span> : null}
       <section
         id="mesa-manual-source-panel"
         className={styles.manualSourcePanel}
