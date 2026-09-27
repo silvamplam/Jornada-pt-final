@@ -4,7 +4,7 @@ import test from "node:test";
 import { resolveArticlePlanClassification, articleOutputClassificationsComplete } from "./article-plan-classification";
 
 const migrationPath =
-  "supabase/migrations/20260924200000_newsroom_article_plan_output_classification_authority.sql";
+  "supabase/migrations/20260924162021_newsroom_article_plan_output_classification_authority.sql";
 
 function read(path: string): string {
   return readFileSync(path, "utf8");

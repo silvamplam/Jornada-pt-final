@@ -234,3 +234,5 @@ comment on function public.newsroom_mesa_global_article_candidates_v1(uuid[],uui
   'Read-only canonical article candidates from proven source usage, historical dossier plans, legacy packages and optional Theme relations. Returns ambiguity; never selects a winner.';
 
 commit;
+
+;

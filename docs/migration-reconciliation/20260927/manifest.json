@@ -1,0 +1,2215 @@
+{
+  "snapshot_base": "a4da9d88174694b61d9b149b960c8a1f8b517dd8",
+  "remote_count": 143,
+  "decisions": [
+    {
+      "version": "20260815104041",
+      "name": "jornada_layouts_vivos_independentes",
+      "filename": "20260815104041_jornada_layouts_vivos_independentes.sql",
+      "recorded_joined_sql_md5": "fc0bca3df2825a2752d99000454d9248",
+      "statement_sha256": [
+        "89cb8784a0ae9ab4ff802004f210ce3459c57cf4fa23f88c9fdbff4f422e41a5"
+      ],
+      "rendered_file_sha256": "881f65bb75b6cda6655cca2713b3537724054f1ff1bc3eaf573bf00cabc6ad88",
+      "original_local_file": null,
+      "classification": "remote-only"
+    },
+    {
+      "version": "20260815115203",
+      "name": "jornada_zona_4_noticias_ultimas",
+      "filename": "20260815115203_jornada_zona_4_noticias_ultimas.sql",
+      "recorded_joined_sql_md5": "ccab58e0efccc37c91caf1cb798e0e0b",
+      "statement_sha256": [
+        "e904afc16f272f9196b386a0e6a80481e03d5bd58046afab4652612e9210d0a0"
+      ],
+      "rendered_file_sha256": "1a1a0072e8d91f2e6df0f4bf315a2d95108b85ca90c5ff990c17dd863b084235",
+      "original_local_file": null,
+      "classification": "remote-only"
+    },
+    {
+      "version": "20260817164424",
+      "name": "jornada_resumos_video_automaticos_1",
+      "filename": "20260817164424_jornada_resumos_video_automaticos_1.sql",
+      "recorded_joined_sql_md5": "0d1bcefc74aa785345e37349e87e0300",
+      "statement_sha256": [
+        "6f3ab9ba722154e279ef3efd2ae642626e6f522a68495832982bbcd302ce9e9d"
+      ],
+      "rendered_file_sha256": "d0d65c7fc7435d2366abd1c1a94bc0a7e371f88c76fd2e6b849c7466121331f0",
+      "original_local_file": null,
+      "classification": "remote-only"
+    },
+    {
+      "version": "20260818115342",
+      "name": "redacao_automatica_source_package_manifest_v4_outputs",
+      "filename": "20260818115342_redacao_automatica_source_package_manifest_v4_outputs.sql",
+      "recorded_joined_sql_md5": "35aa7e4b359059a9af32bfae6981fa63",
+      "statement_sha256": [
+        "fa013ce12ec37bafc35084a514968d1441c71a41c80df148a8455b19d41439a0"
+      ],
+      "rendered_file_sha256": "3b252f8f7cc00cfe02bac3a516b1093c640d4cdc374d423b8890a656e11a9d7c",
+      "original_local_file": null,
+      "classification": "remote-only"
+    },
+    {
+      "version": "20260818164845",
+      "name": "matchday_editorial_continuity",
+      "filename": "20260818164845_matchday_editorial_continuity.sql",
+      "recorded_joined_sql_md5": "f8d49bd26cbe34167a4322231c1ba5fe",
+      "statement_sha256": [
+        "35eab278c81b22647a355430f6ccc69e75233f95152422f501f466ea631c8572"
+      ],
+      "rendered_file_sha256": "0a5f8922e33e27db05ad13ede59b47046a1647a1fbc7a5ef756ad03acf23ae39",
+      "original_local_file": "20260818160000_matchday_editorial_continuity.sql",
+      "classification": "D"
+    },
+    {
+      "version": "20260818175756",
+      "name": "matchday_editorial_continuity_live_snapshot",
+      "filename": "20260818175756_matchday_editorial_continuity_live_snapshot.sql",
+      "recorded_joined_sql_md5": "57f0e3bbaeaf5370f436b7a3fe196606",
+      "statement_sha256": [
+        "82c64cc46bbfc33e200d9a827393c42cf2eff8e5dcd58750e95f51b6341ffba3"
+      ],
+      "rendered_file_sha256": "f6a72e8a0d0852ba52a8bb01c7fb999080be2f9968c83922a28dd365ff6b56ce",
+      "original_local_file": "20260818175500_matchday_editorial_continuity_live_snapshot.sql",
+      "classification": "S"
+    },
+    {
+      "version": "20260819083224",
+      "name": "hierarchical_editorial_full_page",
+      "filename": "20260819083224_hierarchical_editorial_full_page.sql",
+      "recorded_joined_sql_md5": "6374c88b92d13c39adb9a53ae1790f47",
+      "statement_sha256": [
+        "74224f9605335890234a990b28d04d59b85807e5a7df8ec4629826e3c85906d8"
+      ],
+      "rendered_file_sha256": "131b7e05681a1cc720c3ade5fd3cc3707cdcf33e3a654e9b9d5e68ecf9dc8bf3",
+      "original_local_file": "20260819090000_hierarchical_editorial_full_page.sql",
+      "classification": "E"
+    },
+    {
+      "version": "20260819092027",
+      "name": "hierarchical_editorial_excerpt_complete_paragraph",
+      "filename": "20260819092027_hierarchical_editorial_excerpt_complete_paragraph.sql",
+      "recorded_joined_sql_md5": "705090027102c70ecd2a7b59e040fc2c",
+      "statement_sha256": [
+        "222b43f6c43ae538b8916b85ca9bc14a675928cdbeca9c1e3df95965a5b9811d"
+      ],
+      "rendered_file_sha256": "34227246fefe1ecc77831a5e8fb838e365f1c0559d23c34743f1dbe0ee60ac5a",
+      "original_local_file": "20260819101500_hierarchical_editorial_excerpt_complete_paragraph.sql",
+      "classification": "E"
+    },
+    {
+      "version": "20260819183901",
+      "name": "matchday_live_public_zone_order",
+      "filename": "20260819183901_matchday_live_public_zone_order.sql",
+      "recorded_joined_sql_md5": "1bb5852875f29714cd21124563e8b3bb",
+      "statement_sha256": [
+        "f6416ac4a36541fbb315d1c7bedb4af5d5012eb8cb71be3e9455792c818da297"
+      ],
+      "rendered_file_sha256": "fdf3bc65f4b012a5fc9398716ffbb3621010c31d1b0ea0d7fd75ff0af045dedb",
+      "original_local_file": "20260819193000_matchday_live_public_zone_order.sql",
+      "classification": "E"
+    },
+    {
+      "version": "20260822090432",
+      "name": "enable_daily_results_scheduler_extensions",
+      "filename": "20260822090432_enable_daily_results_scheduler_extensions.sql",
+      "recorded_joined_sql_md5": "69e86eedde344de14316c043219ae65c",
+      "statement_sha256": [
+        "1f6dfa79feeb746f53f6a29b3b2e707624dcec51270b03a50b5b1b5cf240b11b"
+      ],
+      "rendered_file_sha256": "2645943e895db02af1d3c9b5b59eec3bd53fb9d5b7c5cf108b1b6a688f222cf4",
+      "original_local_file": null,
+      "classification": "remote-only"
+    },
+    {
+      "version": "20260822092011",
+      "name": "schedule_daily_final_results_sync",
+      "filename": "20260822092011_schedule_daily_final_results_sync.sql",
+      "recorded_joined_sql_md5": "ff9765db97f3ef28e74aad2ff37ce741",
+      "statement_sha256": [
+        "05539d261915ed327934c54c11220b4123d8830345593fc52f5a6ae5673a9b01"
+      ],
+      "rendered_file_sha256": "9d9fa4a5e587f871526aaba7ee1b7362bfda5526476cec356a2ea1b7553dadc6",
+      "original_local_file": null,
+      "classification": "remote-only"
+    },
+    {
+      "version": "20260822154500",
+      "name": "matchday_editorial_profile_assignment",
+      "filename": "20260822154500_matchday_editorial_profile_assignment.sql",
+      "recorded_joined_sql_md5": "3618298c8ec778343003c2429c464be0",
+      "statement_sha256": [
+        "e6f07d43b5c21db0fbb9a31feac2dc599787763393dd5acbfad80e247eb02ad5",
+        "2edbaa5875d99afb9b9d4919a4d43b77d7c4cbac47c0ce5922ba087b293c637a",
+        "bc8060b2e9790951ac17599174c301035cfc880833b41cb7c2170c8bd51a38cd",
+        "a148ce9fc4ff6c6657d376ddf822723380bebb539a9ea9021b909094d2c2f2a4",
+        "5d86afe0df0a78534697f8501f5ff002ad1ab3e8b19f42659ae95f214676d178",
+        "590289aa40a3d10c13e85b5329f46499615237e7f3d5113035146c61d33a243f",
+        "d9c58b847096d479b609ecf9194dc1e00d8a38e4f01a116e343f9e1b90f63df4",
+        "4164c0974a82032572aa676f2b535e61a78a28423076e94a744faed85a188a17",
+        "ea76668307019ed70192f09941261352544d0d332e569468d6b454a7bec1d9ad",
+        "a76f3b026443c422b14e2cb69d0c2b1578453f0d1a56548ce58e5b66b6d3a7cc",
+        "9505cacb7c710ed17125fcc6cb3669e8ddca6c8cd8af6a31f6b3cd64604c3098"
+      ],
+      "rendered_file_sha256": "fbd0235aa4bd4e5841208a6cb1b2dcb2e2e3f4f00c494b53c7d527d09c86f641",
+      "original_local_file": "20260822154500_matchday_editorial_profile_assignment.sql",
+      "classification": "same-version"
+    },
+    {
+      "version": "20260822172842",
+      "name": "matchday_editorial_profile_state_distribution",
+      "filename": "20260822172842_matchday_editorial_profile_state_distribution.sql",
+      "recorded_joined_sql_md5": "b7d983872fe1b1d6d72020fc94c0d98f",
+      "statement_sha256": [
+        "e6f07d43b5c21db0fbb9a31feac2dc599787763393dd5acbfad80e247eb02ad5",
+        "60ca4212b45fc526ec74d8b7be2b3de8069305548f89cbce8e29e3e3d8f4642e",
+        "20783df38136c017af835261b3daebfda25d4ca9ee392a3e86d3b2268a4d8440",
+        "7ac467bbfa1109946bee8f8629a2b26139f4e9234c66d6cc4d811bb6e6b7d247",
+        "5c61c5e612a88b7fa5403fe4491d56a6d5d38745e539e326735f11676ff8d956",
+        "34a29f8f687982ef6e88d2b4c67b42436d6e160cf01d32667f3eb318bb4c088b",
+        "c96d76eefc47e882fa795b4ff2c3fd5138a2aea31b1ce2459869a49306ce2636",
+        "c30df50054c54985fe8246f88328628ffa01a878b512a972a27fad4eb46dfb4b",
+        "d3021402151ae100b4fe1dcebbd0cfb7b2a50a3c9a46502ae57896df15f9ad62",
+        "ba99d00d8574cf6accf3ce5c00fca6c6e8d2e9ce82908b69eeb155cc20707987",
+        "d87648f58e8469ce5cd90e0840a938215fc4ffd81664e8896fe70f6209e7b8b7",
+        "fd51d136f191032d2897ea1f00ecbf082d08b69ac94c883171941b20cb11b355",
+        "e42e87e7424b009f806b981e30c44920038b24d46c611157cda7ac7fe30ff7bc",
+        "1bef9dc4174c22f67277c93e6b6c3f855e98305a0ab8ab29107e0ac8efbb7ae4",
+        "59b2b3e6fdd229f41b245eaf572ea8e4975ce007ea10c052470caba078e76195",
+        "86553b6555994b1eafa5fb7c2ad43f49aa5f861524429d80611ec35c6b08513a",
+        "872a3b07b48ebee7eda4bca08b1d016d2abb0844952459004a5adddb48823dbb",
+        "9448fb98e69692f4b2c8275ad7aca04894a2b9423f47798505ebd968c97ca375",
+        "765165debbaaa7ee18b8f050aed07c82fc4e6f34897a72874c1990207a3465a8",
+        "9c393f7505149aec7975f6e6ce1d79e78de6575bc3b46676a6128541641fcc88",
+        "6fdb06327c9a65c3f59dc1a4f95296ff574055c40c2dd8d87fa44b0342956e63",
+        "c413db3e8b738647467b43b8d2dc7ddb717852440534120d82e3e28a53222cae",
+        "b66f47be13de44a772ff6127a771afc554c333c94864621e56566773845c63e9",
+        "9505cacb7c710ed17125fcc6cb3669e8ddca6c8cd8af6a31f6b3cd64604c3098"
+      ],
+      "rendered_file_sha256": "66e2463bf9dc9d538e5f6b67bdb4bdd075b583d48873f878fad5a790c114d967",
+      "original_local_file": "20260822172842_matchday_editorial_profile_state_distribution.sql",
+      "classification": "same-version"
+    },
+    {
+      "version": "20260822203959",
+      "name": "matchday_editorial_profile_manual_overrides",
+      "filename": "20260822203959_matchday_editorial_profile_manual_overrides.sql",
+      "recorded_joined_sql_md5": "b4b03c63bdc2891beacaae27f5389ef2",
+      "statement_sha256": [
+        "d34f3944064c67de7820059bf7f95555ebdeb90df4311c828b11bc5789d5554d"
+      ],
+      "rendered_file_sha256": "3c4d40f93370e47586a4f82e8b39eda60db74b17e8d94c5015cf51a6358810df",
+      "original_local_file": "20260822195123_matchday_editorial_profile_manual_overrides.sql",
+      "classification": "E"
+    },
+    {
+      "version": "20260822223715",
+      "name": "matchday_editorial_profile_shared_faixa_reconcile",
+      "filename": "20260822223715_matchday_editorial_profile_shared_faixa_reconcile.sql",
+      "recorded_joined_sql_md5": "9abd634c43040cda009dfe7c0c7d4a28",
+      "statement_sha256": [
+        "5ba98fbd60bb6093efa6ef515dbb8963c1262c2d898ecd1a9ad0cd89c006c2af"
+      ],
+      "rendered_file_sha256": "59f56d442445088ea6dd2bc62a4b3046276651e04a928af3839607353fa067a5",
+      "original_local_file": "20260822211352_matchday_editorial_profile_shared_faixa_reconcile.sql",
+      "classification": "S"
+    },
+    {
+      "version": "20260822230119",
+      "name": "matchday_editorial_profile_reconcile_skip_faixa_bank_resync",
+      "filename": "20260822230119_matchday_editorial_profile_reconcile_skip_faixa_bank_resync.sql",
+      "recorded_joined_sql_md5": "a0d2e1dacacc85a59c74feb6ffa55875",
+      "statement_sha256": [
+        "618b0540f395b1caba0fc8aa2df34d7a56df4b672a08dbb2bbc695df77e6ed47"
+      ],
+      "rendered_file_sha256": "9cf65b31e5dce40917fc46b10f5f09feb46215b93e54914c561eb6f953c261cb",
+      "original_local_file": "20260822230000_matchday_editorial_profile_reconcile_skip_faixa_bank_resync.sql",
+      "classification": "E"
+    },
+    {
+      "version": "20260823095712",
+      "name": "matchday_editorial_profile_workspace_opening",
+      "filename": "20260823095712_matchday_editorial_profile_workspace_opening.sql",
+      "recorded_joined_sql_md5": "648248ee0fc97c8729bfdf99c396c398",
+      "statement_sha256": [
+        "c3931c64cbcc97e0bc09b9192f980edc0a733051c8b5134c0b329901c631275e"
+      ],
+      "rendered_file_sha256": "0e0b71b1e50e70fa849c76df855d5b31f2fe81a56a83804806287fc09b516e6f",
+      "original_local_file": "20260823080936_matchday_editorial_profile_workspace_opening.sql",
+      "classification": "S"
+    },
+    {
+      "version": "20260823141940",
+      "name": "matchday_editorial_profile_flexible_layouts_latest_order",
+      "filename": "20260823141940_matchday_editorial_profile_flexible_layouts_latest_order.sql",
+      "recorded_joined_sql_md5": "2c34694c24109b23ee1f3e4f20a8e20b",
+      "statement_sha256": [
+        "8cac3060c4f58248440e81d3bde8ec23c77924d9bf4961db480b758c9f226a1a"
+      ],
+      "rendered_file_sha256": "dfb60508696b8229fa4854763bc6c431a81e7a92ddeb1724ba76844292bf1a5e",
+      "original_local_file": "20260823133347_matchday_editorial_profile_flexible_layouts_latest_order.sql",
+      "classification": "S"
+    },
+    {
+      "version": "20260823170440",
+      "name": "matchday_editorial_profile_public_zone_titles",
+      "filename": "20260823170440_matchday_editorial_profile_public_zone_titles.sql",
+      "recorded_joined_sql_md5": "d4336de5f1c032cd36bb8cbed935cd04",
+      "statement_sha256": [
+        "7032aebb73aa6c808fd1ea908e677b64e8e3b35cadcf590f9e353fa758942b31"
+      ],
+      "rendered_file_sha256": "7c563e79ee1dd2d15a8a60f88b127a000a37ddc027da5cc8305f6b4e98089a01",
+      "original_local_file": "20260823170440_matchday_editorial_profile_public_zone_titles.sql",
+      "classification": "same-version"
+    },
+    {
+      "version": "20260823175248",
+      "name": "matchday_editorial_profile_latest_public_title",
+      "filename": "20260823175248_matchday_editorial_profile_latest_public_title.sql",
+      "recorded_joined_sql_md5": "6e8e8cce30d451608344fd2a127c117a",
+      "statement_sha256": [
+        "1ca06b967ddac4b4e3da41c389f65d08b6b9fe3b7c944a94d81484ca59b0f767"
+      ],
+      "rendered_file_sha256": "89a1d8201f3a123546a23a33e74103f315645e41dd41eb629533c5b19db43d0e",
+      "original_local_file": "20260823175248_matchday_editorial_profile_latest_public_title.sql",
+      "classification": "same-version"
+    },
+    {
+      "version": "20260823215153",
+      "name": "batch_publication_latest_order_set_based",
+      "filename": "20260823215153_batch_publication_latest_order_set_based.sql",
+      "recorded_joined_sql_md5": "c19fa46591bc04f8cc9ae36b131ea331",
+      "statement_sha256": [
+        "90fa7aee6a2fcfa37e53df99a2f446c808cc652e1e5664f1aa9db5faf7ed82e7"
+      ],
+      "rendered_file_sha256": "7a1e5becc277f33ed85d25cada4ace437429c91a5d4841bd4904b873d8dc800b",
+      "original_local_file": "20260823215153_batch_publication_latest_order_set_based.sql",
+      "classification": "same-version"
+    },
+    {
+      "version": "20260823221303",
+      "name": "thematic_editorial_selection_manual",
+      "filename": "20260823221303_thematic_editorial_selection_manual.sql",
+      "recorded_joined_sql_md5": "f28acdb4220ecd871af47ea21413fb38",
+      "statement_sha256": [
+        "28044930b6835b29b8fe3aa009013e9d2859aa5fe85d3e36d5a65993d06c4933"
+      ],
+      "rendered_file_sha256": "7a8d57413ce8346f0d830183f62b16b3f1ab98c51715dd9108e575d1143e4aa7",
+      "original_local_file": "20260823221303_thematic_editorial_selection_manual.sql",
+      "classification": "same-version"
+    },
+    {
+      "version": "20260823222923",
+      "name": "thematic_editorial_selection_atomic_apply",
+      "filename": "20260823222923_thematic_editorial_selection_atomic_apply.sql",
+      "recorded_joined_sql_md5": "325bea183ca181ba24e707d2f05faab7",
+      "statement_sha256": [
+        "b00a7439d57a8b419b5e52893763e86046a82cb60e069aeab42628d3f361a64b"
+      ],
+      "rendered_file_sha256": "7bbaae945efb2c09f05596604aab3c3205dcc518786718b5d06693649ebfac6d",
+      "original_local_file": "20260823222923_thematic_editorial_selection_atomic_apply.sql",
+      "classification": "same-version"
+    },
+    {
+      "version": "20260824010021",
+      "name": "thematic_actuality_batch_circuit_safe",
+      "filename": "20260824010021_thematic_actuality_batch_circuit_safe.sql",
+      "recorded_joined_sql_md5": "e593036c9c540fc4830e3c617f92f463",
+      "statement_sha256": [
+        "0355fb3c0094987b631265e4a7c9d963fd25d675d04d594b5a9dd6da31bc42bf"
+      ],
+      "rendered_file_sha256": "6f80d44c0b60e1c8fca0f0d5a36aa8357574bc990c5cb16d378c9339b266b319",
+      "original_local_file": "20260824010021_thematic_actuality_batch_circuit_safe.sql",
+      "classification": "same-version"
+    },
+    {
+      "version": "20260824014112",
+      "name": "thematic_faixa_membership_by_actuality",
+      "filename": "20260824014112_thematic_faixa_membership_by_actuality.sql",
+      "recorded_joined_sql_md5": "323aff5a63759b7f7f86d5f5d6418cdd",
+      "statement_sha256": [
+        "7cab9b42fc08ca0947a615ea261a4fd643d6bb3edb683cd5877f3246c5f2a2b5"
+      ],
+      "rendered_file_sha256": "75f29a2e5381e0350a91f481cb2632cc70564e037cb8ed05912aa8f9d53a23c1",
+      "original_local_file": "20260824014112_thematic_faixa_membership_by_actuality.sql",
+      "classification": "same-version"
+    },
+    {
+      "version": "20260824130519",
+      "name": "hotfix_matchday_zone_publication_min_uuid",
+      "filename": "20260824130519_hotfix_matchday_zone_publication_min_uuid.sql",
+      "recorded_joined_sql_md5": "02477ed32715aaf2c18de1a27afbfdac",
+      "statement_sha256": [
+        "9cb8758c4615a5645991db2391298a71aa40253b1906135fb4607448da53066e"
+      ],
+      "rendered_file_sha256": "91a337e5f566b9c9fa4b8abc0b9bf24e713fcd02abe8b488e03f85fe0454560c",
+      "original_local_file": "20260824130519_hotfix_matchday_zone_publication_min_uuid.sql",
+      "classification": "same-version"
+    },
+    {
+      "version": "20260824150020",
+      "name": "editorial_article_canonical_delete_cleanup",
+      "filename": "20260824150020_editorial_article_canonical_delete_cleanup.sql",
+      "recorded_joined_sql_md5": "3741e7701b6159f7a998ad8b7e23ba90",
+      "statement_sha256": [
+        "f1b438f8d37c172b36aa8c42813378d9f51eeca402720b55f0c34b85d0672d5d"
+      ],
+      "rendered_file_sha256": "670d7827683fdd024e2ee324241d77b0c8d4dcfd1a293c5037b8d1ad4e3bc86d",
+      "original_local_file": "20260824150020_editorial_article_canonical_delete_cleanup.sql",
+      "classification": "same-version"
+    },
+    {
+      "version": "20260824151907",
+      "name": "editorial_article_canonical_delete_latest_cleanup",
+      "filename": "20260824151907_editorial_article_canonical_delete_latest_cleanup.sql",
+      "recorded_joined_sql_md5": "d0fbbe8dc3a006dbb37bde74f0daafd9",
+      "statement_sha256": [
+        "ca731891370d6393ab9f30abdfd2ae92d1bf8e7b81976d830070829df8f5bc2d"
+      ],
+      "rendered_file_sha256": "89f3ba4b9b294e6b461e54467546a5068b5336c57290aae2aeb8396fc4f0984a",
+      "original_local_file": "20260824151907_editorial_article_canonical_delete_latest_cleanup.sql",
+      "classification": "same-version"
+    },
+    {
+      "version": "20260825102634",
+      "name": "thematic_video_highlight_module",
+      "filename": "20260825102634_thematic_video_highlight_module.sql",
+      "recorded_joined_sql_md5": "71e5c2d91719b6c8052d0b6382e3563b",
+      "statement_sha256": [
+        "bdd9007a26e3971de85ee93cdce29e92082f2ce7e19d6d329d403c0e9338d1bf"
+      ],
+      "rendered_file_sha256": "7b4653c154afaa98128289cb4b60b9bc1c2704568d5db55b91832df250f7454f",
+      "original_local_file": "20260825102634_thematic_video_highlight_module.sql",
+      "classification": "same-version"
+    },
+    {
+      "version": "20260825104225",
+      "name": "hotfix_thematic_video_highlight_coalesce",
+      "filename": "20260825104225_hotfix_thematic_video_highlight_coalesce.sql",
+      "recorded_joined_sql_md5": "3309ff0030072fe1b4476c5d880c1d21",
+      "statement_sha256": [
+        "e231be939f313fadd7bee26ac61e048be7b03a24bc32ec81afc98cbd4e666735"
+      ],
+      "rendered_file_sha256": "2812417768b2fd2abe6030acce9b5ed141cb7494d470768e85c2806eaecabba4",
+      "original_local_file": "20260825104225_hotfix_thematic_video_highlight_coalesce.sql",
+      "classification": "same-version"
+    },
+    {
+      "version": "20260826050409",
+      "name": "historical_composition_workspace",
+      "filename": "20260826050409_historical_composition_workspace.sql",
+      "recorded_joined_sql_md5": "66de8938eeadafd3f3c7ebd6e66290bf",
+      "statement_sha256": [
+        "e891d6463a08f354b3b77c13b5cef82b5bb14779222cd196b06c9fa127832744"
+      ],
+      "rendered_file_sha256": "a9c939cf223426c64d527eb5826ac74eb2b802ff4fa7c0c1af20e8e0fca9b793",
+      "original_local_file": "20260825145814_historical_composition_workspace.sql",
+      "classification": "S"
+    },
+    {
+      "version": "20260826061934",
+      "name": "historical_composition_dynamic_zones",
+      "filename": "20260826061934_historical_composition_dynamic_zones.sql",
+      "recorded_joined_sql_md5": "e9bde791443d49c4d2c3b84d748fa44b",
+      "statement_sha256": [
+        "ced9c671d25c5862d0362bf618ef2ed26d7d3fc59bc76ce2766dc65085c8c575"
+      ],
+      "rendered_file_sha256": "3b436ada77a4afcd0e470772216be44d4856908ab808bb99c8b41cbf14bbce0a",
+      "original_local_file": "20260826063000_historical_composition_dynamic_zones.sql",
+      "classification": "E"
+    },
+    {
+      "version": "20260826063919",
+      "name": "historical_composition_dynamic_workspace_rpc",
+      "filename": "20260826063919_historical_composition_dynamic_workspace_rpc.sql",
+      "recorded_joined_sql_md5": "0fed68f15f620cee39f3bcc0488dfdf5",
+      "statement_sha256": [
+        "fb7869a1d591a14436c210acfd76cb71d4fac53a6fe5a77c3c9b12388b1dc947"
+      ],
+      "rendered_file_sha256": "c013d2e3e2267c3d6154b1d021e2793828ed53ea0f8c3f79ad43d71915a06560",
+      "original_local_file": "20260826074500_historical_composition_dynamic_workspace_rpc.sql",
+      "classification": "E"
+    },
+    {
+      "version": "20260826094033",
+      "name": "historical_composition_body_order",
+      "filename": "20260826094033_historical_composition_body_order.sql",
+      "recorded_joined_sql_md5": "c57672c4ed9405f0bfc6d9014ecfddf8",
+      "statement_sha256": [
+        "2cfd15becb34bceb97bf3628f0d2bc87c47dd98c8375dea19b2dc859b0c99304"
+      ],
+      "rendered_file_sha256": "993342d8420e5807809116a122cb577cc1582ec60962f43288ac1f9af813707f",
+      "original_local_file": "20260826103000_historical_composition_body_order.sql",
+      "classification": "S"
+    },
+    {
+      "version": "20260826120541",
+      "name": "historical_composition_dynamic_publication_activation",
+      "filename": "20260826120541_historical_composition_dynamic_publication_activation.sql",
+      "recorded_joined_sql_md5": "343cf912d86e45efa06d6505e3550b54",
+      "statement_sha256": [
+        "6ced2a394f9769261c97e7f147e6bd2584a225a2ecab74ab0715829b1963a260"
+      ],
+      "rendered_file_sha256": "5d0d17f8d1cd67fc58022a3ab1107782921ebe13fd75f733adf65c283256bf71",
+      "original_local_file": "20260826120541_historical_composition_dynamic_publication_activation.sql",
+      "classification": "same-version"
+    },
+    {
+      "version": "20260826143020",
+      "name": "matchday_editorial_bank_automatic_eligibility",
+      "filename": "20260826143020_matchday_editorial_bank_automatic_eligibility.sql",
+      "recorded_joined_sql_md5": "0ab0d15cd2b759c4d3730e97e1f8c5e5",
+      "statement_sha256": [
+        "0d173e4ce486f5f09803e20099e1c84b57f06fefcd9e64a867cddeb347858157"
+      ],
+      "rendered_file_sha256": "412619f468f9e1b382065de11d5f78fdb38ef752a90da70dd8748ba4c2d09461",
+      "original_local_file": "20260826134553_matchday_editorial_bank_automatic_eligibility.sql",
+      "classification": "S"
+    },
+    {
+      "version": "20260826143142",
+      "name": "matchday_editorial_continuity_transitions",
+      "filename": "20260826143142_matchday_editorial_continuity_transitions.sql",
+      "recorded_joined_sql_md5": "bedea65d61d14f37776a4f4fee346771",
+      "statement_sha256": [
+        "660a8a144fe745e5f20ab840882742a56c2f1d62aa73fcf1a84f82f7c506e743"
+      ],
+      "rendered_file_sha256": "5e056c53f684e955f09170106b01cb24cebcabe73573aa22ff9d82aa4c0ebb1e",
+      "original_local_file": "20260826135535_matchday_editorial_continuity_transitions.sql",
+      "classification": "S"
+    },
+    {
+      "version": "20260826143320",
+      "name": "initialize_matchday_editorial_thematic_continuity_v3",
+      "filename": "20260826143320_initialize_matchday_editorial_thematic_continuity_v3.sql",
+      "recorded_joined_sql_md5": "34dd1c5a866d8f5471b29da9d84d91a1",
+      "statement_sha256": [
+        "c7ad22814d44c87c49b9fb20b6829a715a11a8cc4d9f6f450d019df17972c204"
+      ],
+      "rendered_file_sha256": "749fc4947c702769bbb0aba89508d7cdde392dbdb6cfe5227aed3ecc96f29a6a",
+      "original_local_file": "20260826140515_initialize_matchday_editorial_thematic_continuity_v3.sql",
+      "classification": "S"
+    },
+    {
+      "version": "20260826162011",
+      "name": "thematic_workspace_continuity_sources",
+      "filename": "20260826162011_thematic_workspace_continuity_sources.sql",
+      "recorded_joined_sql_md5": "3ec711f3fb968ee0797f574b5db22a34",
+      "statement_sha256": [
+        "14bc8c2e6648b44bc8272d71f472d470cd057d6e37c99c76a28b1dd6a6cf4393"
+      ],
+      "rendered_file_sha256": "5d93262e6f224e9087703bcd58d5d99d42364aa30a4999152d92512ef8923aad",
+      "original_local_file": "20260826164500_thematic_workspace_continuity_sources.sql",
+      "classification": "E"
+    },
+    {
+      "version": "20260827094809",
+      "name": "matchday_editorial_profile_continuity_classification",
+      "filename": "20260827094809_matchday_editorial_profile_continuity_classification.sql",
+      "recorded_joined_sql_md5": "33a230f617bd0e043bc6a776d667011b",
+      "statement_sha256": [
+        "5a7b88cc3bf95689917d6c42a8233790353d33f214277833216a8bd80c0985c7"
+      ],
+      "rendered_file_sha256": "e0c35154b71fcc10801371fd5d26255754cf22f73cb3c4758dfbb239137ea61f",
+      "original_local_file": "20260827094809_matchday_editorial_profile_continuity_classification.sql",
+      "classification": "same-version"
+    },
+    {
+      "version": "20260827145353",
+      "name": "newsroom_latest_snapshot_summaries_egress",
+      "filename": "20260827145353_newsroom_latest_snapshot_summaries_egress.sql",
+      "recorded_joined_sql_md5": "388385ce5e5741c6828c19d7c4aac8cc",
+      "statement_sha256": [
+        "44f231c166e1fee49bcd480e285d22bcf01350d7fa5984aca95d2e573dab560a"
+      ],
+      "rendered_file_sha256": "d72cc8246899ab073bc43cac0914b57fae586492dd93187ce8160ace63d52fa6",
+      "original_local_file": null,
+      "classification": "remote-only"
+    },
+    {
+      "version": "20260827154329",
+      "name": "newsroom_editorial_used_state_summaries_egress",
+      "filename": "20260827154329_newsroom_editorial_used_state_summaries_egress.sql",
+      "recorded_joined_sql_md5": "da342f6ea228bfb4fb4d738ef713ac6f",
+      "statement_sha256": [
+        "e907b3aaa5bde0a4754c43cfcbe82ef19d2077d926c552836ca0d31606672572"
+      ],
+      "rendered_file_sha256": "c6182bec602e7a34dcc129d7df549985a3a98f132b30fe432f960b2ac2f308ef",
+      "original_local_file": null,
+      "classification": "remote-only"
+    },
+    {
+      "version": "20260827154407",
+      "name": "newsroom_editorial_used_state_summaries_safe_cast",
+      "filename": "20260827154407_newsroom_editorial_used_state_summaries_safe_cast.sql",
+      "recorded_joined_sql_md5": "97476fcbd21f367fba90327bfc0a655e",
+      "statement_sha256": [
+        "8be6c3acf3c38d48d4082b3ee35b4a86416ac2ad94762b8f8f013790211d1b10"
+      ],
+      "rendered_file_sha256": "32fff45c21d0ef563be1b6d7860bbe1a9dbab74514445194f15b72678b5a0a75",
+      "original_local_file": null,
+      "classification": "remote-only"
+    },
+    {
+      "version": "20260827162301",
+      "name": "newsroom_editorial_review_projection_egress",
+      "filename": "20260827162301_newsroom_editorial_review_projection_egress.sql",
+      "recorded_joined_sql_md5": "cadc13349c6dab71b6b95a1b977b6f0f",
+      "statement_sha256": [
+        "1aabd2965833a337358ae0215f1aa41eaa6d021750f2fbf36dd8b0732405d424"
+      ],
+      "rendered_file_sha256": "390ccb6e5cdeae06f496b72164843b16aac62fd560b68db26b997be15330298a",
+      "original_local_file": null,
+      "classification": "remote-only"
+    },
+    {
+      "version": "20260827183157",
+      "name": "historical_composition_optional_public_titles",
+      "filename": "20260827183157_historical_composition_optional_public_titles.sql",
+      "recorded_joined_sql_md5": "1cc08940bf9b9489e1c200e9390ed935",
+      "statement_sha256": [
+        "d597d7cd7c5ffbed885d80b9cb6e237adc28d00512da799d8d6c59958d627861"
+      ],
+      "rendered_file_sha256": "b171f115b30e8376fab9da3c47655aa3d989a7dfd49cdfbda4a1470d82fe8189",
+      "original_local_file": "20260827183157_historical_composition_optional_public_titles.sql",
+      "classification": "same-version"
+    },
+    {
+      "version": "20260828101705",
+      "name": "thematic_editorial_new_workflow",
+      "filename": "20260828101705_thematic_editorial_new_workflow.sql",
+      "recorded_joined_sql_md5": "0f122863b632dcf66b57afd379b94c45",
+      "statement_sha256": [
+        "3014a1541421007bab2a1b9f9d353c0bd4c34948741c5ed7683a7f0d409794da"
+      ],
+      "rendered_file_sha256": "ed2ef11229a4fe0b3640ad392347351b13988bfce107012ecaca306c7040ddec",
+      "original_local_file": "20260828101705_thematic_editorial_new_workflow.sql",
+      "classification": "same-version"
+    },
+    {
+      "version": "20260828103427",
+      "name": "fix_thematic_workspace_v8_coalesce",
+      "filename": "20260828103427_fix_thematic_workspace_v8_coalesce.sql",
+      "recorded_joined_sql_md5": "e02035f268f3422a92d2f3a291688533",
+      "statement_sha256": [
+        "4ebdad7012f12cf2a0e1d481ff0e82eee207033a082652100b5ebe00504478ee"
+      ],
+      "rendered_file_sha256": "35c6b96fa82c0875cd84e614f7cd54bb6ee0857595d8730d5df7ee96b22d62cc",
+      "original_local_file": "20260828103427_fix_thematic_workspace_v8_coalesce.sql",
+      "classification": "same-version"
+    },
+    {
+      "version": "20260828114246",
+      "name": "thematic_workspace_v9_apply_completeness_guard",
+      "filename": "20260828114246_thematic_workspace_v9_apply_completeness_guard.sql",
+      "recorded_joined_sql_md5": "18df1d5d988365ff9a0f797dfacf625d",
+      "statement_sha256": [
+        "8cb45c20553132c74fa395beebcd229f4aa705ba40b3541e420d406f214f8b0e"
+      ],
+      "rendered_file_sha256": "b9d95b4941d7d73b6c87186e30c6d15d0721507a064e72336576a69a49bed5bb",
+      "original_local_file": "20260828114246_thematic_workspace_v9_apply_completeness_guard.sql",
+      "classification": "same-version"
+    },
+    {
+      "version": "20260828154500",
+      "name": "apply_matchday_agenda_tv_sync_v1",
+      "filename": "20260828154500_apply_matchday_agenda_tv_sync_v1.sql",
+      "recorded_joined_sql_md5": "ffd04d1c6695b5211d28c6cd4c4a403e",
+      "statement_sha256": [
+        "bad6261c3969322b906be091fd4d4068615183e48608002e1088112a3833b270",
+        "a762363154feb4b9ce3aed7d87f65882f359e96302069bd27dc4f6562e3ad02b",
+        "b6196308110c547f5278c3450b100d0b5b9d4e93e7e4824f48a2a2a399f35fea"
+      ],
+      "rendered_file_sha256": "257dc617b924fced13d3bb81a788f046c6f7e824f065b05758f5fa5b46baf519",
+      "original_local_file": "20260828154500_apply_matchday_agenda_tv_sync_v1.sql",
+      "classification": "same-version"
+    },
+    {
+      "version": "20260829143000",
+      "name": "restore_thematic_zone_membership_null_sort_order",
+      "filename": "20260829143000_restore_thematic_zone_membership_null_sort_order.sql",
+      "recorded_joined_sql_md5": "3f10e5d81b9bf0019d412bc1da3ef854",
+      "statement_sha256": [
+        "e6f07d43b5c21db0fbb9a31feac2dc599787763393dd5acbfad80e247eb02ad5",
+        "2b95beaf595858b821cbceb0d205a86963fc9e5e2257f5bee9b69d40190100c9",
+        "396bdce51b78e8ed9310b29615366c30bf67d50330ca0b5bbe69cd2084cdfc41",
+        "9596317cfbc97f76d4e299bd545b0916ddd1cb211cddde48fe9478b709a7abb9",
+        "5bb10b5d320bb06077517ed9fc42fd9d5ce1c4b9ecc69c2a08163e0be4b6c851",
+        "9505cacb7c710ed17125fcc6cb3669e8ddca6c8cd8af6a31f6b3cd64604c3098"
+      ],
+      "rendered_file_sha256": "422f913cf37764cdf5e4680856c994e2929beff68ff4f6ef24dc6a3fc62fb31a",
+      "original_local_file": "20260829143000_restore_thematic_zone_membership_null_sort_order.sql",
+      "classification": "same-version"
+    },
+    {
+      "version": "20260829160000",
+      "name": "thematic_positional_order_without_actuality",
+      "filename": "20260829160000_thematic_positional_order_without_actuality.sql",
+      "recorded_joined_sql_md5": "62623ae02bbfbbc610d384a3ffb0e1e5",
+      "statement_sha256": [
+        "e6f07d43b5c21db0fbb9a31feac2dc599787763393dd5acbfad80e247eb02ad5",
+        "ff6c2fde76c03fac46af467d37c8c8200f9a7d8b0444cfd0410979499b8c5176",
+        "afab0cba5ca25ef40964503036678d8e2b9c8454161f2dc788a566216eabc076",
+        "2a9dabad30fd149ee540f2f1ec12cccbc84589bb555470c01ac2ecb32ac19e4b",
+        "8537726922a08fd4c25932d19dfd3bd4694cb9603f145e3024427a49899bc5b4",
+        "cfcf59c8b21f8298d7be466bdf7fcbbc9306fcb657e35fb249e25177ec3199e7",
+        "ee3a804869fba9bd9fd2829de32e87a9ccad3a7ca36b3a7b3f2fa945020293cd",
+        "0afe08085cef545db08353efb310d3d31a404e0fbb7ccec21a27881d3b1bf1d1",
+        "30ff03e9ccc54d42b31876cb0fd34eca9c19478fe286136ae090865399a73ae1",
+        "db0705121d760ece3643238409bf0890965d78fab74b2a3cb31511b442a50b38",
+        "9505cacb7c710ed17125fcc6cb3669e8ddca6c8cd8af6a31f6b3cd64604c3098"
+      ],
+      "rendered_file_sha256": "8e402d6620b976d3159b1acf6e52c6eb9e38f431d81e46463e7165b1758a2e00",
+      "original_local_file": "20260829160000_thematic_positional_order_without_actuality.sql",
+      "classification": "same-version"
+    },
+    {
+      "version": "20260829190443",
+      "name": "thematic_workspace_read_dedup",
+      "filename": "20260829190443_thematic_workspace_read_dedup.sql",
+      "recorded_joined_sql_md5": "10234ed43905d522a1bcf0cf88c71ab3",
+      "statement_sha256": [
+        "5cba1b84fecf235269a7bb7529e3237e394f2308933e27e91993a9dc9c6bf4eb"
+      ],
+      "rendered_file_sha256": "d49122862cb318fcc84d0fd2d4c1c000cdd9af7a12d8703501efc7eca7326f8b",
+      "original_local_file": "20260829190443_thematic_workspace_read_dedup.sql",
+      "classification": "same-version"
+    },
+    {
+      "version": "20260830181927",
+      "name": "thematic_workspace_apply_token_cache",
+      "filename": "20260830181927_thematic_workspace_apply_token_cache.sql",
+      "recorded_joined_sql_md5": "b10da47479d2139cbb9e4671c2605958",
+      "statement_sha256": [
+        "af9b068eb5e3d05b21a638372a063a2c3d253a5d20b730129da4ecc29e63080d"
+      ],
+      "rendered_file_sha256": "931bbe45f082af896f394d5ff87eaaa9e0312691b1a4324ca9229a1f823fcbb5",
+      "original_local_file": "20260830183000_thematic_workspace_apply_token_cache.sql",
+      "classification": "S"
+    },
+    {
+      "version": "20260830184144",
+      "name": "thematic_workspace_apply_source_cache",
+      "filename": "20260830184144_thematic_workspace_apply_source_cache.sql",
+      "recorded_joined_sql_md5": "2723eb5b092eefc00e82d7f5f9db0a21",
+      "statement_sha256": [
+        "e8ca753edbbece10d07bc58b3647cc019362e5986c3b7fea0cbb9d59de2895a2"
+      ],
+      "rendered_file_sha256": "64950fa4a9e68905709bf29c81cc85dc99e66e0a2c7808e5b9646ad8c95c7582",
+      "original_local_file": "20260830184500_thematic_workspace_apply_source_cache.sql",
+      "classification": "S"
+    },
+    {
+      "version": "20260831155606",
+      "name": "matchday_editorial_bank_contextual_classification",
+      "filename": "20260831155606_matchday_editorial_bank_contextual_classification.sql",
+      "recorded_joined_sql_md5": "49c9cc976717e51e8d50d6ac75dea422",
+      "statement_sha256": [
+        "2a407717d7ea6e546644206a349a8a991a2c458ebba2c3a00c418880f6842049"
+      ],
+      "rendered_file_sha256": "1e843efb50acdcbfd16f2892b12480779fb3011f09db701b7d2ccb6f1b1dd40a",
+      "original_local_file": "20260831110517_matchday_editorial_bank_contextual_classification.sql",
+      "classification": "S"
+    },
+    {
+      "version": "20260901082156",
+      "name": "matchday_live_layout_zones_blocks_shadow",
+      "filename": "20260901082156_matchday_live_layout_zones_blocks_shadow.sql",
+      "recorded_joined_sql_md5": "859940e4ac95f565c5cd9aa6a8c71eec",
+      "statement_sha256": [
+        "0ec4fe6e6266cdc38da9e9fe6bc01e44b1c9b0d65e9daed71ab7a6cb973daf72"
+      ],
+      "rendered_file_sha256": "46009c7ec1681d763bda70e2735abb04e522ceae2848a5a4abb890665e055929",
+      "original_local_file": "20260831203151_matchday_live_layout_zones_blocks_shadow.sql",
+      "classification": "E"
+    },
+    {
+      "version": "20260901145408",
+      "name": "matchday_live_layout_placements_shadow",
+      "filename": "20260901145408_matchday_live_layout_placements_shadow.sql",
+      "recorded_joined_sql_md5": "e4d6eeb09b5716a1cdae63a6618ac0b0",
+      "statement_sha256": [
+        "8f4d846077141253380426b2df3b728025fa823f0e06eca6fe71330acffee674"
+      ],
+      "rendered_file_sha256": "3eddb91dfbe9f9c4c5f33cf0080cd98a85c4e1deaa722c0aae565ebc17b6917d",
+      "original_local_file": "20260901140411_matchday_live_layout_placements_shadow.sql",
+      "classification": "E"
+    },
+    {
+      "version": "20260901164825",
+      "name": "matchday_live_layout_displaced_state_shadow",
+      "filename": "20260901164825_matchday_live_layout_displaced_state_shadow.sql",
+      "recorded_joined_sql_md5": "2394a787b284de5359dcf4683d81b602",
+      "statement_sha256": [
+        "6e1194933fbcb81c07c3e4f0c3c771543c6ce94193fb654a4eecbb195b67a8b3"
+      ],
+      "rendered_file_sha256": "119e51cd94ae0664ff3cfbdb7c06ef3f75f28fdf87b2880276510eec1fe182b1",
+      "original_local_file": "20260901153022_matchday_live_layout_displaced_state_shadow.sql",
+      "classification": "S"
+    },
+    {
+      "version": "20260901182545",
+      "name": "matchday_live_layout_write_core_preparation",
+      "filename": "20260901182545_matchday_live_layout_write_core_preparation.sql",
+      "recorded_joined_sql_md5": "41b4e3891cfad36e4b758948e1b704b8",
+      "statement_sha256": [
+        "ab473b344ac2549aed6d3134466df347ac05adb92589b874a4fbb85c4a5e3947"
+      ],
+      "rendered_file_sha256": "55366b6bf9f1eacfb7cdfe5efde9a0aee10339263dd9217312d538bf436241cf",
+      "original_local_file": "20260901175408_matchday_live_layout_write_core_preparation.sql",
+      "classification": "S"
+    },
+    {
+      "version": "20260901205409",
+      "name": "matchday_live_layout_cutover_bridge",
+      "filename": "20260901205409_matchday_live_layout_cutover_bridge.sql",
+      "recorded_joined_sql_md5": "b66975d5d9519587131be0709677da1e",
+      "statement_sha256": [
+        "f6d6124a8bd0007b609e393d2197e0e4eb3d6029fd2301a2e67fd0efb6d58c77"
+      ],
+      "rendered_file_sha256": "c59b1d5ea6768aec1d86bc105148d64d00d6e7546a29feb395d73225aae0c618",
+      "original_local_file": "20260901201453_matchday_live_layout_cutover_bridge.sql",
+      "classification": "S"
+    },
+    {
+      "version": "20260901210438",
+      "name": "matchday_live_layout_authoritative_activation",
+      "filename": "20260901210438_matchday_live_layout_authoritative_activation.sql",
+      "recorded_joined_sql_md5": "0fc8564c91774238eadfb674332ef1db",
+      "statement_sha256": [
+        "15c069aa43fed925ccfcadac57e35c0211bd496ba93a8c9ee0e867ebed2ece1c"
+      ],
+      "rendered_file_sha256": "1323b2f18269cb09e10b6fc953412ed69c6aabbe0c7fee650877343becbc061a",
+      "original_local_file": "20260901201455_matchday_live_layout_authoritative_activation.sql",
+      "classification": "S"
+    },
+    {
+      "version": "20260901214531",
+      "name": "matchday_live_layout_source_retirement",
+      "filename": "20260901214531_matchday_live_layout_source_retirement.sql",
+      "recorded_joined_sql_md5": "15e57253e3297339e718226ff6a37bd3",
+      "statement_sha256": [
+        "803ff35e17f808c3744371efbaeb948db48bd6d768dfc474d39d982fa004e980"
+      ],
+      "rendered_file_sha256": "0bb6b715357874ef3426a94fb73747d8f961d1420a8b51dc6bfef437e6401101",
+      "original_local_file": "20260901211957_matchday_live_layout_source_retirement.sql",
+      "classification": "S"
+    },
+    {
+      "version": "20260902091016",
+      "name": "matchday_historical_republish_independence",
+      "filename": "20260902091016_matchday_historical_republish_independence.sql",
+      "recorded_joined_sql_md5": "9f7a7d64fa10adf404620685357c2da7",
+      "statement_sha256": [
+        "7dcdd439559bae848692511faa740d2f6b7f18f6ec8c79b0d84375d2d13a6e11"
+      ],
+      "rendered_file_sha256": "c9aec72d00efb5e6efea7165b6e9eb689f37b39c561ec853886e2e2ffd7e30bd",
+      "original_local_file": "20260902053337_matchday_historical_republish_independence.sql",
+      "classification": "S"
+    },
+    {
+      "version": "20260902103721",
+      "name": "matchday_faixa_bank_atomic_apply_fix",
+      "filename": "20260902103721_matchday_faixa_bank_atomic_apply_fix.sql",
+      "recorded_joined_sql_md5": "8740689fcec2b974ec06408a31b6f610",
+      "statement_sha256": [
+        "9844edc35ee944692ae2eb5be426d99dde743e6839e6cf923d91ec163b9c1771"
+      ],
+      "rendered_file_sha256": "1b90109e33675e6ff36ddb6cc659594af8478c65a088f92098739dd0647e9081",
+      "original_local_file": "20260902095825_matchday_faixa_bank_atomic_apply_fix.sql",
+      "classification": "S"
+    },
+    {
+      "version": "20260902121536",
+      "name": "matchday_live_desk_aggregate_tracking_reader",
+      "filename": "20260902121536_matchday_live_desk_aggregate_tracking_reader.sql",
+      "recorded_joined_sql_md5": "092d0abc21e33c0398f032e2533f8d5f",
+      "statement_sha256": [
+        "8810b264341cb0d811ffcfbab3e3b33eebef18f2d96b0863dc9d03658a5ee35a"
+      ],
+      "rendered_file_sha256": "41c7cdea60b4cd1f8baf924bc8072cf41b4d65a368d492452dc1180889659806",
+      "original_local_file": "20260902110327_matchday_live_desk_aggregate_tracking_reader.sql",
+      "classification": "S"
+    },
+    {
+      "version": "20260902151042",
+      "name": "matchday_explicit_bank_displaced_semantics",
+      "filename": "20260902151042_matchday_explicit_bank_displaced_semantics.sql",
+      "recorded_joined_sql_md5": "3df059903aec7d80ab11c82de18b1ed1",
+      "statement_sha256": [
+        "3e3cad4452605281cf96ee8a170cef897b4567c2094b8774ee214d7b7ee5084d"
+      ],
+      "rendered_file_sha256": "92f4f8b0cca8d5baf88b1133b975a5b65315bf6c0b7dcac2252ab33d7182a7eb",
+      "original_local_file": "20260902130518_matchday_explicit_bank_displaced_semantics.sql",
+      "classification": "S"
+    },
+    {
+      "version": "20260902151127",
+      "name": "matchday_preview_movement_without_cascade",
+      "filename": "20260902151127_matchday_preview_movement_without_cascade.sql",
+      "recorded_joined_sql_md5": "4aa4ee8a1de87ee60a2bf1a8e6927f53",
+      "statement_sha256": [
+        "4b48b49937d6e574eec7de87f5d3bc1d0988fb0e2700bfcff1474c811df4baa6"
+      ],
+      "rendered_file_sha256": "b37d7cccc9d48a13f7a6fc336896f7182dda549dee375af9b012fd9ffc6ffcbf",
+      "original_local_file": "20260902141655_matchday_preview_movement_without_cascade.sql",
+      "classification": "S"
+    },
+    {
+      "version": "20260903165824",
+      "name": "matchday_live_desk_state_handoff",
+      "filename": "20260903165824_matchday_live_desk_state_handoff.sql",
+      "recorded_joined_sql_md5": "12f07d90f38f68906e87ad662ce244d3",
+      "statement_sha256": [
+        "b608d4044b1533549fbe3e7bb24775b4284e95c748f9cd64d269c90982b3c0cd"
+      ],
+      "rendered_file_sha256": "32a3586bac19fef1ddf695ad1d05b6f7641b170dff4739d5466613688e6995ee",
+      "original_local_file": "20260902155805_matchday_live_desk_state_handoff.sql",
+      "classification": "E"
+    },
+    {
+      "version": "20260903214406",
+      "name": "matchday_live_desk_tracking_event_order",
+      "filename": "20260903214406_matchday_live_desk_tracking_event_order.sql",
+      "recorded_joined_sql_md5": "d698591b24676fa78b7c40e7bbf76408",
+      "statement_sha256": [
+        "234b370363308ddf2e1f148990c64c7d97e07182e014bcf722bed8850b79cb04"
+      ],
+      "rendered_file_sha256": "003f65f66da65f29379f0eec36a35790af6ad6a95f3d4ad0275cdacfb2a16c82",
+      "original_local_file": "20260903190000_matchday_live_desk_tracking_event_order.sql",
+      "classification": "E"
+    },
+    {
+      "version": "20260903214507",
+      "name": "matchday_editorial_movement_contract_v12",
+      "filename": "20260903214507_matchday_editorial_movement_contract_v12.sql",
+      "recorded_joined_sql_md5": "533c0ae5f45f14a12bb21cc27a0760b1",
+      "statement_sha256": [
+        "535683aa71d557925cd6e7c37b70f2a33a858acf56794976388cfdb2a60e369e"
+      ],
+      "rendered_file_sha256": "bbc8b5ee1c1f67d657434e62a73ff69cee3ae40373f9f6f87b01fe8ba33c55fd",
+      "original_local_file": "20260903204800_matchday_editorial_movement_contract_v12.sql",
+      "classification": "E"
+    },
+    {
+      "version": "20260903221636",
+      "name": "matchday_live_faixa_contiguous_normalization",
+      "filename": "20260903221636_matchday_live_faixa_contiguous_normalization.sql",
+      "recorded_joined_sql_md5": "d4664a53bfb2c351b9d4825f8c7d8257",
+      "statement_sha256": [
+        "763c8950cdec6d1bfacaa581ae7447be8d67a9c0a818756784745c3d43968124"
+      ],
+      "rendered_file_sha256": "42bfc8098c821a9525160ec5c15259dcc8bcab1c5fbda1395ee3e372caf210ea",
+      "original_local_file": "20260903215200_matchday_live_faixa_contiguous_normalization.sql",
+      "classification": "S"
+    },
+    {
+      "version": "20260903233122",
+      "name": "matchday_selection_optional_capacity",
+      "filename": "20260903233122_matchday_selection_optional_capacity.sql",
+      "recorded_joined_sql_md5": "45c08c6e8ca89e33f31b6b4454f226d3",
+      "statement_sha256": [
+        "a7fc600f91bb591b3b6dc224525e5577c0579190c9c923fa96b25d2773726227"
+      ],
+      "rendered_file_sha256": "6b98f296c348ddc8cc12452b3f4bfef318c5234f001ce88ddf79fa0ab1c67c1e",
+      "original_local_file": "20260904001500_matchday_selection_optional_capacity.sql",
+      "classification": "S"
+    },
+    {
+      "version": "20260904002633",
+      "name": "apply_matchday_agenda_tv_sync_v2",
+      "filename": "20260904002633_apply_matchday_agenda_tv_sync_v2.sql",
+      "recorded_joined_sql_md5": "85d595ff97170d21ecc0ca63011106ca",
+      "statement_sha256": [
+        "76077b6d7d0ac6b78ffac48dddd9c58e2729cbb1b2ab05fbc50cc2172026eac4"
+      ],
+      "rendered_file_sha256": "31a472bf720c247ad25fe2ac24c21d069158875410e9030a5ccbac966632dab4",
+      "original_local_file": "20260904003000_apply_matchday_agenda_tv_sync_v2.sql",
+      "classification": "S"
+    },
+    {
+      "version": "20260904014649",
+      "name": "matchday_contextual_classification_manual_correction",
+      "filename": "20260904014649_matchday_contextual_classification_manual_correction.sql",
+      "recorded_joined_sql_md5": "c574f05a8d0b4346283664e4b2274e4d",
+      "statement_sha256": [
+        "279c87205f6819b4fd1dab1de11e05e504ba76758e19210b216a4e97a48cd453"
+      ],
+      "rendered_file_sha256": "337b131f367f9e0f995dcc363521fe98b8a7d3b3554d921660d60c5156b67bd4",
+      "original_local_file": "20260904013000_matchday_contextual_classification_manual_correction.sql",
+      "classification": "E"
+    },
+    {
+      "version": "20260904120000",
+      "name": "matchday_live_layout_physical_writer_v13_shadow",
+      "filename": "20260904120000_matchday_live_layout_physical_writer_v13_shadow.sql",
+      "recorded_joined_sql_md5": "506646a0b47300ac5d8ae5023d12479e",
+      "statement_sha256": [
+        "e6f07d43b5c21db0fbb9a31feac2dc599787763393dd5acbfad80e247eb02ad5",
+        "e4cafdc8c37286b160cce598e6cd4c54708c2a8a119bde902eae44bb463efd03",
+        "ba0f64a8015b039fccb4546dbb96a417fab92694a728c901ccbd5a95f62a258e",
+        "5bb11d55c14ae862ddcba239492164f4cab7f5807731e6ee9db4d357fb211947",
+        "d13e7c90983952cf5dba28201786be2dddda1ca7373b681e07b89b50ec53b03a",
+        "27271c01a7a77c07153e48e3773642904939fb1f1235e49e16e3a06e16ffbc77",
+        "22c6721d0a6bcdbcf155e3831debda314fcacf5fd1f87e92c2912b4f50b059cd",
+        "cfeb2c4d0490bffc07edc76b3ccf336a88239abf97d9066cf07bc65b683de97d",
+        "ff0c273c80ae4575850e3f44f97562a360f92f099cda0e4996b04123e7b94c82",
+        "269526d829f698b372bd2f5e4951c493660a9836808259e3d5e8aa3a0d7163a6",
+        "b3cac0d70e7ebc8afc3dd1db92284cb4c6724654ee863c76e1d9c2a76b9fb94b",
+        "d6826a8ff98c0e8a29ca37db7c3d4198041897ac44e0e468bd4d78c7392ecb11",
+        "9de8624d9ad9ce284c4b818f9deb26db9b5ce71e82a5e637beb049913ee470f0",
+        "078cede72ab6c9400fa2e4aef7c7a81ed7255a8c9e1e7eeb756ac91fb3668861",
+        "5bb10b5d320bb06077517ed9fc42fd9d5ce1c4b9ecc69c2a08163e0be4b6c851",
+        "9505cacb7c710ed17125fcc6cb3669e8ddca6c8cd8af6a31f6b3cd64604c3098"
+      ],
+      "rendered_file_sha256": "9d608f8a2f9d4565ff0e34de3f1ffb62456f50f85897a188b5269bb9ba21eca2",
+      "original_local_file": "20260904120000_matchday_live_layout_physical_writer_v13_shadow.sql",
+      "classification": "same-version"
+    },
+    {
+      "version": "20260904130000",
+      "name": "matchday_live_layout_workspace_v13_reader",
+      "filename": "20260904130000_matchday_live_layout_workspace_v13_reader.sql",
+      "recorded_joined_sql_md5": "8aa96516af605d0d7df58ab855dd298c",
+      "statement_sha256": [
+        "e6f07d43b5c21db0fbb9a31feac2dc599787763393dd5acbfad80e247eb02ad5",
+        "5ec8f39bb20f242a7e5b00e7e37bd261eb40fe7b1341231fdadccb7ee81d4f0d",
+        "bb7b83417207b4549a8e2ec4864822dc742ec3cafcf6c98e0354186ce6960512",
+        "054e31b2ec254ba33559829263cc02578a57d3f962be37291d8349656bdd2cab",
+        "c6a839e49824a10e4de05f60f1e911c17536f5f5bda3845b128a6e77aa09b811",
+        "ef4b2e6c9d44229e0bbcc05e7424121c5e56bd32de9356003aba9dd3ae85bfe8",
+        "5bb10b5d320bb06077517ed9fc42fd9d5ce1c4b9ecc69c2a08163e0be4b6c851",
+        "9505cacb7c710ed17125fcc6cb3669e8ddca6c8cd8af6a31f6b3cd64604c3098"
+      ],
+      "rendered_file_sha256": "f4c243b944640d9d190c393acf51c108218e50a834ae3c89da1ae7180ead4b15",
+      "original_local_file": "20260904130000_matchday_live_layout_workspace_v13_reader.sql",
+      "classification": "same-version"
+    },
+    {
+      "version": "20260904140000",
+      "name": "matchday_live_layout_physical_apply_facade",
+      "filename": "20260904140000_matchday_live_layout_physical_apply_facade.sql",
+      "recorded_joined_sql_md5": "39ae41580e8d9fcf99c89474ab1a4d0d",
+      "statement_sha256": [
+        "e6f07d43b5c21db0fbb9a31feac2dc599787763393dd5acbfad80e247eb02ad5",
+        "8c60977560a8c4a3ee1a0d68f9233370c42ac92ef10c7be12cd4e59afcbfad50",
+        "e9b674ca2c6632bfa95056d14da598b7f4c43e1255b92727083ed463642c7567",
+        "b65287bfe7d8adf8cea22df98b706b7b6cf8fadb8128114c1023a21efc2809e9",
+        "94989985771ca8e12bcb46b120ebe9b6cdcf16976cb16f6bace40bbc5ae7861d",
+        "94434b8ae5bfe310e0e4eda866e24f7a6ec6e95e640d2cf1b2106e4f6ca65515",
+        "dd028ba63009d0d1c8170df7cd05e4382ec177c1efd3d8b2c5db21fa76d26634",
+        "a9ef2994a0a98f30a585eadf1bb7d32b5e30854f5cf5191fd3b169646aa3c00a",
+        "657457c96a1e09a565adfdf6b74a25a220488afac5232d1bbfc432e1b8541f2c",
+        "4723d4c648a13047d050a8c936e9871d5d9fd9c0b658d7b5852893870b4a2bad",
+        "d908295fb85087415dce580c7956971928d217b02d177279b0cbd4cd6dc4d457",
+        "33cc0357b6f93c3033a00503dadab8deac867c51e364737075abfdcf853a2a29",
+        "c8d9b23ad510f09f3064d565185989412b08ea5cb6fafc2c9d5cb20ec61b8a3f",
+        "7aa046cfc3e60b9b283e232344f44dbaaabdd9b08a0dfda9538bd5f61b50f478",
+        "d53127fbaa430a3f5d24966fa2e20193eeae19acdbee4092f1266cceb74554a2",
+        "54d1780611dbcff7cc125fca68d7aab9dfaf95540a0002cc5ac726089d168d38",
+        "34a3a66e5d1b585354b5961f56ed1a2328e0ffcc653f5da0f0e1aa8077fa6cbf",
+        "075acc9028606f88bef64c9e2b626dab4eeffa49d6b0c0878380617b6104e05d",
+        "abd31013a4f555d2b26b92fd20c646b62286ae3c1782bff0414f89653122d3dd",
+        "dbbabf938d68341fd3e7865a5d61a6c75096abcdd0bdb879acb2f768e1a90a1a",
+        "591e31f91380207fcdc4674dc4e20067ace61d16a53921edca0a887e619de588",
+        "4ba3211f0aff019159f5af749eb77041b60e0eb6a2bd5305507d101d02d1a2fa",
+        "b4304f8f550271414970051b70a054b83765ec695dbbdaafda6d827a379f12f4",
+        "d3a42a6feb6d8c48ff519ac25ee6b9e1cfd432a049e09a1f51a8cfc6c81be680",
+        "6963f4defd5d5cbd84a7a5ab7e28d57a3c3c9bac9b68a73a2c83d74cbdd0fb08",
+        "31f8c69269dadbf70db5f5a629b21eb7747d421add2ffac7b4f8204e5ea849e8",
+        "513b42bd6b41745d59e063b550b64f7bfe00b84bffed4fee43d3cbf7bebfa7a5",
+        "c0b1ff8030aa0dc4a04a190c3df20019b97d5b44eb5658d130ee7ec32673cda3",
+        "ff0c273c80ae4575850e3f44f97562a360f92f099cda0e4996b04123e7b94c82",
+        "269526d829f698b372bd2f5e4951c493660a9836808259e3d5e8aa3a0d7163a6",
+        "986a7615ea5936cc693f1719076610120fb132063e0f569cd26c20d5cf25a8f9",
+        "7384526d2580bc8165304ad8b7a16326fcd07a2def13ae377be47ff41b589af2",
+        "1522cba1903c25d7ff8ede799d31d4853363dee3ba33e26ccda0fe641811808e",
+        "2815b052bac938cc5067cd70532786dfad630191c60322e07ccffa2038193b5c",
+        "5faf1d7f826b6e4f9ecad54ab08066c9f292a1c0ad46393c53ed67336f713641",
+        "bb7b83417207b4549a8e2ec4864822dc742ec3cafcf6c98e0354186ce6960512",
+        "054e31b2ec254ba33559829263cc02578a57d3f962be37291d8349656bdd2cab",
+        "2ed2eced3c725a809c21cdd62a480a7a58bc42ddf90ee236fa5725f2bde30290",
+        "969cb43fe376415da8e294ff097095c9b535acfea4064e17cd2ecef40c6ea367",
+        "4ed6a00801c8b8e8db08f933a805addc2ad9e8d7876ece13cf5b1c63d1ccbdf9",
+        "f084cb30e5ab69b5ba5824f68bac41c5e44fff8c0a2ec9e1afc56999e86bbf04",
+        "7cc517cee3cb971429fc6abc9604bc9e91b16685f66943eb940241d5d7d5e406",
+        "99751cc8e03d7b89dd93f6140f89f2431a0777484037a933f22a9997994ef76b",
+        "e7440c9ac34a4ec12a7d4a40f974e3c06120d12c300de7bcac6b3e996dfe0b6c",
+        "5766bfe088a8cefa4e9146b9e42fc6db18db722d2e773862ab36b2e4947316fd",
+        "00afbf7f396fb5eb9fde700dec20d1308fcf484fa7be81e5d29ce069b1cfdb4d",
+        "f657f916814fc112b53c554f4685f7ec85a555477c031679129d3d9de06854a8",
+        "1d7925f94ffc3c72afe5ae35d5c7e9f530f733baaee04ad25c0bae246350a347",
+        "90b2abdf591f376df174ec527f4373323ca76a2f40ec00de6edeb4e52871ca68",
+        "1ccab1f9c9bc7cc00aad687d8ed64a6286884f243e9178a7e8aeecf61943b108",
+        "cd4faa8210514baaa8fd6a6c7131dc4ab6140d724ed821980e61bfd95800e0ca",
+        "06eee643aba7230b8b742c365198a6ac226203ae242c200a1dc576c0e98f1625",
+        "32eb11e22e2e3a5e80b75f2e155904e1cdcd29a07eb8e5327bf3ad644c6debcf",
+        "f92e7b154e1b721076a79317454572dcede868f1c740b367541d7ffb96d60834",
+        "839777f21f64e6f0d1a3123841e71ce3596b5530ef0b9db80eab6e4c81bb497e",
+        "7f0d2b1a2f87b9470de7cb08531c96a80fb1944927d84c5dc2b9a191b851ae44",
+        "abadca266e6d28cb19592f3a6b7ae6a9965a2d3382d9732df856c49ceefe6e56",
+        "9ef50187b826c38d48509bf885b6060dca325d7585e2a28619e8fcfcf503afbf",
+        "feadac742e35dc7ba58f6d27fd734f9c6f7c811dd45ea7944f49cfc7e28ad0e0",
+        "4bbd5f19f8e5d1c69715ad8228fd9cc2f5012187877207adbb5b57b746c34c9e",
+        "0b499f8ef75d8a764d3f765ecc46d9a2475b5369b62e02c3e272c45df12e0b3b",
+        "a4d261f847f4daeee52608561290cafdced63ffe762600a0231ec96948f51720",
+        "3eeb08afaa62035410467c419305e63c4907f949069f4a6a3464fd995442f5cb",
+        "dbd5f9568b07cde8b8b8885280dd6c8cbfebb3ff7755b168cf6aaff6faf7e824",
+        "1ce7464c0650e4763d40e75bfc9650ac683d218a33289c195408e575eb988b19",
+        "a283d72445e1e61daf3387fa458b01feebbf6697986ad1d3443cb9627a0b2eed",
+        "7f569e7706f00ebda276375c7e2d15fe8956a49703143eeddea11fe434204d3e",
+        "83da882e9884d439ef5a534b9d3d3cd57fcfd7d93c41a0345acee748209e3f5d",
+        "599a0d0b3a970845325504325020bcad0c230c4f835e2a0ab924b6fe60da9c99",
+        "97e54ebc46332f2143a5ec36e1577061d3ebde2bf8f2a50ede76cc5679c3ef53",
+        "9fbf8c92b82d647e8ecd3ba974246086386af6bab06c4392017211f865da793d",
+        "11fc5494fc8788d0c6527cb097b0b5d58e201b5a97fbc1efb21d799fdfa454d4",
+        "9bb5bdd6a1cec9b6c1f4b07e2e3b7b960106a187ce8a93d32ae98e750a7e2c51",
+        "8edc6fdb7bf039576b3af357ded9958be7e6c67078fbeabe1230681169db63c7",
+        "0d048242bbd4f664a04faae588b1714a6dfc5df4abfd438dd7655c9ca62d1d24",
+        "783549d617e97134760639ce1a0906809faefc7daca85decbaff51136dd223ce",
+        "72c11a606c13d63f40c2b5334fa36b0c32d3f71dfcc34f62b8245e9c8b4c0178",
+        "3396a5b089c7a497c09b69c03a3e26a7205167247166d8e643b2f2e5dcd54a36",
+        "d4b6892811661c3d946306ce8fd0a285e58f25731c5b1f61c920ec55fdec838d",
+        "f3c695448d382049dfba033ebde6e054bc932efa7ee2ffaf7ac309cedf6b05d3",
+        "9c0c14b4d4bb546a5317aad5bf103d1c02d9ca545d8fbd1bebd7955e74e859f2",
+        "220f05f783a7a0a028dddecd62ce65c6f62fcab6e31da9bb73231122c0517723",
+        "b2dafbe1443fa4ae822f84b99cdbdb6ba72020bd80163a9cf8e58a5300fb6c53",
+        "79f55234c8c0a61742ab3c481107c379e9593305557174c9cdd4697fdb8c5ca8",
+        "5bb10b5d320bb06077517ed9fc42fd9d5ce1c4b9ecc69c2a08163e0be4b6c851",
+        "9505cacb7c710ed17125fcc6cb3669e8ddca6c8cd8af6a31f6b3cd64604c3098"
+      ],
+      "rendered_file_sha256": "e7673963d4d5f8b762641ab8dc506b2c26f674b78d221f5ba8c94757d24ec8bc",
+      "original_local_file": "20260904140000_matchday_live_layout_physical_apply_facade.sql",
+      "classification": "same-version"
+    },
+    {
+      "version": "20260904150000",
+      "name": "matchday_live_layout_physical_apply_video_guard",
+      "filename": "20260904150000_matchday_live_layout_physical_apply_video_guard.sql",
+      "recorded_joined_sql_md5": "965422e381233a9296a9df844602689c",
+      "statement_sha256": [
+        "e6f07d43b5c21db0fbb9a31feac2dc599787763393dd5acbfad80e247eb02ad5",
+        "341ffdd117cec413caed57f7514bd95101cf9b12634526d03a1d3a3738e46d9f",
+        "8d29719cba2a50ada81c0c688e5b4800591cf7b51b001fb77490cddc4eda9828",
+        "6b0fa1b72f8d48bc91979e816475fecaa966dedbe170c48d77438916bd5c66ef",
+        "470d49540b7da5f90128b9821cd23a84ea03e41222e75533e09a19fedd66bee0",
+        "69f269d8790a9e407537c268e4a423973bfbb1e8395a1f13beed5a8f1eef2b5f",
+        "c1a0cbd34a137ddfdca8248302e0ed61ac00d9046e49582c59387008e44f2ec5",
+        "bdd75758f9707970f33af097ac22ea7281baf5cc936818e080aadc559ab7fdd6",
+        "f9ab815f99a56f13f41bc4921911ae1732aaa42ddd827ea7eff54f6445a5dfab",
+        "5bb10b5d320bb06077517ed9fc42fd9d5ce1c4b9ecc69c2a08163e0be4b6c851",
+        "9505cacb7c710ed17125fcc6cb3669e8ddca6c8cd8af6a31f6b3cd64604c3098"
+      ],
+      "rendered_file_sha256": "2d4a18abbf81908d501269e3d658d9eaacbb3452cbaa56e4f871af1f80bfae1d",
+      "original_local_file": "20260904150000_matchday_live_layout_physical_apply_video_guard.sql",
+      "classification": "same-version"
+    },
+    {
+      "version": "20260905110018",
+      "name": "matchday_publication_physical_placement_boundary_v15",
+      "filename": "20260905110018_matchday_publication_physical_placement_boundary_v15.sql",
+      "recorded_joined_sql_md5": "59ebe098238fe54957412a2542d59b70",
+      "statement_sha256": [
+        "1a636999dc5bef6966533d03e3e938fc86126cca0407d6734ed4cb822ab301d7"
+      ],
+      "rendered_file_sha256": "51a948394ca9abf9bb962a0d09d6d656bc52be87442c51518683bdc3c1f401d6",
+      "original_local_file": "20260905110018_matchday_publication_physical_placement_boundary_v15.sql",
+      "classification": "same-version"
+    },
+    {
+      "version": "20260905123608",
+      "name": "matchday_contextual_classification_physical_boundary_v16",
+      "filename": "20260905123608_matchday_contextual_classification_physical_boundary_v16.sql",
+      "recorded_joined_sql_md5": "0a57fc29230b95e81f03141f9beb7201",
+      "statement_sha256": [
+        "69337ede989c07d99dcf759a296906a41a8cc6762c59990e45ed33c8b06080a2"
+      ],
+      "rendered_file_sha256": "2f71c0ef5c30647334bc16dc8642f94374034e7de00e505c30b46f0c3db2a3ae",
+      "original_local_file": "20260905123608_matchday_contextual_classification_physical_boundary_v16.sql",
+      "classification": "same-version"
+    },
+    {
+      "version": "20260905132044",
+      "name": "matchday_live_layout_physical_topology_constructor_v17",
+      "filename": "20260905132044_matchday_live_layout_physical_topology_constructor_v17.sql",
+      "recorded_joined_sql_md5": "ef8c636d8626c286070554e4bfefb0da",
+      "statement_sha256": [
+        "fb166440a681065f2a4ef301edf840ee028fd2179463f1b7a788345cea7c0a10"
+      ],
+      "rendered_file_sha256": "f31ee64b11fb906e0ce8dff61c7df2ba9890168a0f7795ffa4524f99a0d26d48",
+      "original_local_file": "20260905132044_matchday_live_layout_physical_topology_constructor_v17.sql",
+      "classification": "same-version"
+    },
+    {
+      "version": "20260905135209",
+      "name": "matchday_live_layout_physical_carryover_v18",
+      "filename": "20260905135209_matchday_live_layout_physical_carryover_v18.sql",
+      "recorded_joined_sql_md5": "f11d710e37129da101bbce0e084a97e5",
+      "statement_sha256": [
+        "32ff0d840cbdacc2b233053919e2468d3b3de830ed8520fb5d527db8c6ce3276"
+      ],
+      "rendered_file_sha256": "95b3d15d90017f93056fcf392af5a64baac1873d84635a0c28f81ccae34d86c4",
+      "original_local_file": "20260905135209_matchday_live_layout_physical_carryover_v18.sql",
+      "classification": "same-version"
+    },
+    {
+      "version": "20260905142832",
+      "name": "matchday_live_layout_physical_handoff_v19",
+      "filename": "20260905142832_matchday_live_layout_physical_handoff_v19.sql",
+      "recorded_joined_sql_md5": "1fc2ea48224f39b852232ad5be2fe767",
+      "statement_sha256": [
+        "0a735cb1156faf3867180a5b58ccbaee3f5a250eb158b984fbee07b2c6479fa3"
+      ],
+      "rendered_file_sha256": "08f6ec871ac7927bc964fba80e0559d6aeca5bd9f0b955d802b21c82f0a3f53e",
+      "original_local_file": "20260905142832_matchday_live_layout_physical_handoff_v19.sql",
+      "classification": "same-version"
+    },
+    {
+      "version": "20260905230000",
+      "name": "matchday_live_layout_physical_crud_v20",
+      "filename": "20260905230000_matchday_live_layout_physical_crud_v20.sql",
+      "recorded_joined_sql_md5": "50e4b5ae9542ddd4b66cbee46c95e494",
+      "statement_sha256": [
+        "e6f07d43b5c21db0fbb9a31feac2dc599787763393dd5acbfad80e247eb02ad5",
+        "934a17c408cd4c1c193e82758eb64a9ce963ec596d9df81698d1710c7b709f67",
+        "4756135c4b72967e788d8f5de890158a1b3280086b7407d91cb7478ea7084aba",
+        "3622f054d920f5c0b074a67b413c7a3c39c69f7141046f29754f99207459f07f",
+        "2240fbe8af4846658eab7cfb874db460e1ac4ad48eebe648ca476e32a17cd1fe",
+        "ba0f64a8015b039fccb4546dbb96a417fab92694a728c901ccbd5a95f62a258e",
+        "a4e2db0be4df7b48aeb96f2c61e3552350da992a36d9bdd93a93b45623133d33",
+        "d323c770d3b2938819d6637925e60ae2ed56f6e2778031f40495fa6d96e6822b",
+        "ca1b2d3365e3fc06687914e39ddd53f9380b602d42123fd6c0d9c08ea08173d3",
+        "897560ad945e8c972c6e25d976a39fe8135fd152a77e7957d30e5e11e247fb8a",
+        "1d73511e93cf2b42baac37f4ccec4c4ff94dbd06b9a3ec1dcc1d6820652a9002",
+        "0cc546f21f8552cbda1aa875031cce19cd9128d65e68ff4629e303df809508ef",
+        "34567ad7dc68ab6c7c6125bd56f0c62b141d4c79a8c2325d73ebeda3c47f39a3",
+        "ee733c853f18a182118fadcdb78d30ad49767eb3f87e9581e20e9486e4b6d04a",
+        "656f11391212e1c7f9450ac98ecf5618f9dca1df4884147b3f9ff9a1b31b088b",
+        "6703185a74b91c0f4c0d934f8b43d2a465754b8ee6706713ba39974c4b4f8a0f",
+        "e7a45329a14d5a3b21f8a89ea2bf713a92b1e5e92112e556916edfab73d38993",
+        "fd8158030dba5e6a3d67f5ca4606e332071ee5e7a1aec40afeba48a729062d5c",
+        "38338e4f0ea186ed4f4cc5d2a268e9a8b2982f105f818b25a1dbfa6c839d049e",
+        "b300e78454f9b3683ee7b101b9864caa6219eb5ef0bfd8f65ce50d8702965b56",
+        "cd5f32d408e721b38f92ea18ec2cf1747a98d07999738f34cb4342dac47092e4",
+        "3401dea16182565b848623ef35b6b7faa86556fdbe5fec0ea63ce49dee76aa23",
+        "bf51dedf7bb670a5f4209f31526189b53967a11e1232d085add9fa50c2b872b4",
+        "5bb10b5d320bb06077517ed9fc42fd9d5ce1c4b9ecc69c2a08163e0be4b6c851",
+        "9505cacb7c710ed17125fcc6cb3669e8ddca6c8cd8af6a31f6b3cd64604c3098"
+      ],
+      "rendered_file_sha256": "fa284e66a974a133367fd30b70254162263d30a61ec32420066cd86d0ddc1447",
+      "original_local_file": "20260905230000_matchday_live_layout_physical_crud_v20.sql",
+      "classification": "same-version"
+    },
+    {
+      "version": "20260906220000",
+      "name": "matchday_live_layout_four_news_optional_titles_v21",
+      "filename": "20260906220000_matchday_live_layout_four_news_optional_titles_v21.sql",
+      "recorded_joined_sql_md5": "70e9eff379ee183b13a7d974eb76f998",
+      "statement_sha256": [
+        "e6f07d43b5c21db0fbb9a31feac2dc599787763393dd5acbfad80e247eb02ad5",
+        "a73caf0602d73efb94b1a48fb268c8183a360c0ec1f3c49d9dbcb8f73c8479da",
+        "04a4721422ffc624fe6e23b08e27d8f3621a8592a87fc04c4d4422d03a3276d3",
+        "d4bdda641583f75854f6cb98c6a6fbac0b0a85585beb51ab4320300f81c402a8",
+        "9505cacb7c710ed17125fcc6cb3669e8ddca6c8cd8af6a31f6b3cd64604c3098"
+      ],
+      "rendered_file_sha256": "2be1f11cd69daa02a99c65e6b4739a3bc1ad2da770b161830feb31720374d57a",
+      "original_local_file": "20260906220000_matchday_live_layout_four_news_optional_titles_v21.sql",
+      "classification": "same-version"
+    },
+    {
+      "version": "20260906234000",
+      "name": "matchday_live_layout_latest_companion_v22",
+      "filename": "20260906234000_matchday_live_layout_latest_companion_v22.sql",
+      "recorded_joined_sql_md5": "dfeafd3613f327b468527b2c5e3e32d0",
+      "statement_sha256": [
+        "e6f07d43b5c21db0fbb9a31feac2dc599787763393dd5acbfad80e247eb02ad5",
+        "7c070c46c87de7c025b92b09543c2cb859951c7c4f7337053424cbfe2cc791d6",
+        "72767c03b7355a1aa3f3ddfa8e1af98b290d088d6dae7baa7a4790d6719d9332",
+        "8c1ff34ce289c995253be0ccd65eeca72163f59f8faba5eb867951637a684a2e",
+        "1504d9cfe6e27841d0b1ed5fe0a16a80f8c5e231b2270e0a760490e96219ae3e",
+        "f1c355867a1efd8717b29099d06b6cea24f977f580acee05a876dd063c7285db",
+        "f11262b9560ddbab42744414361b387e14f7d6ec8943827fb58aef8dc4a64b38",
+        "85c13ef8dc143951b5fb72eb17ed24117ff845b21e2b0befdcedef8605eb8c56",
+        "6c2ff96ff6ea4a51544a07bbe353e7155ef72f774f3de7dfe66dc88349f048fa",
+        "61919a03e91c85bdca02f9d46ec498758d0ffcc4f91af4bf6c780c667bbce16f",
+        "c84e8afc0b50053df08ee5872713523a8c308bb902b2936e4779ab1d7ce751b6",
+        "df51ab35ce4ab3f5f4715b0c1212d428d1dd279760e0fe09ed9ec6b4415d3b70",
+        "5c34d5966ba8f063532b426f80bd7cc5b5591cd3755bb9dc37cd1202dbd5a7f1",
+        "90cf54e9c90f2f4089421763eafe2fa010bdb098f8b9b07d2a3404890898d3d2",
+        "ca045446bdca5744b916b6c246b03aa2204887a1a015905fc7f81a54199088a3",
+        "10ce13a5e619f3f6b82258953ceb0d567ee453a39f466c64627dd8d19e7ef504",
+        "26a736630d039a5cebf3f41034e9054e5661f9a3bd9d06963b517c4c54c1595a",
+        "3949072d778b43730f6e118077a147a0e0ec55c5c0cc00839cdd4dc633e541d4",
+        "5c1409c0fbe03c5207b46d82173119af452dfc14d28b044d0e1fe6da71260ef1",
+        "d63d3426c5c3f4b2461211ea928f7c8bdcad2d10277b6cab86f3004df8c5660d",
+        "e9145d20292e07a1babe96bd305c511cd7b60ebe289a1f5e80d6814279fe08cd",
+        "3d72b5ca6ee471e4c37a8f4211694c01dbf065e4ce0a767c2ff1f2f5ed73366b",
+        "45ed089581e10e9218843021f4b53c9a537cace42c95148a10e3d6563ee14b60",
+        "aa7c34455bc71f4049525772c0bbb927a562572a080e73ecfa7c6cc55dd705ae",
+        "5bb10b5d320bb06077517ed9fc42fd9d5ce1c4b9ecc69c2a08163e0be4b6c851",
+        "9505cacb7c710ed17125fcc6cb3669e8ddca6c8cd8af6a31f6b3cd64604c3098"
+      ],
+      "rendered_file_sha256": "82362460611841cfa3666d3901566b5e2fbd8955e98106d9a96c890698fad91a",
+      "original_local_file": "20260906234000_matchday_live_layout_latest_companion_v22.sql",
+      "classification": "same-version"
+    },
+    {
+      "version": "20260907143836",
+      "name": "matchday_live_layout_latest_companion_generic_v23",
+      "filename": "20260907143836_matchday_live_layout_latest_companion_generic_v23.sql",
+      "recorded_joined_sql_md5": "0a9f6397c12952bc13f6f27f643134b3",
+      "statement_sha256": [
+        "a9e32d4c9ce3ac82c85ab1104c1d050e6938e290d5202923375352d72e0fdf67"
+      ],
+      "rendered_file_sha256": "4cc9f5e3af1bae69d1afa45c07137409342fe3fb83d07cf71e63b4695e90d06c",
+      "original_local_file": "20260907143000_matchday_live_layout_latest_companion_generic_v23.sql",
+      "classification": "S"
+    },
+    {
+      "version": "20260907145743",
+      "name": "matchday_profile_reconcile_four_news_layout",
+      "filename": "20260907145743_matchday_profile_reconcile_four_news_layout.sql",
+      "recorded_joined_sql_md5": "560e921757f3ca709273b6566f16f359",
+      "statement_sha256": [
+        "5bf40e411f78ee87d5bce577e1f1b799e372626a7257ed58bfb4be0f0fe53f73"
+      ],
+      "rendered_file_sha256": "e29fe72af9df2250b46c8725e5f14db38013db78886da563ab08d9fb4fed348d",
+      "original_local_file": "20260907150000_matchday_profile_reconcile_four_news_layout.sql",
+      "classification": "E"
+    },
+    {
+      "version": "20260907183300",
+      "name": "matchday_live_layout_selection_retirement_v24",
+      "filename": "20260907183300_matchday_live_layout_selection_retirement_v24.sql",
+      "recorded_joined_sql_md5": "ad2564ad331ba5751eb62c7d4f3606e9",
+      "statement_sha256": [
+        "62bc9ea7446a2366e0df917f6af6f983f3b70dd708cf32083c3eea36d2656c9e"
+      ],
+      "rendered_file_sha256": "f38e322bf8cf685b46840b839a9c56d91a8aad1bd72b7dcfa52515afd474c1be",
+      "original_local_file": "20260907190000_matchday_live_layout_selection_retirement_v24.sql",
+      "classification": "E"
+    },
+    {
+      "version": "20260907195917",
+      "name": "matchday_live_layout_latest_companion_handoff_v25",
+      "filename": "20260907195917_matchday_live_layout_latest_companion_handoff_v25.sql",
+      "recorded_joined_sql_md5": "7ced98e3655df56685ea8425bc5f95da",
+      "statement_sha256": [
+        "d645045f6852bb410502b6cf91ed49f639beec684f6556a6958e548fcf451c69"
+      ],
+      "rendered_file_sha256": "3f548547e24cb1b973ec5127b052f58cd4454598fb3139ba02c44728803ebcb6",
+      "original_local_file": "20260907203000_matchday_live_layout_latest_companion_handoff_v25.sql",
+      "classification": "E"
+    },
+    {
+      "version": "20260907202642",
+      "name": "matchday_live_layout_reference_certificate_v26",
+      "filename": "20260907202642_matchday_live_layout_reference_certificate_v26.sql",
+      "recorded_joined_sql_md5": "6fddf8f325418d8c9e9bab6bb249c75e",
+      "statement_sha256": [
+        "b213b103ef303fc9a4a38306a8a605743f759ba85d89fbadecb81c81376670e5"
+      ],
+      "rendered_file_sha256": "4566aec4434fca83fa9b366391fca6fd07a16d04809a7d0da95a97dde59ad2d9",
+      "original_local_file": "20260907211500_matchday_live_layout_reference_certificate_v26.sql",
+      "classification": "E"
+    },
+    {
+      "version": "20260907203518",
+      "name": "matchday_live_layout_physical_topology_ambiguity_v27",
+      "filename": "20260907203518_matchday_live_layout_physical_topology_ambiguity_v27.sql",
+      "recorded_joined_sql_md5": "2e6fe17f2d857c819eaf1c3db1513cd8",
+      "statement_sha256": [
+        "23964133b0b2840c3368a7b6b34ed18742d2376278d8524926d9f7a2e96018d2"
+      ],
+      "rendered_file_sha256": "350fa0c964371e930a90ab1844f0546b222e3e7dd6e60b66c05b1ca05f0afe2c",
+      "original_local_file": "20260907213000_matchday_live_layout_physical_topology_ambiguity_v27.sql",
+      "classification": "S"
+    },
+    {
+      "version": "20260907222744",
+      "name": "matchday_roundup_context_boundary_v28",
+      "filename": "20260907222744_matchday_roundup_context_boundary_v28.sql",
+      "recorded_joined_sql_md5": "a97a808a93f40ef39954168a5631cd3f",
+      "statement_sha256": [
+        "ca991f82bfc827b1d4b09e47c9ce0566b7e7cb9a2f03aebb9d687b9ceddd9ddb"
+      ],
+      "rendered_file_sha256": "330d908d5042f237e5fd9acce1326ac332e8d7c1e87e618c9346c2bf015579b2",
+      "original_local_file": "20260907224500_matchday_roundup_context_boundary_v28.sql",
+      "classification": "D"
+    },
+    {
+      "version": "20260908112602",
+      "name": "newsroom_editorial_themes_foundation",
+      "filename": "20260908112602_newsroom_editorial_themes_foundation.sql",
+      "recorded_joined_sql_md5": "7c135d6deae3dea662662478b0c23f79",
+      "statement_sha256": [
+        "e6f07d43b5c21db0fbb9a31feac2dc599787763393dd5acbfad80e247eb02ad5",
+        "8bde6d5b0b3c57f286033d1ea7fb0bdfa708bfdb229bc34ba7257baeb8a9613d",
+        "bacd0eda130cdc946a50ff3ed84c541388b2b6feae1e80dda6527bb6d3f9107c",
+        "147575cbde473fa61727f236ca6b093480e55fc5e6995ff77d5ec8c182a1b22a",
+        "e8317dac3135f1d20afe6441ebed203e0c32e0a65611af6eef1514e417736948",
+        "fe670cd8b276f1a9d358f20341f37c6906775ecac96d503a7ea2bd43dcb81aa8",
+        "3c461b1393b1bbbf74ac0676afb74c46ced0bfc9cdf65d50972876821bf5f80c",
+        "2248cc742ad237b048fd51a50d10a7f00ee483f520c778fef73abf66535dd8cd",
+        "5292f3a32f07fb8fc16f837e7fb5e896d9aa5e9407a1fbfd09845780cf28ad95",
+        "439e1b7424272d22cf43353b1cc8bbe202243cdf21996d16c102e1722c00de71",
+        "bf876543fa9931862d268ad2e34d7effba0acac84893e04587cc08438aa3f2e1",
+        "064e5420cad64ae364f6d9f3bc4eab4998702e37460399f8cd53a03873272142",
+        "ffa0858798e712e6e1f57bf95a1f0dd5d6ca8687b15c7567484d24496e63d93b",
+        "66a7bbd4f9d6eaa9606972a565f46c05c28b01a896cc059eee9460b4eacb8c2a",
+        "4219d67de17ba05fb51186d00b0764ee07a85d1a503700a0b84d31e111ab42c3",
+        "898892bc15e8dff3346ca5d35e1f40fdbd16b07513aa97ac637bce665bcdd653",
+        "3ff3c77f927da721a6d76030b1c94a4299801a648f55edeefac8992c7b8d0ada",
+        "03ed995f745a58c99d405024a7b22e6a1a9273adbed6b010e836348f606e55f4",
+        "68f61738df88495995dd49df98f61428ea42a0fbf894624bf80cb3b7828ddcf2",
+        "36d20a8d2c35588d70483b99eab2d90a540c6ead8a7157daa23aa0e5e25948af",
+        "3f00ca1e46f08a8b796ed927432a0afa3da182cad78f5b778d3289f783420e52",
+        "9e692a8593af1ece86a10b13eff2a53ef3abf5df746ce6d80fb2dc8eb4271b6b",
+        "d4b8c46cfdcc67ec5039793b31636422da6c97e42b9b1cb2a3d3a4d7101980fe",
+        "3fb330c38c0eb524c35eea1ee67bd0a9cd350339bd5e4f487197933f87ba8428",
+        "ee4f1f3a6f6de4eb116b2a2d6d898bb26e4d5e348e8cdfc319ce74f9c114b85b",
+        "f41c7e7344a889d0396cb2dd77c1b59dd24a87fe0ab3839b44a9814a9ec7c793",
+        "4634166732d8bceb52ba79864a0624a3670a682f7aa1798a86e018a73ddb2608",
+        "03aa016903a5e59d9137bf423b3587e6f8977198556a6e31b011841db7b8c755",
+        "de48e469fecf0d16e55b478ad77b1d6ace6961d1786c2e5f27076da6416bb3f6",
+        "bd21497dae04879f07ea2fcd2a64f340b07232f41ff3bbdc2398a06eb6ae10a7",
+        "3714dc9472b15f30e8a9e7c7aa13de89c0101c7bc96e68f1c0ee94d3614b49d1",
+        "f3d5614233b714bc73ec8c5b475bb7191089616cfb8c0be122c8da02021905fb",
+        "8dbb810abace4e624bdbee088be4eb9cff10bf47c09670b86bd77c58e4d77011",
+        "9edb49e6cb341d48b29a854817ab1c6a8ffd29af568c0062b7336153d9218937",
+        "adbe4aa2c02f64aa235c8f608e55a58240f9086c0d04359e15d5fa846c144172",
+        "d1484b3b427c66ba9f6ef04332e37fdda5d2cda0036dbed945a30d7aa56ecc39",
+        "be31d81450ffa6c8bc0ba5245f38832c684e3907a56baed3f7949f2ec9f8f77e",
+        "352b05e3223e5b02204c6d378e7e2fce32e059ac677213825b72f82d09071497",
+        "1688e5bceaaf6d64e28cae6b2eb935feb6cb2004053e596b62a000632b840216",
+        "26e0c0fcebf7c0accb8dd2432849b67a52254bf518e300238711e10a2ae845ce",
+        "ae207f5424dc2a4b1063f5953336690ad007a6f29f02126d3a8f47423a14af51",
+        "0ec1818a44a62ded13a45fbbe59a3599c1db6360aeca378f98db70eb6215d24b",
+        "ca733153694f8a07452dbdee21b66faca03ea742dca983569092ae82f0f3453f",
+        "e290d5d93da3f6ed898d51d574d05e5ee7875e03627e0e3f476930be00c2b6d7",
+        "bf09633b04be6f62bf6cb65a3895f2be1346a8be11a334666cf61608b531e823",
+        "b46769953b9eafa118d7edaa1fefc1e151ee9457bdb6bfda5b0770e7b3e4d48a",
+        "25228cc52b753b283fa7de0e7bdcc90a43a0d795e9e43ad99933b65f3a5add5b",
+        "505386ec06ee3ab07b7b32da6317395d2dde929b938a7f6fea37d3c7b901cb65",
+        "7f12aa88fa5ec44e25f36a2307aeb3de3f08dd0c99b1d834a8372e4f457bf1ed",
+        "1c5e96dfdbd71de7104cbbb2060968c286fc3d490980bdb56d649aec6b64a6bb",
+        "c18c0161f17289c3904fee0b66ec207ec9110b38539a1bc472f122c7f3f95eae",
+        "5bb10b5d320bb06077517ed9fc42fd9d5ce1c4b9ecc69c2a08163e0be4b6c851",
+        "9505cacb7c710ed17125fcc6cb3669e8ddca6c8cd8af6a31f6b3cd64604c3098"
+      ],
+      "rendered_file_sha256": "57b42dc88887790b2e2cf0ab07c4be432a97835de8623b9d6190abf497f17c29",
+      "original_local_file": "20260908112602_newsroom_editorial_themes_foundation.sql",
+      "classification": "same-version"
+    },
+    {
+      "version": "20260908122938",
+      "name": "newsroom_editorial_article_classifications_foundation",
+      "filename": "20260908122938_newsroom_editorial_article_classifications_foundation.sql",
+      "recorded_joined_sql_md5": "e072563107b8d179d267f8abd8ae0b67",
+      "statement_sha256": [
+        "e6f07d43b5c21db0fbb9a31feac2dc599787763393dd5acbfad80e247eb02ad5",
+        "2fe6975faca90d04b6d7ea0e9f563f81b84ef424ede1b76ea2e2e309f44aa37d",
+        "5551aee2c9c8f6dbc88fd57d1fff2638c8f12ed092b98bbe6ab6fc14a5f919c2",
+        "c249b245e3ca3b08b0384097b549fb4f05e9ae09b3e7196164e6eddacb963d9e",
+        "03316009e05e595a78958ef06e2bc83e1444efb1d9f17e528eed3680837a9b68",
+        "c3c2ca8c121f60b02db00f70149fc308c40607c1483af28b426fb63c41eb5f06",
+        "9a7dbe78bf32cf9817d9529c80c9e6e45670901150ce57716c457ae481654b38",
+        "fc2051c8115e988c9e10b6ce8d410b7583b1710079818871adfc525c9c67547a",
+        "1f04db6fa743faddb96d7b04cbc25c64426fb9c4c5e859f7058ec9822ca8bc3b",
+        "9f02d9746487ce1ad76dfa07cabd39917cd3147c088bf8aaaefb19991a7e897e",
+        "485413bfe5b6dcbb56f1d79e0be1e1e921233665b097a8745c1fcbb975190208",
+        "9cba6c56372722aec3b6e3b202931288c2daa9ff7160fcd66991ecef0906c8c6",
+        "1c4fb7581039d035e16fee9abbe1f97a622433355bdcd1431723290181186366",
+        "b4565a1c781d7203a83e5fac678120c66a26a30e582b15626939e711de0558da",
+        "dcee5f5135ecfca91c336d053275617b4b3faeeff59601a963e2f5ca6cba134b",
+        "73376db0da56911aa312369936967bd487d92b204c733318f53e9cc0867a9c67",
+        "8b5539d1d299ebfb8d3055923bb4a99d2fd0278c094b84fd13eaa110334781b3",
+        "26591d2c0a4b4cbe21ba5baa42272fd744df4eff748416166c331195a5223f97",
+        "79cf9995b9153bfec44abd3a4d298d1921edcdd2b9d04ed307522382985960f4",
+        "b4d554e1f5d4f6ed8440adf785a8bb3cafdb34f74b1db1908c27720a1b990318",
+        "d1ab06b63c712d67c675fc1cfe31bc5d332813f3593e3df54182daeea43cfc90",
+        "03879ea300cda526b4a827124796a6b8a51fb75e57d769b1c9ceb9827367b5c7",
+        "5e6407a50a773fade92be0ba8eb719451e56be547bc52e3d2e8b4842897db9d4",
+        "2b885e76b51399012e3df76b6ad61322606aedc3b8d02f7577286756fdb807ab",
+        "7a7470824eb615f9222bd1cefde2f10290530433c0cbbcb66f48ee8ee277d6ad",
+        "711da11d6a5e3de1f8d2779132b0e4e6025139926b1dada01cd0c57a99790848",
+        "f7460fa2fd7b053301d7d707514bf1f56f7730080993c0ed2eec5e750b09da25",
+        "5bb10b5d320bb06077517ed9fc42fd9d5ce1c4b9ecc69c2a08163e0be4b6c851",
+        "9505cacb7c710ed17125fcc6cb3669e8ddca6c8cd8af6a31f6b3cd64604c3098"
+      ],
+      "rendered_file_sha256": "bbba0f34c8ea57d3a9a1b9b7328c144608cd969754ebed9e740d7238240b9b34",
+      "original_local_file": "20260908122938_newsroom_editorial_article_classifications_foundation.sql",
+      "classification": "same-version"
+    },
+    {
+      "version": "20260908151027",
+      "name": "historical_republish_v19_certificate_archive_integrity",
+      "filename": "20260908151027_historical_republish_v19_certificate_archive_integrity.sql",
+      "recorded_joined_sql_md5": "ff648e8092b255f495cc91682286f058",
+      "statement_sha256": [
+        "48c4937f10596d4fb58fadcf0e973d5f471c955214d4e25caaa141b97758d86d"
+      ],
+      "rendered_file_sha256": "b24a97e6310e311f030da1db250b9a03862d13955ff03cd5c846f457ea1a0818",
+      "original_local_file": "20260908142701_historical_republish_v19_certificate_archive_integrity.sql",
+      "classification": "E"
+    },
+    {
+      "version": "20260908173933",
+      "name": "matchday_historical_physical_archive_v20",
+      "filename": "20260908173933_matchday_historical_physical_archive_v20.sql",
+      "recorded_joined_sql_md5": "f048c663a064bfe9ea8252071abb326c",
+      "statement_sha256": [
+        "e6f07d43b5c21db0fbb9a31feac2dc599787763393dd5acbfad80e247eb02ad5",
+        "52b6aa3776dc965d6347de13d9d2b4ba6b3d617d870a08f67479ea9f8c64d505",
+        "28abf2b3be6d0377c2387bbfb0151ec2c9ad00f9b8850dc71eb9fdba7e5aac0e",
+        "df213bf8a622b33aa4187a11c9126ea158e8a1b05e4274c842ddebb49b832980",
+        "d6456b75602828dda06f8bfc7b4ea8e46440fb5500b3f700ed9520c47cff6190",
+        "201880e2392ca1a3964f4afd9733330d0e298bf97b02bc97e6401008ad862e67",
+        "fb31ee54a7c860a0c86490d94f525d51b5ae00fd688db43a07284e0ee788e95f",
+        "dfa8a9c11bb6a66205e4a0db43892f303f7079e7ba1d55a7932cf14931b891e6",
+        "afa460a36fce508301aac62f9be988b9153e26cb08c06cbba460eebad53b2dc4",
+        "6b4cebca9b8f204e695fa656e80f481f5da557966beabd7068ad3c2d6463b736",
+        "af1f65bb476021cfe8435ab388f6b233e80eaa0e4e070a084b456e2d3a16bfeb",
+        "4f2b1abdfa2bd2f9b19e780e2e8a2761cfc555cae45f467ee79f3318dd1608ca",
+        "d637e78ea7cc71aafe03584811f4f4d5e7d74424b07df59d4dc214f4aedad086",
+        "a2adeaaf8637316bf6b7d922582dba51604432640a3e924415b60f3206fdb6c6",
+        "93e58937969e30399c4d86ad54188afafbb3d28b9b1fb0bcd9125025d06033a9",
+        "73edf7c3fd92254abdc0d5608b7b0d2fe661a01765762b7c29ff314279ddebb8",
+        "3b2d45ee0ef7163346ef5ed5d68627fc7cc1a8ae204791e666d09c61c25a45a8",
+        "124c9f03458fdfbe3761a0a9fa04dae0405ef46d1e9a0288ce1d16167ff3f536",
+        "c4def28597dab306cd089c5669bc935cd4dc63dbe674d6f71ac953ccb3239cda",
+        "cdb9ceaf44261a7c6d0c85534201a8a4b5da50e7f84e07dea45b656cbbf23915",
+        "ec1b053fd221f177aa35d970e4dd3fe6e9fccb652e9a1c7927fca4fd7c1cc11f",
+        "5c8b2292aac6512f4126198fad046ed48e71696bde5c30a1c159deb9cb3f4a68",
+        "ae817a686fd4fb7a572dd1f612aee948f568c8f63694b8de49368b1ffd6fafc0",
+        "8c911ab86d70c2b696d1fbc1c2365ea76941392018022d3ad765d92389dde85b",
+        "0e993bceee44861386d38cca923d7c4d242022022b6ff951af339481995de877",
+        "371c2b501023ba7c5e77beef4c45fb2224dc08e93e97c37dc954354867b7ffaa",
+        "cb9158f6657a73f5897b5c065d7cf113303ce84b2af4feaf044c4e6cae3a3ebf",
+        "41cb39790b9f1818015c09b9e024afa792988cd0a30b03160d0738914a98bfd9",
+        "defdade060fa3b63a57a93b9602407226093c90fc7562b08895cb2143efc0e0a",
+        "a5d3f57831f5950f1ce8ef43d312be875ddbe97f923bd5fc91cf315eb6427a91",
+        "5bb10b5d320bb06077517ed9fc42fd9d5ce1c4b9ecc69c2a08163e0be4b6c851",
+        "9505cacb7c710ed17125fcc6cb3669e8ddca6c8cd8af6a31f6b3cd64604c3098"
+      ],
+      "rendered_file_sha256": "2e529c71082f7a7f3121a195bd431509fc092cee49806fe482f730aad470d13b",
+      "original_local_file": "20260908173933_matchday_historical_physical_archive_v20.sql",
+      "classification": "same-version"
+    },
+    {
+      "version": "20260908194740",
+      "name": "matchday_historical_reopen_physical_handoff_authority_v20",
+      "filename": "20260908194740_matchday_historical_reopen_physical_handoff_authority_v20.sql",
+      "recorded_joined_sql_md5": "eaca93c8b517e52765fe40ea43e0e9c4",
+      "statement_sha256": [
+        "e6f07d43b5c21db0fbb9a31feac2dc599787763393dd5acbfad80e247eb02ad5",
+        "3a7f8df7e5fe38def1632f0b4bbf0af968d78116a5519679746a51ef28086cdb",
+        "7384d98a71d3c1cdedd4f6800ebbd0b27171b3589ca4d3328eb950af4bde2b09",
+        "356384a94871a94303329549a434f3b43905bef17839c649e6c13e80be0bd3bf",
+        "e1449bac38021d8eedb224ab1f8bf537d89e375cb7e528001899b2406352073e",
+        "5bb10b5d320bb06077517ed9fc42fd9d5ce1c4b9ecc69c2a08163e0be4b6c851",
+        "9505cacb7c710ed17125fcc6cb3669e8ddca6c8cd8af6a31f6b3cd64604c3098"
+      ],
+      "rendered_file_sha256": "c988b84e48a5c392fe5be9c34f99bb0c31454eeebdd50e79ef3f45acfc7f893d",
+      "original_local_file": "20260908194740_matchday_historical_reopen_physical_handoff_authority_v20.sql",
+      "classification": "same-version"
+    },
+    {
+      "version": "20260908204307",
+      "name": "matchday_live_layout_latest_destination_authority_v29",
+      "filename": "20260908204307_matchday_live_layout_latest_destination_authority_v29.sql",
+      "recorded_joined_sql_md5": "c4f3cba39d18002e87d4072978add807",
+      "statement_sha256": [
+        "e6f07d43b5c21db0fbb9a31feac2dc599787763393dd5acbfad80e247eb02ad5",
+        "d725433f56ce54f2ebd4bf8fedf69e404f4ecd72e569f3b1ec95f0a4f4ae4817",
+        "2c88fbf5a2ca1db9d33d3fb2643dfd02bd28fc016a6e3c029f357a63360a6b84",
+        "42fc50fc810e6fbc7e8a5d6afde5c91f718556c47b6a2e5ebdc590913a1c7fc0",
+        "e9145d20292e07a1babe96bd305c511cd7b60ebe289a1f5e80d6814279fe08cd",
+        "c1fa13012bd580f0aa780e1fef194025dc9684d91641e6c4bdab7c8ddfeee312",
+        "f0804f89be19caa0b049a066308dfb75d5c8e750ab3c140350b44ad301cdc10c",
+        "40949c94e6cee4f1adbf45bbeced993e22f66e8d8df900b9eb8d8cf0965573af",
+        "eadf3ed7883628545149ddcac3ade33ecf1fd82eec320a7e1d5bc8b731b5d1fb",
+        "0534b26f97506d26f454b6d1c2ec36c368c6ca77ad8b178b10986c0229b4fc8f",
+        "bb4ea90eb1cbdd6fe44e90700ffdfc54fa105eb68a834ed67c8e51c1c6429bec",
+        "00ed42b6a46c47c723230556805a16790a43b5371b616e3b47d8406a045c5b90",
+        "3a25d3ab938c2ea9e50701a537bb5030bac7dee87804f6c89c4e2fe20f18398a",
+        "7cfba0b29aad217bcb18f7963fd39380f7e8f6a1a2735476a9e90b0f108b4304",
+        "5bb10b5d320bb06077517ed9fc42fd9d5ce1c4b9ecc69c2a08163e0be4b6c851",
+        "9505cacb7c710ed17125fcc6cb3669e8ddca6c8cd8af6a31f6b3cd64604c3098"
+      ],
+      "rendered_file_sha256": "d8479f18a645adc122a6ec4fa0aaf90a79697b3a0c6a55fe6d35069faa1d1ad7",
+      "original_local_file": "20260908204307_matchday_live_layout_latest_destination_authority_v29.sql",
+      "classification": "same-version"
+    },
+    {
+      "version": "20260909100000",
+      "name": "newsroom_editorial_production_workspace_foundation",
+      "filename": "20260909100000_newsroom_editorial_production_workspace_foundation.sql",
+      "recorded_joined_sql_md5": "a03661791880ac4e93e5bc6d1c2f095e",
+      "statement_sha256": [
+        "e6f07d43b5c21db0fbb9a31feac2dc599787763393dd5acbfad80e247eb02ad5",
+        "db497d6a9cef34c219e80fe4cdff95510c71af67872b4811ccb71d61ab718e5d",
+        "111df5a9c4c1c556d94dc8e0f5163c600aa493c47c2af0f3258c22e3db1d42b4",
+        "770d9ebf10c110e8684919b5336a6be15aed57037e3d4491acdbe7a25d30997d",
+        "046ba0595ae4331142714da224e92c8deceef8f4a686b5c51397bfd32020601b",
+        "c2ddf2824b856a2681bdbfebef2a9821bd037e54a48a6e5a8fdc375bd30e473e",
+        "15557ca47fd5e41be9952e77d302720152dd4520eba219d7e783a2cc01994e6d",
+        "b07e5e14f2cd2cfcace0d720751d6253d0253826ddd4d6d053551c776fb3b1e7",
+        "08de801c70838c1abe96ea9c04287e07826caf8c6a521d95f0f78667dbe550f1",
+        "ddd1e56acd2d1b981d1e10181b449005af179067c3bd529f5b27ada726d74227",
+        "18b83c9d159901af205fc274ce18917559b3c495d2cca367a5273c61ef66af94",
+        "63978c7e154799714954881d579c12269857ab182c9005fd2c5e9944d295d1c1",
+        "450fc364c29c93b763c9eff5cd1bbed28e56a3fb855dd6168a566f034427d1a5",
+        "46f3474a44ea9ae93b42468cea0897bc87b723f1269ff555f48fbb03e01175bb",
+        "018dbe59d477d029a134774bd86abfa52497c8475da9fdc34eb0cde3a1455ad7",
+        "b7e34be484c13b88b60ec709706aa072ee89be1d557cb16c693c31b50284e9d7",
+        "d9c7d27a454a70e6ceb76b2d923c8773e312308612d69f37a79e5f1f1da6080a",
+        "f778a4ec6960e4ba3d33655fe78eec53e41a51f5a9b0c47c11fb029d3522c6cb",
+        "ec20a38181561e9a9eddc0a83ab3c7973abb7a458fb9792302cb7d3a7c3759db",
+        "67e40a6cbdf14742991e5e0cddbadf7255966ba6d93e3d33a7e040747ee7ac09",
+        "d196b2deb865623d1298edeaaba8b694df6162c26a6726bcf00ed9329f38b096",
+        "057f92e419a8787a87383f5ee2ffce1d77e60f1a5c2e9c532968f5422eb74f95",
+        "928e0ef48efcd9acf95ab52f8d6b7cc7847914aab1466bbe7cf41e048f02ac97",
+        "edba57207b0cb184d05d784d4b3e8c02bd4fa93c7f48ad118c3d05d7a24004ea",
+        "afc1e8e808e64a7f9618843f4a7298a9b4d2f3f1932a6c8bf841463b9cce0fa6",
+        "f37e2e9592a63e2675c2d4184a159e649645ce7590a58c8ebf1fcdab26f359cc",
+        "e8e236b95c9d484f67860158985eef862154e89f0360a9031cbdd80b7dc97dd1",
+        "23f25c819238b2666fa6140580e444b7195505029de486553bb88c0ef85534ba",
+        "74aa2be2203b5ce05410c4cf843fd9cc76981096271778d494ed12d90c6b7daa",
+        "a9ba0403c15ebb64fdf88e752f0a5f20fc0315d38d0e1c6bff21fa4587c12385",
+        "7a323e998ead9e2e305281da56ef4b5a4966cdde6bca8f2461ec967945ffde48",
+        "3ea63f216ccae0c3d5a0abc1c7ad8eb2284e7aa36f0e3c0a7a76101c24032e23",
+        "429884e71e0b38889e4184f4fc88704b560e5a341077b00c296115d9b28376a9",
+        "2bfb070ba1462146eed15c890ded6bda9871278e09d6a93567bfac97fec04179",
+        "f549458defb4b5c605f13e5bcd364bbafe59246887f937bb4f5496bf5cca450a",
+        "25eff852604992e4a5b5c114c5c34d26cd1cd14648dd7a87a5379a891e22e548",
+        "63e3fa2c23d1d414a56a3ebc943bfb46905bbba011cfc2d7b0ba32548027b260",
+        "77c393e3d4ab2335bb655fcf8f9833bf04a00468324be077835fc6218e46343d",
+        "d2bb575785c119a8260ff274287448f9b0fcbd39ec62baa2c7532e27ddfb182a",
+        "4033f786a89956aedf2a9078688bd1e113840d45294ddca17e1b3d5402991d1c",
+        "0735c7ff80928045a3160ac801dd380624b3b6bed4c37fe53094f5f2e82b5f8e",
+        "f1dc488bb788b26b45286a2386756aaf9d2cc972da7d9d6112e3aa397198ef82",
+        "6fcfcba2417e8d0744c5bb22c49a46a305df884d084ad71fa4d2870b48ace3bd",
+        "7added2f834ec5025573219393127c2998d701ada4124bea2b37f99cd0c4f5b5",
+        "c1e071b34ec47e95f62007c390a7ce1d61211f51c1ba69de786104c5a4ed6c61",
+        "8beb06774b5f2db3ddf3dbec4fcaadd5ffb57bacc2f961d39ef94a057fe0b27f",
+        "4099399cb08ab4569bd7c7504ce581478f08bf6cb4f66b774e06335c46149a7c",
+        "5bb10b5d320bb06077517ed9fc42fd9d5ce1c4b9ecc69c2a08163e0be4b6c851",
+        "9505cacb7c710ed17125fcc6cb3669e8ddca6c8cd8af6a31f6b3cd64604c3098"
+      ],
+      "rendered_file_sha256": "f96d336d2d48f0f1c3a05646e9b71f1d57e3d6318b2f78cc7cbba8894c8a13e1",
+      "original_local_file": "20260909100000_newsroom_editorial_production_workspace_foundation.sql",
+      "classification": "same-version"
+    },
+    {
+      "version": "20260911100419",
+      "name": "newsroom_mesa_theme_organization_v1",
+      "filename": "20260911100419_newsroom_mesa_theme_organization_v1.sql",
+      "recorded_joined_sql_md5": "64c80d2cfc560413de94bd51fad4fb2d",
+      "statement_sha256": [
+        "cd2be37a85e5f66b200d75c8a38805affed23da2517285002b76bb8730bd08da"
+      ],
+      "rendered_file_sha256": "00ea4359468f7c30a25f163debb58f4bb9545f08424640ea794933cf5e1c2cb4",
+      "original_local_file": "20260910223000_newsroom_mesa_theme_organization_v1.sql",
+      "classification": "E"
+    },
+    {
+      "version": "20260911232119",
+      "name": "jornada_mesa_grupos_temas_v2",
+      "filename": "20260911232119_jornada_mesa_grupos_temas_v2.sql",
+      "recorded_joined_sql_md5": "7f02e15d905452a5875f5d0cbf1beb27",
+      "statement_sha256": [
+        "3880901ef2b2c9848c9faed9863179a4f6e25e93e4574db14feb45787d6f4d05"
+      ],
+      "rendered_file_sha256": "91786d5572a98e1e3bdc131f373b49a0fc68e7569d6cd19998e89faf01d6f603",
+      "original_local_file": "20260911232119_jornada_mesa_grupos_temas_v2.sql",
+      "classification": "same-version"
+    },
+    {
+      "version": "20260911232721",
+      "name": "jornada_mesa_grupos_temas_v2_fk_indexes",
+      "filename": "20260911232721_jornada_mesa_grupos_temas_v2_fk_indexes.sql",
+      "recorded_joined_sql_md5": "130728eab0da9a60142d096cef19ed67",
+      "statement_sha256": [
+        "97379030aa3ee4cebd160ab3e0e12dd3fdb6e5dfc3a9bd7d781a0dc10531e964"
+      ],
+      "rendered_file_sha256": "32f127b58f5da3c698b1974d276d4a85d2a31b421787c29528fe453da167ba99",
+      "original_local_file": "20260911232721_jornada_mesa_grupos_temas_v2_fk_indexes.sql",
+      "classification": "same-version"
+    },
+    {
+      "version": "20260912004733",
+      "name": "jornada_dossie_producao_sem_limite",
+      "filename": "20260912004733_jornada_dossie_producao_sem_limite.sql",
+      "recorded_joined_sql_md5": "22b6151356e412be13a1cf011c000252",
+      "statement_sha256": [
+        "650eaa3d19970a9ad6ba85fdccdb2a9a152e9fa9a5036d7ea161e5061062854e"
+      ],
+      "rendered_file_sha256": "a4e1a84ff24afdb1f3bada12619c939323a0a6f311f250f17977f0227012aece",
+      "original_local_file": "20260912004733_jornada_dossie_producao_sem_limite.sql",
+      "classification": "same-version"
+    },
+    {
+      "version": "20260912172405",
+      "name": "mesa_production_workspace_v2_provenance",
+      "filename": "20260912172405_mesa_production_workspace_v2_provenance.sql",
+      "recorded_joined_sql_md5": "493a515fe0b58a3121f0735494e574d9",
+      "statement_sha256": [
+        "a3b77c0a0e02152d3522f59b0e090f217f669b41ea540a8a13219dd79b80bbf5"
+      ],
+      "rendered_file_sha256": "5f6712844b6bf5fb43c30f6c4190b15a06a3d7913d527829b48a87dcfdbac5b6",
+      "original_local_file": "20260912152810_mesa_production_workspace_v2_provenance.sql",
+      "classification": "S"
+    },
+    {
+      "version": "20260912192043",
+      "name": "allow_mesa_v2_source_package_manifest_v5",
+      "filename": "20260912192043_allow_mesa_v2_source_package_manifest_v5.sql",
+      "recorded_joined_sql_md5": "ef2da4f15f27ae1ac81831008fcf4410",
+      "statement_sha256": [
+        "68308bddfd97d28fb3398964237d8aef7d47617fb0b8d1a44ca6a7fbccf372e4"
+      ],
+      "rendered_file_sha256": "171c8645b7e8611a102517c2d562166a90184b53b0a34c43aa1257fe531b8f5e",
+      "original_local_file": "20260912173257_allow_mesa_v2_source_package_manifest_v5.sql",
+      "classification": "E"
+    },
+    {
+      "version": "20260912192155",
+      "name": "mesa_workspace_shared_output_scope_v2",
+      "filename": "20260912192155_mesa_workspace_shared_output_scope_v2.sql",
+      "recorded_joined_sql_md5": "8623876c0b1b701c99fedf808d1adaa0",
+      "statement_sha256": [
+        "8fd826d11b6f717c46aac5a191805e422f5db845de7d7115e52596bf332243a8"
+      ],
+      "rendered_file_sha256": "da78c9d46b0ca263f955a95da9644e09f261632386f5ef2998007df2d6242c90",
+      "original_local_file": "20260912175044_mesa_workspace_shared_output_scope_v2.sql",
+      "classification": "D"
+    },
+    {
+      "version": "20260913134418",
+      "name": "newsroom_mesa_contexts_production_2c",
+      "filename": "20260913134418_newsroom_mesa_contexts_production_2c.sql",
+      "recorded_joined_sql_md5": "5be057c5c019bdbdfc62b8eef89d01db",
+      "statement_sha256": [
+        "7c2dff1cc5769586797b4c9b83182ba4cac900d48f91865a381c8d0b7ad7a093"
+      ],
+      "rendered_file_sha256": "0f4645057932434795540da30fe561ead8a0aecaf6840e017eeace9232c26e16",
+      "original_local_file": "20260913134418_newsroom_mesa_contexts_production_2c.sql",
+      "classification": "same-version"
+    },
+    {
+      "version": "20260913182822",
+      "name": "agenda_tv_sync_v2_preserve",
+      "filename": "20260913182822_agenda_tv_sync_v2_preserve.sql",
+      "recorded_joined_sql_md5": "205388d18301c36f3557aa1dcabd479b",
+      "statement_sha256": [
+        "09cd19f5cf2d6851a4ac428c7759d309d61fe2c3607dcb91c11d1e4912443c79"
+      ],
+      "rendered_file_sha256": "85a973b1a6d8bf4222e511cffb6c221291721ae7c80f5c9e37fec9e1e091a00f",
+      "original_local_file": "20260913182822_agenda_tv_sync_v2_preserve.sql",
+      "classification": "same-version"
+    },
+    {
+      "version": "20260914171729",
+      "name": "newsroom_mesa_theme_continuity_v1",
+      "filename": "20260914171729_newsroom_mesa_theme_continuity_v1.sql",
+      "recorded_joined_sql_md5": "0a458ea534dd15568aea80d64c070dd0",
+      "statement_sha256": [
+        "22837df11b3ebd61187fa5e0d3e21fcc5d8ecac81e8aec97af6fa7369f9bec64"
+      ],
+      "rendered_file_sha256": "87f870e065d8c1619573690594d861ce6fa6cdd2135b5a62cae05d32bdad486d",
+      "original_local_file": "20260914114311_newsroom_mesa_theme_continuity_v1.sql",
+      "classification": "E"
+    },
+    {
+      "version": "20260914172949",
+      "name": "newsroom_mesa_scoped_read_model_v1",
+      "filename": "20260914172949_newsroom_mesa_scoped_read_model_v1.sql",
+      "recorded_joined_sql_md5": "208c6b24ebd79fb7b225261450aa6948",
+      "statement_sha256": [
+        "cefb41161409198b4ca2ce9bf83d38d96829f942260a05997432aecebfd78eea"
+      ],
+      "rendered_file_sha256": "cead05773c0a7bcb5bbdfc7b36effd0a8f058b23e098808a535e893f67e1edff",
+      "original_local_file": "20260914074012_newsroom_mesa_scoped_read_model_v1.sql",
+      "classification": "E"
+    },
+    {
+      "version": "20260914203405",
+      "name": "newsroom_mesa_scoped_read_performance_v2",
+      "filename": "20260914203405_newsroom_mesa_scoped_read_performance_v2.sql",
+      "recorded_joined_sql_md5": "13b4ceec94b6e3ba6265452248812f39",
+      "statement_sha256": [
+        "1c1654f66cd10a98e2f03a203a00e1712ad45d014f8b4e983b838b82529f5433"
+      ],
+      "rendered_file_sha256": "214ef3f87ca8fd08db17227afa82a41c4078ed98330b138565064c6996a941d7",
+      "original_local_file": "20260914195500_newsroom_mesa_scoped_read_performance_v2.sql",
+      "classification": "E"
+    },
+    {
+      "version": "20260915095917",
+      "name": "jornada_private_rls_hardening",
+      "filename": "20260915095917_jornada_private_rls_hardening.sql",
+      "recorded_joined_sql_md5": "f949433de1f868a1ba68fdbd5c57ef89",
+      "statement_sha256": [
+        "4425a251f206ca9bc4954f4ec94a764a5e4236341704cfef709dad3e1b20fbcb"
+      ],
+      "rendered_file_sha256": "29aa34d77e603b577b99a574f83548f3463d253959ca9b1df17cc955f023ff77",
+      "original_local_file": "20260915150000_jornada_private_rls_hardening.sql",
+      "classification": "S"
+    },
+    {
+      "version": "20260917092520",
+      "name": "matchday_historical_inherited_revalidation",
+      "filename": "20260917092520_matchday_historical_inherited_revalidation.sql",
+      "recorded_joined_sql_md5": "85e7138d5cf8a45fbe3eaa7918c9316c",
+      "statement_sha256": [
+        "8a0de1e99e35c7981bde807c8853db08d2bba63208bed19937c33e132e035e77"
+      ],
+      "rendered_file_sha256": "ea3a7cf8eac3147d843d1d87f8727d6074c675565b3b4c7e7c00728aadedffd9",
+      "original_local_file": "20260917092520_matchday_historical_inherited_revalidation.sql",
+      "classification": "same-version"
+    },
+    {
+      "version": "20260918140702",
+      "name": "newsroom_mesa_intent_preparation_v1",
+      "filename": "20260918140702_newsroom_mesa_intent_preparation_v1.sql",
+      "recorded_joined_sql_md5": "9274768c48c2f00a24845cebbd2503dc",
+      "statement_sha256": [
+        "c698a6e7b4dc370eb1237f005ab9781a9478180ddeec98af71fc563b948c1ad2"
+      ],
+      "rendered_file_sha256": "b64425f9d3c6b06de7651fdb4d1a1e59a9a9df0b425c6ef51ddd7187471c4710",
+      "original_local_file": "20260917210000_newsroom_mesa_intent_preparation_v1.sql",
+      "classification": "E"
+    },
+    {
+      "version": "20260918141330",
+      "name": "newsroom_mesa_intent_publication_v1",
+      "filename": "20260918141330_newsroom_mesa_intent_publication_v1.sql",
+      "recorded_joined_sql_md5": "1f57f6c5028d0c44acad5d22b5cf4495",
+      "statement_sha256": [
+        "b4e13a78f7a36f813ba2fd594f66111d93f694c8a2c1a1a9290f8f3ffa3f2266"
+      ],
+      "rendered_file_sha256": "732a42981049d35077529525cb0b05905e7ef8d2c5534dcb6e295a27d17feb08",
+      "original_local_file": "20260917213000_newsroom_mesa_intent_publication_v1.sql",
+      "classification": "E"
+    },
+    {
+      "version": "20260918152310",
+      "name": "newsroom_mesa_intent_update_revision_hotfix",
+      "filename": "20260918152310_newsroom_mesa_intent_update_revision_hotfix.sql",
+      "recorded_joined_sql_md5": "a4073fc9e2d5f86af52e6a63dae43f79",
+      "statement_sha256": [
+        "e929a1f510c61bc8691af7b2f9a86c85a6b1859d982784c00e34440a91a51f73"
+      ],
+      "rendered_file_sha256": "a039d6128d844bdcc99ad988e7bfadc7765a7c12d68d692e8d2cfcc7af6fb5c9",
+      "original_local_file": "20260918145300_newsroom_mesa_intent_update_revision_hotfix.sql",
+      "classification": "E"
+    },
+    {
+      "version": "20260919014256",
+      "name": "newsroom_mesa_global_article_candidates_v1",
+      "filename": "20260919014256_newsroom_mesa_global_article_candidates_v1.sql",
+      "recorded_joined_sql_md5": "c2f9d56f908e45ee11475af72f64f4fe",
+      "statement_sha256": [
+        "9b4e2ef65d499b20a6ae843e1dff449b0cb002980e77b71728466a8a1accb144"
+      ],
+      "rendered_file_sha256": "800573bc245def86621ff098bbe9081c5a8fa1978f0f934af7f97a86e1f43548",
+      "original_local_file": "20260919014256_newsroom_mesa_global_article_candidates_v1.sql",
+      "classification": "same-version"
+    },
+    {
+      "version": "20260919014322",
+      "name": "newsroom_mesa_selection_context_v1",
+      "filename": "20260919014322_newsroom_mesa_selection_context_v1.sql",
+      "recorded_joined_sql_md5": "28e9f8bcba1ac26a2db203c7e07a025e",
+      "statement_sha256": [
+        "b1b2cec00745757cae7e86d5a9d3d65455e6a1261f4cd3c8a9b2517b5c0ea2a3"
+      ],
+      "rendered_file_sha256": "18ed39e8e812b78e54351e43e8463e3661dea7b22c67d5370422fbd2bfb010c6",
+      "original_local_file": "20260919014322_newsroom_mesa_selection_context_v1.sql",
+      "classification": "same-version"
+    },
+    {
+      "version": "20260919014344",
+      "name": "newsroom_mesa_article_continuity_v2",
+      "filename": "20260919014344_newsroom_mesa_article_continuity_v2.sql",
+      "recorded_joined_sql_md5": "328762e81fa5c24e90b859857c9a5af7",
+      "statement_sha256": [
+        "64eb3da1e805e45f73037e96494b9a66fee4b9b7fab37189df3555349eec6a4f"
+      ],
+      "rendered_file_sha256": "4cccb21e82c8d167c3204bdce58ab83737cd019d9904faa142e08ff91fab547e",
+      "original_local_file": "20260919014344_newsroom_mesa_article_continuity_v2.sql",
+      "classification": "same-version"
+    },
+    {
+      "version": "20260919215554",
+      "name": "newsroom_mesa_output_focus_v1",
+      "filename": "20260919215554_newsroom_mesa_output_focus_v1.sql",
+      "recorded_joined_sql_md5": "89a938512610c27e8bdd2c9babca4418",
+      "statement_sha256": [
+        "3a1dab0eb50a5a93d4c0e6e56cb19577086a84d8e14c9ba6505d437817a37dae"
+      ],
+      "rendered_file_sha256": "97be2a46bda28e4c8de04c6428139a1c44f8c8ecb68d5bb1a6f5854bd8fdf073",
+      "original_local_file": "20260919215554_newsroom_mesa_output_focus_v1.sql",
+      "classification": "same-version"
+    },
+    {
+      "version": "20260919215613",
+      "name": "newsroom_mesa_reviewed_source_memory_v1",
+      "filename": "20260919215613_newsroom_mesa_reviewed_source_memory_v1.sql",
+      "recorded_joined_sql_md5": "1a54b4eeab22637e34d57cbd2472ed70",
+      "statement_sha256": [
+        "93a870ceac97d33bed7df0ffd564ac80673223d6bc2e601a7bc957dddd2b6df5"
+      ],
+      "rendered_file_sha256": "40227e5a97066ec7f0a60a4a5d90b6d4351fe846c6deed2a332531ec19d91bbb",
+      "original_local_file": "20260919215613_newsroom_mesa_reviewed_source_memory_v1.sql",
+      "classification": "same-version"
+    },
+    {
+      "version": "20260920104412",
+      "name": "newsroom_current_feed_automation_v1",
+      "filename": "20260920104412_newsroom_current_feed_automation_v1.sql",
+      "recorded_joined_sql_md5": "67ed3c043b437c3720355dccb5f0c978",
+      "statement_sha256": [
+        "7e27318051b8e0493f3971ff87ef7005051e565b72291b7fe9bb9eb3faa5c24d"
+      ],
+      "rendered_file_sha256": "8f71fb27be1db18d3ff31c88fc75da27298c74abb64e32e2955f1ff7ac0dfa3d",
+      "original_local_file": "20260920093500_newsroom_current_feed_automation_v1.sql",
+      "classification": "E"
+    },
+    {
+      "version": "20260920141132",
+      "name": "manual_newsroom_source_v1",
+      "filename": "20260920141132_manual_newsroom_source_v1.sql",
+      "recorded_joined_sql_md5": "fcfb35b2860618f7868a62202752e852",
+      "statement_sha256": [
+        "0b3ff58e7934be8068fcb0bed470c54d442b294f4d1b4ede9844bca3dba25f58"
+      ],
+      "rendered_file_sha256": "513f8c16299cedbf59bda6270520b7074b6994cd25104eeda7fed6451a37fde1",
+      "original_local_file": "20260920115213_manual_newsroom_source_v1.sql",
+      "classification": "E"
+    },
+    {
+      "version": "20260920141235",
+      "name": "matchday_live_layout_additional_zone_atomic_apply",
+      "filename": "20260920141235_matchday_live_layout_additional_zone_atomic_apply.sql",
+      "recorded_joined_sql_md5": "75a47819fd6efa4c046410fc27a528ba",
+      "statement_sha256": [
+        "89dda2bd2f706e02ecfd58987210fb91ee382e5680b7ec514bb9a3b329d2e26e"
+      ],
+      "rendered_file_sha256": "0111330b77a6f41aea091c59a29ce3a8e6fa034a7cd8d811637faa3633a00048",
+      "original_local_file": "20260920045217_matchday_live_layout_additional_zone_atomic_apply.sql",
+      "classification": "E"
+    },
+    {
+      "version": "20260920150111",
+      "name": "newsroom_mesa_theme_published_outputs_v2",
+      "filename": "20260920150111_newsroom_mesa_theme_published_outputs_v2.sql",
+      "recorded_joined_sql_md5": "c71d2b76beadea70dbd327be8e4797db",
+      "statement_sha256": [
+        "8ae16d8cf44322f1db3b619ae3f0d41eb984a3d2915c028f9546b80d0702b76c"
+      ],
+      "rendered_file_sha256": "28f635d37560b387242ac29ff5928734f02c7ca582c82150efe24dd464ad37b8",
+      "original_local_file": "20260920151500_newsroom_mesa_theme_published_outputs_v2.sql",
+      "classification": "E"
+    },
+    {
+      "version": "20260920153333",
+      "name": "newsroom_mesa_selection_theme_published_outputs_v3",
+      "filename": "20260920153333_newsroom_mesa_selection_theme_published_outputs_v3.sql",
+      "recorded_joined_sql_md5": "4c21feba10e10d79744db91070d41795",
+      "statement_sha256": [
+        "c268304978107ce84de2afb3a97e78b489e94c8b2be490a1257e42beb8cf6430"
+      ],
+      "rendered_file_sha256": "98b9dcc5931a56d554537d08a9917c6687de115180840e851a95f808c35cb380",
+      "original_local_file": "20260920170000_newsroom_mesa_selection_theme_published_outputs_v3.sql",
+      "classification": "E"
+    },
+    {
+      "version": "20260920180000",
+      "name": "match_video_summary_discovery_audit",
+      "filename": "20260920180000_match_video_summary_discovery_audit.sql",
+      "recorded_joined_sql_md5": "7a3577652fd60439595b75b38a41a730",
+      "statement_sha256": [
+        "2a94938f505b6b17f59080e36ad6d9bbb02c6d198e1c6445cdaf9a188c03eca4"
+      ],
+      "rendered_file_sha256": "334e8179797cfddacb22d63c0526d7cfb4b872d7776f0944860bd038835341a6",
+      "original_local_file": "20260920180000_match_video_summary_discovery_audit.sql",
+      "classification": "same-version"
+    },
+    {
+      "version": "20260921051856",
+      "name": "newsroom_mesa_new_output_grouping_v2",
+      "filename": "20260921051856_newsroom_mesa_new_output_grouping_v2.sql",
+      "recorded_joined_sql_md5": "5dedfb3ce33621df5217fbd7ac65d24d",
+      "statement_sha256": [
+        "9c6d2c77e7ce6f02fa4e28b0c81f4c5242fbb7bafd8d4e5fa88e9967a7dc6943"
+      ],
+      "rendered_file_sha256": "657c619cbf13af1083ad25fdce06c3ba4af330d2cb4954857e9c1c201a6694cf",
+      "original_local_file": "20260920213530_newsroom_mesa_new_output_grouping_v2.sql",
+      "classification": "E"
+    },
+    {
+      "version": "20260922131501",
+      "name": "matchday_live_layout_zone_target_identity",
+      "filename": "20260922131501_matchday_live_layout_zone_target_identity.sql",
+      "recorded_joined_sql_md5": "2a8be9b17c75d41a05c26076ccdfab86",
+      "statement_sha256": [
+        "03656ea2f9b2ef05af6524850bc7df277c1b1adfc2e6393a9946970c135262d0"
+      ],
+      "rendered_file_sha256": "745c36911b0d1818ac4f2d5af8b36f713e835b8f66f6810b8d641d44f97a5583",
+      "original_local_file": "20260922114943_matchday_live_layout_zone_target_identity.sql",
+      "classification": "E"
+    },
+    {
+      "version": "20260922171755",
+      "name": "matchday_historical_article_selection",
+      "filename": "20260922171755_matchday_historical_article_selection.sql",
+      "recorded_joined_sql_md5": "d015c4cd277701a57acd15467089c2f2",
+      "statement_sha256": [
+        "1b5493d0f2fbd611ac1f94a10bd79ecadf5d9b6446bffccec1a695bda4a48370"
+      ],
+      "rendered_file_sha256": "6db0a55b44a6ea6b23822624b2fa2598f730860dd897859e9203bd47eaa59557",
+      "original_local_file": "20260922171755_matchday_historical_article_selection.sql",
+      "classification": "same-version"
+    },
+    {
+      "version": "20260922195433",
+      "name": "newsroom_manual_classification_theme_authority",
+      "filename": "20260922195433_newsroom_manual_classification_theme_authority.sql",
+      "recorded_joined_sql_md5": "8fd6e567b129b68d3428b01dfa62f8ce",
+      "statement_sha256": [
+        "63f03c5985f7e70dee0e45079b3393782cfa2888c93eecc549932de916f85cf2"
+      ],
+      "rendered_file_sha256": "ad87f43c41c557c18bd97cb7482f934bc88df867a18c58145e3fd5e600ca1b5e",
+      "original_local_file": "20260922195433_newsroom_manual_classification_theme_authority.sql",
+      "classification": "same-version"
+    },
+    {
+      "version": "20260924090832",
+      "name": "matchday_video_highlight_section_titles",
+      "filename": "20260924090832_matchday_video_highlight_section_titles.sql",
+      "recorded_joined_sql_md5": "b22867eeab6d361584de6d9e723742ea",
+      "statement_sha256": [
+        "2aafd1b9ba5aecff16a142ba3e34b86467af03cd87cc170aca705022935f1af2"
+      ],
+      "rendered_file_sha256": "36ef9f97097ed8f00669da7f21a519fec64703287f816bd01c1cb2cede9648d4",
+      "original_local_file": "20260924120000_matchday_video_highlight_section_titles.sql",
+      "classification": "E"
+    },
+    {
+      "version": "20260924094033",
+      "name": "matchday_faixa_public_title",
+      "filename": "20260924094033_matchday_faixa_public_title.sql",
+      "recorded_joined_sql_md5": "440669adbdbf305bc43cad0b43a48288",
+      "statement_sha256": [
+        "b1d7e94a43729ca35c0bff8bf26a27e4dd61ebfef0aacea6daff67775c27e90a"
+      ],
+      "rendered_file_sha256": "6fa0e9a8b8da52b9f3198cbda10c755c3c3619e521bd0f06614f08d954330665",
+      "original_local_file": "20260924163000_matchday_faixa_public_title.sql",
+      "classification": "E"
+    },
+    {
+      "version": "20260924121941",
+      "name": "historical_composition_faixa_public_title",
+      "filename": "20260924121941_historical_composition_faixa_public_title.sql",
+      "recorded_joined_sql_md5": "add83d06d5bb686d6e49a931b1e29e3d",
+      "statement_sha256": [
+        "76bc7ed9ebd9b722b4926d8a77e9291cd198f68ad81b7b25d0070d4272fac62a"
+      ],
+      "rendered_file_sha256": "96ec1b357d3e2898d8f241a273ed5b13197ea0f25a0512ace1e02c44c289b566",
+      "original_local_file": "20260924190000_historical_composition_faixa_public_title.sql",
+      "classification": "E"
+    },
+    {
+      "version": "20260924134717",
+      "name": "matchday_public_reader_json_null_hotfix",
+      "filename": "20260924134717_matchday_public_reader_json_null_hotfix.sql",
+      "recorded_joined_sql_md5": "0f075369dc4fa5454039c40a51c15aa6",
+      "statement_sha256": [
+        "369be8434773bef60c1b66f2e17a7d3d0894d1882055ec10ccf029305d9f953c"
+      ],
+      "rendered_file_sha256": "4eb1229d3cabf915ea031a880b0ce1728117cd3e9a691a29a2be75d4d54f8377",
+      "original_local_file": "20260924193000_matchday_public_reader_json_null_hotfix.sql",
+      "classification": "E"
+    },
+    {
+      "version": "20260924162021",
+      "name": "newsroom_article_plan_output_classification_authority",
+      "filename": "20260924162021_newsroom_article_plan_output_classification_authority.sql",
+      "recorded_joined_sql_md5": "1e4f5523b263cb5c2c65aabb4881ced7",
+      "statement_sha256": [
+        "7d5472b2c80785c6c4ce752cdcb61c3e0bce4e553dbc88a5d314983f47c78d1a"
+      ],
+      "rendered_file_sha256": "ef0f529a710d5e07a41130378c7a03f1c90cea8fb098fd6d1c9410b9f2b00455",
+      "original_local_file": "20260924200000_newsroom_article_plan_output_classification_authority.sql",
+      "classification": "E"
+    },
+    {
+      "version": "20260924213644",
+      "name": "newsroom_article_plan_classification_decision",
+      "filename": "20260924213644_newsroom_article_plan_classification_decision.sql",
+      "recorded_joined_sql_md5": "ff6dcea6bc372117a8073b31eb587e53",
+      "statement_sha256": [
+        "ac05cd51369aa9a7444342f1b82220a7de68dbc008f3a530a6b4ed90ebd23177"
+      ],
+      "rendered_file_sha256": "9b843435db7e9c0a7e0dc2f4022181c57c118c5ac6bbd284950488a0f5e995f0",
+      "original_local_file": "20260924213644_newsroom_article_plan_classification_decision.sql",
+      "classification": "same-version"
+    },
+    {
+      "version": "20260925221106",
+      "name": "advertising_horizontal_format",
+      "filename": "20260925221106_advertising_horizontal_format.sql",
+      "recorded_joined_sql_md5": "025640a53fc8ae92624ed4b5ce7229d2",
+      "statement_sha256": [
+        "36d1c51489f54f5eb204f3a78b8406709518a68aaf802a45dd52d908ba509381"
+      ],
+      "rendered_file_sha256": "50f72baf47b153035a92336555c8f80d769e72e5ec71daa922f21fb49de7265b",
+      "original_local_file": "20260925221106_advertising_horizontal_format.sql",
+      "classification": "same-version"
+    },
+    {
+      "version": "20260926193320",
+      "name": "mesa_continuity_explicit_articles_and_reads",
+      "filename": "20260926193320_mesa_continuity_explicit_articles_and_reads.sql",
+      "recorded_joined_sql_md5": "2cba63dda302535e38a888671880be86",
+      "statement_sha256": [
+        "da009187e3f3c02666c4f55bcce4172e502e030ac0f63d9366360204aa597c5a"
+      ],
+      "rendered_file_sha256": "f2721d1a3feb27eb17ba745dd2ea07d9fee11467b5aa72813b38e38108de86e4",
+      "original_local_file": "20260926183411_mesa_continuity_explicit_articles_and_reads.sql",
+      "classification": "E"
+    },
+    {
+      "version": "20260926205936",
+      "name": "newsroom_canonical_article_sources",
+      "filename": "20260926205936_newsroom_canonical_article_sources.sql",
+      "recorded_joined_sql_md5": "7823a1789656c4761bf688bcb5006c97",
+      "statement_sha256": [
+        "52be5951df5bb6f9cad1f8010d8023c86f7053ec6b7559b75446912eab464fa7"
+      ],
+      "rendered_file_sha256": "f05c796f140675d1912a9c4633df60136527e9e27d9462bad9523d5ad56b7b21",
+      "original_local_file": "20260926202221_newsroom_canonical_article_sources.sql",
+      "classification": "E"
+    },
+    {
+      "version": "20260926224911",
+      "name": "restore_legacy_mesa_lifecycle_publications",
+      "filename": "20260926224911_restore_legacy_mesa_lifecycle_publications.sql",
+      "recorded_joined_sql_md5": "67ce1abec09e20c8cc73a71f847eeeaa",
+      "statement_sha256": [
+        "e49e0f22a9645780117c71641156e28aa01d240ede45ea5cce05e637eb295a97"
+      ],
+      "rendered_file_sha256": "03b5c9a0ebd4364f120f8a83a768c321ea900ca2ae12bb2237ca27c1351f4795",
+      "original_local_file": "20260926220638_restore_legacy_mesa_lifecycle_publications.sql",
+      "classification": "E"
+    },
+    {
+      "version": "20260927110935",
+      "name": "editorial_six_news_1_2_3",
+      "filename": "20260927110935_editorial_six_news_1_2_3.sql",
+      "recorded_joined_sql_md5": "f04469d870ce892c61111621accc7f0b",
+      "statement_sha256": [
+        "e6f07d43b5c21db0fbb9a31feac2dc599787763393dd5acbfad80e247eb02ad5",
+        "cc134256aa7119b2014ccecd94c32ae0760730baa79301ca7cd01c07be98a8f3",
+        "290ced469392885be8d6d63d2abc4d1222bf117e27955f40b961adf1ca4fa91a",
+        "ac9e64264c33a0af6f4d1de4fbe55ef435fe07f48d17f22b4fc0d50548f8c2b4",
+        "9505cacb7c710ed17125fcc6cb3669e8ddca6c8cd8af6a31f6b3cd64604c3098"
+      ],
+      "rendered_file_sha256": "a9279d3cef2d9a373707fa6fcdc0b737237f672b1765cae6991784e32ae86378",
+      "original_local_file": "20260927110935_editorial_six_news_1_2_3.sql",
+      "classification": "same-version"
+    }
+  ],
+  "reference_files_updated": [
+    ".ci/mesa-contexts-2c-sql/run.py",
+    ".ci/mesa-intents-sql/article-sources.py",
+    ".ci/mesa-intents-sql/continuity.py",
+    ".ci/mesa-intents-sql/latest_bootstrap.py",
+    ".ci/mesa-intents-sql/publication.py",
+    ".ci/mesa-intents-sql/run.py",
+    ".ci/mesa-intents-ui/flow-driver.mjs",
+    ".ci/mesa-sql/inputs.json",
+    ".ci/mesa-sql/run.py",
+    ".github/workflows/mesa-contextos-2c-sql.yml",
+    ".github/workflows/mesa-intents-application.yml",
+    ".github/workflows/mesa-organizacao-sql.yml",
+    ".github/workflows/mesa-production-intents-sql.yml",
+    "docs/mesa-production-intents-release-boundaries-v1.md",
+    "docs/mesa-production-intents-v1.md",
+    "lib/editorial-bank-automatic-eligibility.test.ts",
+    "lib/editorial-bank-contextual-classification.test.ts",
+    "lib/editorial-continuity-transitions.test.ts",
+    "lib/editorial-historical-composition-atomicity.test.ts",
+    "lib/editorial-historical-composition-body-order.test.ts",
+    "lib/editorial-historical-composition-dynamic-workspace-rpc.test.ts",
+    "lib/editorial-historical-composition-flexible-desk.test.ts",
+    "lib/editorial-historical-faixa-public-title.test.ts",
+    "lib/editorial-matchday-continuity.test.ts",
+    "lib/editorial-matchday-live-zone-order.test.ts",
+    "lib/editorial-matchday-profile-manual-overrides.test.ts",
+    "lib/editorial-matchday-profile-shared-faixa-reconcile.test.ts",
+    "lib/editorial-matchday-profile-workspace-migration.test.ts",
+    "lib/editorial-thematic-continuity-v3.test.ts",
+    "lib/editorial-thematic-workspace-apply-source-cache.test.ts",
+    "lib/editorial-thematic-workspace-apply-token-cache.test.ts",
+    "lib/editorial-thematic-workspace-continuity-apply.test.ts",
+    "lib/matchday-agenda-tv-sync-contract.test.ts",
+    "lib/matchday-contextual-classification-correction-7d.test.ts",
+    "lib/matchday-editorial-movement-contract-7c2.test.ts",
+    "lib/matchday-explicit-bank-displaced-semantics.test.ts",
+    "lib/matchday-faixa-bank-atomic-apply.test.ts",
+    "lib/matchday-faixa-public-title.test.ts",
+    "lib/matchday-historical-physical-archive-v20.test.ts",
+    "lib/matchday-historical-reopen-physical-handoff.test.ts",
+    "lib/matchday-historical-republish-independence.test.ts",
+    "lib/matchday-historical-republish-v19-certificate.test.ts",
+    "lib/matchday-live-desk-aggregate-tracking.test.ts",
+    "lib/matchday-live-desk-historical-bank-delta.test.ts",
+    "lib/matchday-live-desk-state-handoff.test.ts",
+    "lib/matchday-live-desk-tracking-order.test.ts",
+    "lib/matchday-live-faixa-contiguous-normalization.test.ts",
+    "lib/matchday-live-layout-authoritative-cutover.test.ts",
+    "lib/matchday-live-layout-displaced-state-shadow.test.ts",
+    "lib/matchday-live-layout-latest-companion-generic-v23.test.ts",
+    "lib/matchday-live-layout-latest-companion-handoff-v25.test.ts",
+    "lib/matchday-live-layout-physical-crud-v20.test.ts",
+    "lib/matchday-live-layout-placements-shadow.test.ts",
+    "lib/matchday-live-layout-source-retirement.test.ts",
+    "lib/matchday-live-layout-workspace-v13-reader.test.ts",
+    "lib/matchday-live-layout-write-core-preparation.test.ts",
+    "lib/matchday-live-layout-zone-target-identity.test.ts",
+    "lib/matchday-live-layout-zones-blocks-shadow.test.ts",
+    "lib/matchday-movement-preview-no-cascade.test.ts",
+    "lib/matchday-public-reader-json-null.test.ts",
+    "lib/matchday-roundup-context-boundary-v28.test.ts",
+    "lib/matchday-selection-optional-parity-7c3.test.ts",
+    "lib/matchday-video-section-titles.test.ts",
+    "lib/redacao-automatica/editorial-source-package-manifest-v5-schema.test.ts",
+    "lib/redacao-automatica/manual-newsroom-source.test.ts",
+    "lib/redacao-automatica/newsroom-article-plan-output-classification.test.ts",
+    "lib/redacao-automatica/newsroom-current-feed-automation.test.ts",
+    "lib/redacao-automatica/newsroom-deterministic-classifier-bank-compatibility.test.ts",
+    "lib/redacao-automatica/newsroom-manual-classification-authority.test.ts",
+    "lib/redacao-automatica/newsroom-mesa-legacy-lifecycle.test.ts",
+    "lib/redacao-automatica/newsroom-mesa-new-output-groups.test.ts",
+    "lib/redacao-automatica/newsroom-mesa-organization.test.ts",
+    "lib/redacao-automatica/newsroom-mesa-production-lifecycle-v2.test.ts",
+    "lib/redacao-automatica/newsroom-mesa-scoped-egress.test.ts",
+    "lib/redacao-automatica/newsroom-theme-continuity.test.ts",
+    "scripts/verify-six-news-tiered-sql.cjs",
+    "supabase/sql/test-matchday-agenda-tv-sync-v2-preserve-pg17.sql",
+    "supabase/sql/test-matchday-explicit-bank-displaced-semantics-pg17.sql",
+    "supabase/sql/validate-mesa-production-workspace-v2-postflight-pg17.sql",
+    "supabase/sql/validate-mesa-shared-output-scope-v2-postflight-pg17.sql",
+    "supabase/sql/validate-mesa-shared-output-scope-v2-preflight-pg17.sql",
+    "supabase/sql/validate-newsroom-mesa-scoped-read-model-v1-postflight-pg17.sql",
+    "supabase/sql/validate-newsroom-mesa-scoped-read-model-v1-preflight-pg17.sql",
+    "supabase/sql/validate-newsroom-mesa-theme-continuity-v1-postflight-pg17.sql",
+    "supabase/sql/validate-newsroom-mesa-theme-continuity-v1-preflight-pg17.sql",
+    "supabase/sql/validate-source-package-manifest-v5-postflight-pg17.sql",
+    "supabase/sql/validate-source-package-manifest-v5-preflight-pg17.sql"
+  ]
+}

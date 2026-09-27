@@ -24,7 +24,7 @@ const publicPage = source(
   "app/competicoes/[competitionSlug]/[seasonLabel]/jornadas/[matchdayNumber]/page.tsx",
 );
 const migration = source(
-  "supabase/migrations/20260819193000_matchday_live_public_zone_order.sql",
+  "supabase/migrations/20260819183901_matchday_live_public_zone_order.sql",
 );
 
 test("a ordem viva tem cinco zonas móveis e fallback determinístico", () => {

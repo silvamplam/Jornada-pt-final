@@ -6,7 +6,7 @@ import test from "node:test";
 const migrationPath =
   "supabase/migrations/20260905230000_matchday_live_layout_physical_crud_v20.sql";
 const atomicMigrationPath =
-  "supabase/migrations/20260920045217_matchday_live_layout_additional_zone_atomic_apply.sql";
+  "supabase/migrations/20260920141235_matchday_live_layout_additional_zone_atomic_apply.sql";
 const v21MigrationPath =
   "supabase/migrations/20260906220000_matchday_live_layout_four_news_optional_titles_v21.sql";
 const fixturePath =

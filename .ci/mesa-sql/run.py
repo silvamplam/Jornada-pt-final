@@ -222,7 +222,7 @@ insert into public.newsroom_article_snapshots(id,article_id,content_hash,body,so
 values('{uid(100+n)}','{uid(n)}',repeat('{n}',64),'[{{"type":"paragraph","text":"Texto de teste"}}]','{{}}',now());""")
     legacy = scalar(f"insert into public.newsroom_editorial_themes(title,classification_key) values('Tema anterior','sporting') returning id;")
     sql(f"select * from public.newsroom_set_editorial_theme_source_membership_v1('{legacy}','{uid(1)}',true);")
-    load('supabase/migrations/20260910223000_newsroom_mesa_theme_organization_v1.sql')
+    load('supabase/migrations/20260911100419_newsroom_mesa_theme_organization_v1.sql')
     case('No invented last-seen history', lambda: check(scalar(f"select reference_snapshot_id is null and reference_at is null from public.newsroom_editorial_theme_sources where theme_id='{legacy}'") == 't', 'old source marked seen'))
     case('Exact delivered smoke including rollback', lambda: load('supabase/sql/jornada-mesa-organizacao-v1-smoke-rollback.sql'))
     case('Smoke left no source data', lambda: check(scalar("select count(*) from public.newsroom_articles where source_code='__mesa_organization_smoke__'") == '0', 'rollback did not remove fixtures'))

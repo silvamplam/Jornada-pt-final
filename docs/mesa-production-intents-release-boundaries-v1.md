@@ -41,10 +41,10 @@ Home, páginas públicas, cartões, CSS, dependências, produção antiga ou pac
 
 Aplicar apenas estas duas, nesta ordem, com os hashes SHA-256 da entrega final:
 
-1. `supabase/migrations/20260917210000_newsroom_mesa_intent_preparation_v1.sql`:
+1. `supabase/migrations/20260918140702_newsroom_mesa_intent_preparation_v1.sql`:
    a preparação existente, sem alteração nesta etapa. Tabela de preparações e
    funções de normalização, leitura autoritativa e preparação transacional.
-2. `supabase/migrations/20260917213000_newsroom_mesa_intent_publication_v1.sql`:
+2. `supabase/migrations/20260918141330_newsroom_mesa_intent_publication_v1.sql`:
    tabelas de finalizações/recibos, índices, funções de publicação, colocação em
    Últimas, finalização e leitura de recibos; trigger de proteção. Substitui só
    o helper privado de captura e o dispatcher V2 já delimitados na etapa SQL.

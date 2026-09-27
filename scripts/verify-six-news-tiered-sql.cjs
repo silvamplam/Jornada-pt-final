@@ -26,14 +26,14 @@ function definition(file, name) {
 const definitions = [
   ["20260827183157_historical_composition_optional_public_titles", "public.replace_historical_composition_dynamic_zones"],
   ["20260826120541_historical_composition_dynamic_publication_activation", "public.activate_matchday_reference_composition"],
-  ["20260823133347_matchday_editorial_profile_flexible_layouts_latest_order", "public.apply_matchday_editorial_profile_workspace_v2"],
-  ["20260904001500_matchday_selection_optional_capacity", "jornada_private.apply_matchday_editorial_profile_workspace_v9_pre_bridge"],
-  ["20260831203151_matchday_live_layout_zones_blocks_shadow", "jornada_private.validate_matchday_live_layout_shadow_inputs"],
+  ["20260823141940_matchday_editorial_profile_flexible_layouts_latest_order", "public.apply_matchday_editorial_profile_workspace_v2"],
+  ["20260903233122_matchday_selection_optional_capacity", "jornada_private.apply_matchday_editorial_profile_workspace_v9_pre_bridge"],
+  ["20260901082156_matchday_live_layout_zones_blocks_shadow", "jornada_private.validate_matchday_live_layout_shadow_inputs"],
   ["20260906220000_matchday_live_layout_four_news_optional_titles_v21", "jornada_private.matchday_live_layout_layout_capacity_v20"],
 ].map(([file, name]) => definition(file, name)).join("\n");
-const control = migration("20260907150000_matchday_profile_reconcile_four_news_layout");
+const control = migration("20260907145743_matchday_profile_reconcile_four_news_layout");
 const controlCheck = control.slice(control.indexOf("alter table", control.indexOf("alter table") + 1), control.lastIndexOf("commit;"));
-const historical = migration("20260826063000_historical_composition_dynamic_zones");
+const historical = migration("20260826061934_historical_composition_dynamic_zones");
 const historicalTables = historical.slice(historical.indexOf("create table"), historical.indexOf("create index"));
 console.log(sql(`
 do $guard$ begin

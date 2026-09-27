@@ -2,7 +2,7 @@
 
 -- Run only on the same disposable PostgreSQL 17 database used by the paired
 -- preflight script, immediately after applying
--- 20260912152810_mesa_production_workspace_v2_provenance.sql.
+-- 20260912172405_mesa_production_workspace_v2_provenance.sql.
 
 do $schema_assert$
 declare v_missing text[];

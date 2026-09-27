@@ -6,3 +6,4 @@ create index newsroom_mesa_theme_materials_material_version_idx on public.newsro
 create index newsroom_mesa_version_article_refs_article_idx on public.newsroom_mesa_version_article_refs(editorial_article_id);
 create index newsroom_mesa_version_source_refs_article_idx on public.newsroom_mesa_version_source_refs(newsroom_article_id);
 create index newsroom_mesa_version_source_refs_snapshot_idx on public.newsroom_mesa_version_source_refs(newsroom_snapshot_id);
+;

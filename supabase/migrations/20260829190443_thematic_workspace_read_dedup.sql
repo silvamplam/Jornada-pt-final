@@ -1,7 +1,3 @@
--- Deployed to Supabase as migration 20260829190443 thematic_workspace_read_dedup.
--- Read-only helper optimization: deduplicate repeated classification/workspace source reads.
--- No Apply logic, classifier logic, data, grants, or timeout settings are changed.
-
 create or replace function public.matchday_editorial_profile_workspace_sources(
   p_matchday_id uuid
 )
@@ -299,3 +295,4 @@ as $function$
     )::text
   ) as state_token;
 $function$;
+;

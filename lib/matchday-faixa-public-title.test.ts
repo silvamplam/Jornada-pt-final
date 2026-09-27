@@ -15,7 +15,7 @@ function source(relativePath: string): string {
 }
 
 const migration = source(
-  "supabase/migrations/20260924163000_matchday_faixa_public_title.sql",
+  "supabase/migrations/20260924094033_matchday_faixa_public_title.sql",
 );
 const client = source(
   "app/admin/editorial/jornada/[matchdayId]/organizar/MatchdayEditorialThematicDeskClient.tsx",

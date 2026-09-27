@@ -35,7 +35,7 @@ a referência. Histórico ausente ou ambíguo dá UNKNOWN, não UNCHANGED_SOURCE
 ## Implementado: preparação transacional PostgreSQL
 
 Migração candidata, ainda não aplicada na Supabase:
-`supabase/migrations/20260917210000_newsroom_mesa_intent_preparation_v1.sql`.
+`supabase/migrations/20260918140702_newsroom_mesa_intent_preparation_v1.sql`.
 
 Acrescenta uma tabela e quatro funções, sem alterar funções existentes:
 
@@ -100,7 +100,7 @@ O artefacto mesa-intents-preparation-evidence guarda os resultados do commit.
 ## Implementado: publicação e finalização SQL
 
 Migração candidata, ainda NÃO aplicada na Supabase:
-`supabase/migrations/20260917213000_newsroom_mesa_intent_publication_v1.sql`.
+`supabase/migrations/20260918141330_newsroom_mesa_intent_publication_v1.sql`.
 O conteúdo foi recuperado do blob `51423a4ce7301f1f10d69da80670b229efaedd81`
 e ensaiado sem alterações, em PostgreSQL 17.6 descartável.
 

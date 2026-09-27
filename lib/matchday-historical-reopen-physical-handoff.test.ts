@@ -6,7 +6,7 @@ import test from "node:test";
 const migrationPath =
   "supabase/migrations/20260908194740_matchday_historical_reopen_physical_handoff_authority_v20.sql";
 const originalMigrationPath =
-  "supabase/migrations/20260902053337_matchday_historical_republish_independence.sql";
+  "supabase/migrations/20260902091016_matchday_historical_republish_independence.sql";
 const migration = readFileSync(migrationPath, "utf8");
 const smoke = readFileSync(
   "supabase/sql/test-matchday-live-layout-physical-handoff-pg17.sql",

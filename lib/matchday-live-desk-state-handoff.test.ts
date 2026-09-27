@@ -4,28 +4,28 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 
 const migrationPath =
-  "supabase/migrations/20260902155805_matchday_live_desk_state_handoff.sql";
+  "supabase/migrations/20260903165824_matchday_live_desk_state_handoff.sql";
 const fixturePath =
   "supabase/sql/test-matchday-live-desk-state-handoff-pg17.sql";
 const migration = readFileSync(migrationPath, "utf8");
 const retirement = readFileSync(
-  "supabase/migrations/20260901211957_matchday_live_layout_source_retirement.sql",
+  "supabase/migrations/20260901214531_matchday_live_layout_source_retirement.sql",
   "utf8",
 );
 const cutoverBridge = readFileSync(
-  "supabase/migrations/20260901201453_matchday_live_layout_cutover_bridge.sql",
+  "supabase/migrations/20260901205409_matchday_live_layout_cutover_bridge.sql",
   "utf8",
 );
 
 const protectedMigrations = [
-  "supabase/migrations/20260901201453_matchday_live_layout_cutover_bridge.sql",
-  "supabase/migrations/20260901201455_matchday_live_layout_authoritative_activation.sql",
-  "supabase/migrations/20260901211957_matchday_live_layout_source_retirement.sql",
-  "supabase/migrations/20260902053337_matchday_historical_republish_independence.sql",
-  "supabase/migrations/20260902095825_matchday_faixa_bank_atomic_apply_fix.sql",
-  "supabase/migrations/20260902110327_matchday_live_desk_aggregate_tracking_reader.sql",
-  "supabase/migrations/20260902130518_matchday_explicit_bank_displaced_semantics.sql",
-  "supabase/migrations/20260902141655_matchday_preview_movement_without_cascade.sql",
+  "supabase/migrations/20260901205409_matchday_live_layout_cutover_bridge.sql",
+  "supabase/migrations/20260901210438_matchday_live_layout_authoritative_activation.sql",
+  "supabase/migrations/20260901214531_matchday_live_layout_source_retirement.sql",
+  "supabase/migrations/20260902091016_matchday_historical_republish_independence.sql",
+  "supabase/migrations/20260902103721_matchday_faixa_bank_atomic_apply_fix.sql",
+  "supabase/migrations/20260902121536_matchday_live_desk_aggregate_tracking_reader.sql",
+  "supabase/migrations/20260902151042_matchday_explicit_bank_displaced_semantics.sql",
+  "supabase/migrations/20260902151127_matchday_preview_movement_without_cascade.sql",
 ];
 
 function section(startNeedle: string, endNeedle: string) {
@@ -63,7 +63,7 @@ test("migration 7B is forward-only and leaves every applied migration untouched"
   assert.match(migration, /commit;\s*$/);
   assert.ok(
     migrationPath >
-      "supabase/migrations/20260902141655_matchday_preview_movement_without_cascade.sql",
+      "supabase/migrations/20260902151127_matchday_preview_movement_without_cascade.sql",
   );
   assert.equal(
     execFileSync("git", ["diff", "--name-only", "--", ...protectedMigrations], {

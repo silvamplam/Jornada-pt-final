@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 
 const migration = readFileSync(
-  "supabase/migrations/20260912173257_allow_mesa_v2_source_package_manifest_v5.sql",
+  "supabase/migrations/20260912192043_allow_mesa_v2_source_package_manifest_v5.sql",
   "utf8",
 );
 

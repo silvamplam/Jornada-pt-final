@@ -6,7 +6,7 @@ returns uuid
 language plpgsql
 security definer
 set search_path = 'public'
-as $function$
+as $$
 declare
   v_path text := regexp_replace(split_part(split_part(coalesce(btrim(p_link_url), ''), '?', 1), '#', 1), '/$', '');
   v_slug text;
@@ -158,4 +158,6 @@ begin
 
   return null;
 end
-$function$;
+$$;
+
+;

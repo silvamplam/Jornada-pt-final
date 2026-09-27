@@ -58,3 +58,4 @@ comment on function public.remove_deleted_editorial_source_from_matchday_bank() 
   'Depois de a aplicação autorizar a eliminação sem vínculos públicos, remove Seleção manual, estado temático, referências internas de composição e Banco da identidade editorial eliminada.';
 
 notify pgrst, 'reload schema';
+;

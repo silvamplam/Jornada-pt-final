@@ -4,7 +4,7 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 
 const migrationPath =
-  "supabase/migrations/20260901175408_matchday_live_layout_write_core_preparation.sql";
+  "supabase/migrations/20260901182545_matchday_live_layout_write_core_preparation.sql";
 const migration = readFileSync(migrationPath, "utf8");
 
 function section(startNeedle: string, endNeedle: string): string {

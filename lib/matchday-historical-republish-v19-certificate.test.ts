@@ -4,7 +4,7 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 
 const migrationPath =
-  "supabase/migrations/20260908142701_historical_republish_v19_certificate_archive_integrity.sql";
+  "supabase/migrations/20260908151027_historical_republish_v19_certificate_archive_integrity.sql";
 const v19MigrationPath =
   "supabase/migrations/20260905142832_matchday_live_layout_physical_handoff_v19.sql";
 const smokePath =

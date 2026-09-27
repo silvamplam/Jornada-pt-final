@@ -1,7 +1,9 @@
-begin;
+begin
+;
 
 alter table public.matchday_editorial_profile_manual_overrides
-  drop constraint matchday_editorial_profile_manual_overrides_placement_check;
+  drop constraint matchday_editorial_profile_manual_overrides_placement_check
+;
 
 alter table public.matchday_editorial_profile_manual_overrides
   add constraint matchday_editorial_profile_manual_overrides_placement_check
@@ -27,11 +29,15 @@ alter table public.matchday_editorial_profile_manual_overrides
         or sort_order > 0
       )
     )
-  );
+  )
+;
 
 comment on table public.matchday_editorial_profile_manual_overrides is
-  'Manual placement state. Zone with null sort_order means manual zone membership ordered by actuality; a positive sort_order fixes the exact zone slot. Faixa with null sort_order means manual Faixa membership ordered by actuality; a positive sort_order fixes the exact Faixa slot.';
+  'Manual placement state. Zone with null sort_order means manual zone membership ordered by actuality; a positive sort_order fixes the exact zone slot. Faixa with null sort_order means manual Faixa membership ordered by actuality; a positive sort_order fixes the exact Faixa slot.'
+;
 
-notify pgrst, 'reload schema';
+notify pgrst, 'reload schema'
+;
 
-commit;
+commit
+;

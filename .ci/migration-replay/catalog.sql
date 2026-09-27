@@ -1,0 +1,16 @@
+begin read only;
+select jsonb_build_object(
+ 'server_version', current_setting('server_version'),
+ 'extensions', (select jsonb_agg(jsonb_build_object('name',extname,'version',extversion,'schema',n.nspname) order by extname) from pg_extension e join pg_namespace n on n.oid=e.extnamespace),
+ 'functions', (select jsonb_agg(jsonb_build_object('schema',n.nspname,'name',p.proname,'identity',pg_get_function_identity_arguments(p.oid),'definition',pg_get_functiondef(p.oid),'owner',pg_get_userbyid(p.proowner),'acl',p.proacl,'comment',obj_description(p.oid,'pg_proc')) order by n.nspname,p.proname,p.oid) from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname in ('public','jornada_private') and p.prokind in ('f','p') and not exists(select 1 from pg_depend d where d.objid=p.oid and d.classid='pg_proc'::regclass and d.deptype='e')),
+ 'tables',(select jsonb_agg(jsonb_build_object('schema',n.nspname,'name',c.relname,'kind',c.relkind,'owner',pg_get_userbyid(c.relowner),'rls',c.relrowsecurity,'force_rls',c.relforcerowsecurity,'acl',c.relacl,'comment',obj_description(c.oid,'pg_class'),'options',c.reloptions,
+ 'columns',(select jsonb_agg(jsonb_build_object('name',a.attname,'type',format_type(a.atttypid,a.atttypmod),'not_null',a.attnotnull,'default',pg_get_expr(d.adbin,d.adrelid),'identity',a.attidentity,'generated',a.attgenerated,'comment',col_description(c.oid,a.attnum),'acl',a.attacl) order by a.attnum) from pg_attribute a left join pg_attrdef d on d.adrelid=a.attrelid and d.adnum=a.attnum where a.attrelid=c.oid and a.attnum>0 and not a.attisdropped),
+ 'constraints',(select jsonb_agg(jsonb_build_object('name',conname,'type',contype,'definition',pg_get_constraintdef(oid,true),'validated',convalidated) order by conname) from pg_constraint where conrelid=c.oid),
+ 'indexes',(select jsonb_agg(jsonb_build_object('name',ci.relname,'definition',pg_get_indexdef(i.indexrelid)) order by ci.relname) from pg_index i join pg_class ci on ci.oid=i.indexrelid where i.indrelid=c.oid),
+ 'triggers',(select jsonb_agg(jsonb_build_object('name',tgname,'definition',pg_get_triggerdef(oid,true),'enabled',tgenabled) order by tgname) from pg_trigger where tgrelid=c.oid and not tgisinternal),
+ 'policies',(select jsonb_agg(jsonb_build_object('name',polname,'permissive',polpermissive,'cmd',polcmd,'roles',(select jsonb_agg(case when x=0 then 'public' else pg_get_userbyid(x) end order by x) from unnest(polroles) x),'using',pg_get_expr(polqual,polrelid),'check',pg_get_expr(polwithcheck,polrelid)) order by polname) from pg_policy where polrelid=c.oid)
+ ) order by n.nspname,c.relname) from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname in ('public','jornada_private') and c.relkind in ('r','p') and not exists(select 1 from pg_depend d where d.objid=c.oid and d.classid='pg_class'::regclass and d.deptype='e')),
+ 'schemas',(select jsonb_agg(jsonb_build_object('name',nspname,'owner',pg_get_userbyid(nspowner),'acl',nspacl) order by nspname) from pg_namespace where nspname in ('public','jornada_private')),
+ 'cron_jobs',(select jsonb_agg(jsonb_build_object('name',jobname,'schedule',schedule,'active',active,'command',command,'database',database,'username',username) order by jobname) from cron.job)
+);
+commit;

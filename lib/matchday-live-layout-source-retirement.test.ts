@@ -4,11 +4,11 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 
 const migrationPath =
-  "supabase/migrations/20260901211957_matchday_live_layout_source_retirement.sql";
+  "supabase/migrations/20260901214531_matchday_live_layout_source_retirement.sql";
 const bridgePath =
-  "supabase/migrations/20260901201453_matchday_live_layout_cutover_bridge.sql";
+  "supabase/migrations/20260901205409_matchday_live_layout_cutover_bridge.sql";
 const activationPath =
-  "supabase/migrations/20260901201455_matchday_live_layout_authoritative_activation.sql";
+  "supabase/migrations/20260901210438_matchday_live_layout_authoritative_activation.sql";
 const migration = readFileSync(migrationPath, "utf8");
 
 function section(startNeedle: string, endNeedle: string): string {

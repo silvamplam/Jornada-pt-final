@@ -30,7 +30,7 @@ create table public.matches (
   broadcast_channel_id uuid references public.broadcast_channels(id)
 );
 
-\ir ../migrations/20260904003000_apply_matchday_agenda_tv_sync_v2.sql
+\ir ../migrations/20260904002633_apply_matchday_agenda_tv_sync_v2.sql
 \ir ../migrations/20260913182822_agenda_tv_sync_v2_preserve.sql
 
 begin;

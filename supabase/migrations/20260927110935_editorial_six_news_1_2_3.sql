@@ -1,4 +1,5 @@
-begin;
+begin
+;
 
 -- Add a distinct family; the existing six_news family and defaults stay intact.
 create or replace function jornada_private.matchday_live_layout_layout_capacity_v20(
@@ -20,7 +21,8 @@ as $function$
     when 'six_news_1_2_3' then 6
     else null
   end;
-$function$;
+$function$
+;
 
 -- Preserve every other clause (including exact thematic keys) in both checks.
 do $migration$
@@ -52,7 +54,8 @@ begin
       v_target.table_name, v_target.constraint_name, v_definition);
   end loop;
 end;
-$migration$;
+$migration$
+;
 
 -- Extend only existing family allowlists and capacity cases. Using the current
 -- definitions preserves the locking, authorization, snapshot and publication
@@ -88,6 +91,8 @@ begin
     execute v_updated;
   end loop;
 end;
-$migration$;
+$migration$
+;
 
-commit;
+commit
+;

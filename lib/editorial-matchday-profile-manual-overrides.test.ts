@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 import { EDITORIAL_PROFILES } from "@/lib/editorial-profiles";
 
 const migration = readFileSync(fileURLToPath(new URL(
-  "../supabase/migrations/20260822195123_matchday_editorial_profile_manual_overrides.sql",
+  "../supabase/migrations/20260822203959_matchday_editorial_profile_manual_overrides.sql",
   import.meta.url,
 )), "utf8");
 const sql = migration.replace(/\s+/g, " ").trim();

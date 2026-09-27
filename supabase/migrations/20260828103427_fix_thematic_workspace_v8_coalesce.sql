@@ -23,7 +23,7 @@ returns table(
 )
 language plpgsql
 security definer
-set search_path = ''
+set search_path to ''
 as $function$
 declare
   v_apply record;
@@ -41,11 +41,9 @@ begin
       select pg_catalog.count(*)
       from pg_catalog.jsonb_array_elements(p_worked_source_ids)
     ) <> (
-      select pg_catalog.count(
-        distinct pg_catalog.lower(
-          pg_catalog.btrim(worked_row.value #>> '{}')
-        )
-      )
+      select pg_catalog.count(distinct pg_catalog.lower(
+        pg_catalog.btrim(worked_row.value #>> '{}')
+      ))
       from pg_catalog.jsonb_array_elements(p_worked_source_ids)
         as worked_row(value)
     )
@@ -95,31 +93,24 @@ begin
       and (
         exists (
           select 1
-          from pg_catalog.jsonb_each(p_opening)
-            as opening_row(slot_key, value)
+          from pg_catalog.jsonb_each(p_opening) as opening_row(slot_key, value)
           where pg_catalog.jsonb_typeof(opening_row.value) = 'string'
-            and pg_catalog.lower(
-              pg_catalog.btrim(opening_row.value #>> '{}')
-            ) = selected_row.source_id
+            and pg_catalog.lower(pg_catalog.btrim(opening_row.value #>> '{}'))
+              = selected_row.source_id
         )
         or exists (
           select 1
-          from pg_catalog.jsonb_array_elements(p_zone_items)
-            as zone_row(value)
-          where pg_catalog.lower(
-              pg_catalog.btrim(zone_row.value ->> 'source_type')
-            ) = selected_row.source_type
-            and pg_catalog.lower(
-              pg_catalog.btrim(zone_row.value ->> 'source_id')
-            ) = selected_row.source_id
+          from pg_catalog.jsonb_array_elements(p_zone_items) as zone_row(value)
+          where pg_catalog.lower(pg_catalog.btrim(zone_row.value ->> 'source_type'))
+              = selected_row.source_type
+            and pg_catalog.lower(pg_catalog.btrim(zone_row.value ->> 'source_id'))
+              = selected_row.source_id
         )
         or exists (
           select 1
-          from pg_catalog.jsonb_array_elements(p_faixa_source_ids)
-            as faixa_row(value)
-          where pg_catalog.lower(
-              pg_catalog.btrim(faixa_row.value #>> '{}')
-            ) = selected_row.source_id
+          from pg_catalog.jsonb_array_elements(p_faixa_source_ids) as faixa_row(value)
+          where pg_catalog.lower(pg_catalog.btrim(faixa_row.value #>> '{}'))
+              = selected_row.source_id
         )
       )
   ) then
@@ -155,9 +146,7 @@ begin
     and bank_row.editorially_worked_at is null
     and (
       pg_catalog.lower(pg_catalog.btrim(bank_row.source_id)) in (
-        select pg_catalog.lower(
-          pg_catalog.btrim(worked_row.value #>> '{}')
-        )
+        select pg_catalog.lower(pg_catalog.btrim(worked_row.value #>> '{}'))
         from pg_catalog.jsonb_array_elements(p_worked_source_ids)
           as worked_row(value)
       )
@@ -181,14 +170,21 @@ begin
 end;
 $function$;
 
-revoke all on function
-  public.apply_matchday_editorial_profile_workspace_v8(
-    uuid,text,bigint,text,jsonb,jsonb,jsonb,jsonb,jsonb,jsonb,jsonb,jsonb
-  )
-from public;
+comment on function public.apply_matchday_editorial_profile_workspace_v8(
+  uuid, text, bigint, text, jsonb, jsonb, jsonb, jsonb, jsonb, jsonb,
+  jsonb, jsonb
+) is
+  'Aplica atomicamente a Mesa, garante exclusividade pública da Seleção e fecha de forma monotónica o estado Nova das fontes explicitamente trabalhadas.';
 
-grant execute on function
-  public.apply_matchday_editorial_profile_workspace_v8(
-    uuid,text,bigint,text,jsonb,jsonb,jsonb,jsonb,jsonb,jsonb,jsonb,jsonb
-  )
+revoke all on function public.apply_matchday_editorial_profile_workspace_v8(
+  uuid, text, bigint, text, jsonb, jsonb, jsonb, jsonb, jsonb, jsonb,
+  jsonb, jsonb
+)
+from public, anon, authenticated;
+
+grant execute on function public.apply_matchday_editorial_profile_workspace_v8(
+  uuid, text, bigint, text, jsonb, jsonb, jsonb, jsonb, jsonb, jsonb,
+  jsonb, jsonb
+)
 to service_role;
+;

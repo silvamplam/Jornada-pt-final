@@ -1,4 +1,5 @@
-begin;
+begin
+;
 
 -- V29 keeps `four_news` only as the storage encoding of a physical ZONE
 -- destination. The editorial contract is the pair:
@@ -76,42 +77,48 @@ begin
     p_presentation
   );
 end;
-$function$;
+$function$
+;
 
 revoke all on function
   public.apply_matchday_live_layout_physical_v29(
     uuid,text,text,uuid,jsonb,jsonb,jsonb,integer,
     jsonb,jsonb,jsonb,jsonb,jsonb,jsonb
   )
-from public, anon, authenticated, service_role;
+from public, anon, authenticated, service_role
+;
 
 grant execute on function
   public.apply_matchday_live_layout_physical_v29(
     uuid,text,text,uuid,jsonb,jsonb,jsonb,integer,
     jsonb,jsonb,jsonb,jsonb,jsonb,jsonb
   )
-to service_role;
+to service_role
+;
 
 revoke all on function
   public.apply_matchday_live_layout_physical_v22(
     uuid,text,text,uuid,jsonb,jsonb,jsonb,integer,
     jsonb,jsonb,jsonb,jsonb,jsonb,jsonb
   )
-from public, anon, authenticated, service_role;
+from public, anon, authenticated, service_role
+;
 
 revoke all on function
   public.apply_matchday_live_layout_physical_v20(
     uuid,text,text,jsonb,jsonb,jsonb,integer,
     jsonb,jsonb,jsonb,jsonb,jsonb,jsonb
   )
-from public, anon, authenticated, service_role;
+from public, anon, authenticated, service_role
+;
 
 revoke all on function
   public.apply_matchday_live_layout_physical_workspace_v14(
     uuid,text,text,jsonb,jsonb,jsonb,integer,
     jsonb,jsonb,jsonb,jsonb,jsonb,jsonb
   )
-from public, anon, authenticated, service_role;
+from public, anon, authenticated, service_role
+;
 
 comment on function
   public.apply_matchday_live_layout_physical_v29(
@@ -119,8 +126,8 @@ comment on function
     jsonb,jsonb,jsonb,jsonb,jsonb,jsonb
   )
 is
-  'Single physical Apply authority for Latest destination: HEADLINE/HIDDEN require no companion; ZONE uses the existing companion zone UUID. Delegates the physical write to v22 after validation.';
-
+  'Single physical Apply authority for Latest destination: HEADLINE/HIDDEN require no companion; ZONE uses the existing companion zone UUID. Delegates the physical write to v22 after validation.'
+;
 
 create function public.set_matchday_latest_zone_placement_v29(
   p_matchday_id uuid,
@@ -176,25 +183,29 @@ begin
     p_latest_zone_placement
   ) as result_row;
 end;
-$function$;
+$function$
+;
 
 revoke all on function
   public.set_matchday_latest_zone_placement_v29(uuid, text)
-from public, anon, authenticated, service_role;
+from public, anon, authenticated, service_role
+;
 
 grant execute on function
   public.set_matchday_latest_zone_placement_v29(uuid, text)
-to service_role;
+to service_role
+;
 
 revoke all on function
   public.set_matchday_latest_zone_placement_v15(uuid, text)
-from public, anon, authenticated, service_role;
+from public, anon, authenticated, service_role
+;
 
 comment on function
   public.set_matchday_latest_zone_placement_v29(uuid, text)
 is
-  'Legacy placement facade for explicit HEADLINE or HIDDEN choices. ZONE always requires the atomic physical Apply with an explicit zone UUID.';
-
+  'Legacy placement facade for explicit HEADLINE or HIDDEN choices. ZONE always requires the atomic physical Apply with an explicit zone UUID.'
+;
 
 do $postconditions$
 begin
@@ -258,8 +269,11 @@ begin
       'matchday-live-layout-latest-destination-v29-placement-acl-invalid';
   end if;
 end;
-$postconditions$;
+$postconditions$
+;
 
-notify pgrst, 'reload schema';
+notify pgrst, 'reload schema'
+;
 
-commit;
+commit
+;

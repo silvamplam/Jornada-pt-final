@@ -107,3 +107,4 @@ to service_role;
 notify pgrst, 'reload schema';
 
 commit;
+;

@@ -1,4 +1,5 @@
-begin;
+begin
+;
 
 create table public.matchday_editorial_profile_state_items (
   id uuid primary key default gen_random_uuid(),
@@ -37,7 +38,8 @@ create table public.matchday_editorial_profile_state_items (
     ),
   constraint matchday_editorial_profile_state_items_source_identity_key
     unique (matchday_id, profile_key, source_type, source_id)
-);
+)
+;
 
 create unique index matchday_editorial_profile_state_items_placement_key
   on public.matchday_editorial_profile_state_items (
@@ -46,21 +48,31 @@ create unique index matchday_editorial_profile_state_items_placement_key
     zone_key,
     sort_order
   )
-  where zone_key is not null;
+  where zone_key is not null
+;
 
-alter table public.matchday_editorial_profile_state_items enable row level security;
+alter table public.matchday_editorial_profile_state_items enable row level security
+;
 
 revoke all on table public.matchday_editorial_profile_state_items
-  from public, anon, authenticated, service_role;
+  from public, anon, authenticated, service_role
+;
+
 grant select on table public.matchday_editorial_profile_state_items
-  to service_role;
+  to service_role
+;
 
 comment on table public.matchday_editorial_profile_state_items is
-  'Estado temático interno e independente da assignment. Preserva a identidade canónica source_type + source_id e a colocação automática; remover a assignment não apaga este estado.';
+  'Estado temático interno e independente da assignment. Preserva a identidade canónica source_type + source_id e a colocação automática; remover a assignment não apaga este estado.'
+;
+
 comment on column public.matchday_editorial_profile_state_items.zone_key is
-  'Zona temática atual; NULL mantém a publicação conhecida sem ocupar capacidade visual.';
+  'Zona temática atual; NULL mantém a publicação conhecida sem ocupar capacidade visual.'
+;
+
 comment on column public.matchday_editorial_profile_state_items.sort_order is
-  'Posição por atualidade dentro da zona; NULL quando a publicação está fora da capacidade.';
+  'Posição por atualidade dentro da zona; NULL quando a publicação está fora da capacidade.'
+;
 
 create function public.normalize_matchday_editorial_profile_evidence(
   p_value text
@@ -84,10 +96,12 @@ as $$
       'g'
     )
   );
-$$;
+$$
+;
 
 revoke all on function public.normalize_matchday_editorial_profile_evidence(text)
-  from public, anon, authenticated, service_role;
+  from public, anon, authenticated, service_role
+;
 
 create function public.matchday_editorial_profile_distribution_plan(
   p_matchday_id uuid
@@ -450,10 +464,12 @@ as $$
       else null
     end as sort_order
   from ranked_candidates as candidate_row;
-$$;
+$$
+;
 
 revoke all on function public.matchday_editorial_profile_distribution_plan(uuid)
-  from public, anon, authenticated, service_role;
+  from public, anon, authenticated, service_role
+;
 
 create function public.refresh_matchday_editorial_profile_distribution(
   p_matchday_id uuid
@@ -575,15 +591,20 @@ begin
 
   return v_placed_count;
 end;
-$$;
+$$
+;
 
 revoke all on function public.refresh_matchday_editorial_profile_distribution(uuid)
-  from public, anon, authenticated, service_role;
+  from public, anon, authenticated, service_role
+;
+
 grant execute on function public.refresh_matchday_editorial_profile_distribution(uuid)
-  to service_role;
+  to service_role
+;
 
 comment on function public.refresh_matchday_editorial_profile_distribution(uuid) is
-  'Reconcilia e distribui por atualidade publicações canónicas ativas apenas quando a Jornada tem assignment temática explícita; sem assignment devolve 0 e não altera estado.';
+  'Reconcilia e distribui por atualidade publicações canónicas ativas apenas quando a Jornada tem assignment temática explícita; sem assignment devolve 0 e não altera estado.'
+;
 
 create function public.refresh_matchday_editorial_profile_distribution_from_bank()
 returns trigger
@@ -627,15 +648,18 @@ begin
 
   return null;
 end;
-$$;
+$$
+;
 
 revoke all on function public.refresh_matchday_editorial_profile_distribution_from_bank()
-  from public, anon, authenticated, service_role;
+  from public, anon, authenticated, service_role
+;
 
 create trigger refresh_matchday_editorial_profile_distribution_from_bank
 after insert or update or delete on public.matchday_editorial_bank_items
 for each row
-execute function public.refresh_matchday_editorial_profile_distribution_from_bank();
+execute function public.refresh_matchday_editorial_profile_distribution_from_bank()
+;
 
 create function public.refresh_matchday_editorial_profile_distribution_from_assignment()
 returns trigger
@@ -647,14 +671,18 @@ begin
   perform public.refresh_matchday_editorial_profile_distribution(new.matchday_id);
   return new;
 end;
-$$;
+$$
+;
 
 revoke all on function public.refresh_matchday_editorial_profile_distribution_from_assignment()
-  from public, anon, authenticated, service_role;
+  from public, anon, authenticated, service_role
+;
 
 create trigger refresh_matchday_editorial_profile_distribution_from_assignment
 after insert or update on public.matchday_editorial_profile_assignments
 for each row
-execute function public.refresh_matchday_editorial_profile_distribution_from_assignment();
+execute function public.refresh_matchday_editorial_profile_distribution_from_assignment()
+;
 
-commit;
+commit
+;

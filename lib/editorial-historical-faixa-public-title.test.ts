@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 
 const migrationPath =
-  "supabase/migrations/20260924190000_historical_composition_faixa_public_title.sql";
+  "supabase/migrations/20260924121941_historical_composition_faixa_public_title.sql";
 const migration = readFileSync(migrationPath, "utf8");
 const client = readFileSync(
   "app/admin/editorial/composicao/[matchdayId]/HierarchicalCompositionDeskClient.tsx",

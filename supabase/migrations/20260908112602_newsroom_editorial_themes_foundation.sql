@@ -1,4 +1,5 @@
-begin;
+begin
+;
 
 -- Mesa da Redacao - fundacao persistente e opcional do Tema editorial.
 -- Tema e memoria editorial; nao e Dossie, pacote, fonte ou operacao de producao.
@@ -28,7 +29,8 @@ begin
     raise exception 'editorial-theme-preflight-target-conflict';
   end if;
 end;
-$preflight$;
+$preflight$
+;
 
 create table public.newsroom_editorial_themes (
   id uuid primary key default gen_random_uuid(),
@@ -74,7 +76,8 @@ create table public.newsroom_editorial_themes (
     foreign key (match_id)
     references public.matches(id)
     on delete set null
-);
+)
+;
 
 create table public.newsroom_editorial_theme_sources (
   theme_id uuid not null,
@@ -90,7 +93,8 @@ create table public.newsroom_editorial_theme_sources (
     foreign key (newsroom_article_id)
     references public.newsroom_articles(id)
     on delete cascade
-);
+)
+;
 
 create table public.newsroom_editorial_theme_articles (
   theme_id uuid not null,
@@ -106,7 +110,8 @@ create table public.newsroom_editorial_theme_articles (
     foreign key (editorial_article_id)
     references public.editorial_articles(id)
     on delete cascade
-);
+)
+;
 
 create index newsroom_editorial_themes_classification_status_idx
   on public.newsroom_editorial_themes (
@@ -114,35 +119,42 @@ create index newsroom_editorial_themes_classification_status_idx
     status,
     updated_at desc,
     id
-  );
+  )
+;
 
 create index newsroom_editorial_themes_competition_idx
   on public.newsroom_editorial_themes (competition_id)
-  where competition_id is not null;
+  where competition_id is not null
+;
 
 create index newsroom_editorial_themes_season_idx
   on public.newsroom_editorial_themes (season_id)
-  where season_id is not null;
+  where season_id is not null
+;
 
 create index newsroom_editorial_themes_matchday_idx
   on public.newsroom_editorial_themes (matchday_id)
-  where matchday_id is not null;
+  where matchday_id is not null
+;
 
 create index newsroom_editorial_themes_match_idx
   on public.newsroom_editorial_themes (match_id)
-  where match_id is not null;
+  where match_id is not null
+;
 
 create index newsroom_editorial_theme_sources_article_idx
   on public.newsroom_editorial_theme_sources (
     newsroom_article_id,
     theme_id
-  );
+  )
+;
 
 create index newsroom_editorial_theme_articles_article_idx
   on public.newsroom_editorial_theme_articles (
     editorial_article_id,
     theme_id
-  );
+  )
+;
 
 create function public.newsroom_prepare_editorial_theme_v1()
 returns trigger
@@ -216,7 +228,8 @@ begin
 
   return new;
 end;
-$function$;
+$function$
+;
 
 create trigger newsroom_editorial_themes_prepare_v1
 before insert or update of
@@ -228,7 +241,8 @@ before insert or update of
   match_id
 on public.newsroom_editorial_themes
 for each row
-execute function public.newsroom_prepare_editorial_theme_v1();
+execute function public.newsroom_prepare_editorial_theme_v1()
+;
 
 create function public.newsroom_set_editorial_theme_updated_at_v1()
 returns trigger
@@ -240,43 +254,62 @@ begin
   new.updated_at := pg_catalog.statement_timestamp();
   return new;
 end;
-$function$;
+$function$
+;
 
 create trigger newsroom_editorial_themes_set_updated_at_v1
 before update on public.newsroom_editorial_themes
 for each row
-execute function public.newsroom_set_editorial_theme_updated_at_v1();
+execute function public.newsroom_set_editorial_theme_updated_at_v1()
+;
 
-alter table public.newsroom_editorial_themes enable row level security;
-alter table public.newsroom_editorial_themes force row level security;
-alter table public.newsroom_editorial_theme_sources enable row level security;
-alter table public.newsroom_editorial_theme_sources force row level security;
-alter table public.newsroom_editorial_theme_articles enable row level security;
-alter table public.newsroom_editorial_theme_articles force row level security;
+alter table public.newsroom_editorial_themes enable row level security
+;
+
+alter table public.newsroom_editorial_themes force row level security
+;
+
+alter table public.newsroom_editorial_theme_sources enable row level security
+;
+
+alter table public.newsroom_editorial_theme_sources force row level security
+;
+
+alter table public.newsroom_editorial_theme_articles enable row level security
+;
+
+alter table public.newsroom_editorial_theme_articles force row level security
+;
 
 revoke all privileges
 on table public.newsroom_editorial_themes
-from public, anon, authenticated, service_role;
+from public, anon, authenticated, service_role
+;
 
 revoke all privileges
 on table public.newsroom_editorial_theme_sources
-from public, anon, authenticated, service_role;
+from public, anon, authenticated, service_role
+;
 
 revoke all privileges
 on table public.newsroom_editorial_theme_articles
-from public, anon, authenticated, service_role;
+from public, anon, authenticated, service_role
+;
 
 grant select, insert, update
 on table public.newsroom_editorial_themes
-to service_role;
+to service_role
+;
 
 grant select, insert, delete
 on table public.newsroom_editorial_theme_sources
-to service_role;
+to service_role
+;
 
 grant select, insert, delete
 on table public.newsroom_editorial_theme_articles
-to service_role;
+to service_role
+;
 
 create function public.newsroom_create_editorial_theme_v1(
   p_title text,
@@ -322,7 +355,8 @@ begin
   )
   returning *;
 end;
-$function$;
+$function$
+;
 
 create function public.newsroom_update_editorial_theme_v1(
   p_theme_id uuid,
@@ -399,7 +433,8 @@ begin
   from public.newsroom_editorial_themes as theme_row
   where theme_row.id = p_theme_id;
 end;
-$function$;
+$function$
+;
 
 create function public.newsroom_set_editorial_theme_status_v1(
   p_theme_id uuid,
@@ -440,7 +475,8 @@ begin
   from public.newsroom_editorial_themes as theme_row
   where theme_row.id = p_theme_id;
 end;
-$function$;
+$function$
+;
 
 create function public.newsroom_set_editorial_theme_source_membership_v1(
   p_theme_id uuid,
@@ -525,7 +561,8 @@ begin
     v_row_count > 0,
     v_added_at;
 end;
-$function$;
+$function$
+;
 
 create function public.newsroom_set_editorial_theme_article_membership_v1(
   p_theme_id uuid,
@@ -610,15 +647,18 @@ begin
     v_row_count > 0,
     v_added_at;
 end;
-$function$;
+$function$
+;
 
 revoke all
 on function public.newsroom_prepare_editorial_theme_v1()
-from public, anon, authenticated, service_role;
+from public, anon, authenticated, service_role
+;
 
 revoke all
 on function public.newsroom_set_editorial_theme_updated_at_v1()
-from public, anon, authenticated, service_role;
+from public, anon, authenticated, service_role
+;
 
 revoke all
 on function public.newsroom_create_editorial_theme_v1(
@@ -630,7 +670,8 @@ on function public.newsroom_create_editorial_theme_v1(
   uuid,
   uuid
 )
-from public, anon, authenticated;
+from public, anon, authenticated
+;
 
 revoke all
 on function public.newsroom_update_editorial_theme_v1(
@@ -643,11 +684,13 @@ on function public.newsroom_update_editorial_theme_v1(
   uuid,
   uuid
 )
-from public, anon, authenticated;
+from public, anon, authenticated
+;
 
 revoke all
 on function public.newsroom_set_editorial_theme_status_v1(uuid, text)
-from public, anon, authenticated;
+from public, anon, authenticated
+;
 
 revoke all
 on function public.newsroom_set_editorial_theme_source_membership_v1(
@@ -655,7 +698,8 @@ on function public.newsroom_set_editorial_theme_source_membership_v1(
   uuid,
   boolean
 )
-from public, anon, authenticated;
+from public, anon, authenticated
+;
 
 revoke all
 on function public.newsroom_set_editorial_theme_article_membership_v1(
@@ -663,7 +707,8 @@ on function public.newsroom_set_editorial_theme_article_membership_v1(
   uuid,
   boolean
 )
-from public, anon, authenticated;
+from public, anon, authenticated
+;
 
 grant execute
 on function public.newsroom_create_editorial_theme_v1(
@@ -675,7 +720,8 @@ on function public.newsroom_create_editorial_theme_v1(
   uuid,
   uuid
 )
-to service_role;
+to service_role
+;
 
 grant execute
 on function public.newsroom_update_editorial_theme_v1(
@@ -688,11 +734,13 @@ on function public.newsroom_update_editorial_theme_v1(
   uuid,
   uuid
 )
-to service_role;
+to service_role
+;
 
 grant execute
 on function public.newsroom_set_editorial_theme_status_v1(uuid, text)
-to service_role;
+to service_role
+;
 
 grant execute
 on function public.newsroom_set_editorial_theme_source_membership_v1(
@@ -700,7 +748,8 @@ on function public.newsroom_set_editorial_theme_source_membership_v1(
   uuid,
   boolean
 )
-to service_role;
+to service_role
+;
 
 grant execute
 on function public.newsroom_set_editorial_theme_article_membership_v1(
@@ -708,28 +757,37 @@ on function public.newsroom_set_editorial_theme_article_membership_v1(
   uuid,
   boolean
 )
-to service_role;
+to service_role
+;
 
 comment on table public.newsroom_editorial_themes is
-  'Optional, open-ended editorial memory. A Theme is not a Dossier, package, source or production operation.';
+  'Optional, open-ended editorial memory. A Theme is not a Dossier, package, source or production operation.'
+;
 
 comment on column public.newsroom_editorial_themes.classification_key is
-  'Pre-publication editorial context using exactly the five canonical contextual classification keys.';
+  'Pre-publication editorial context using exactly the five canonical contextual classification keys.'
+;
 
 comment on table public.newsroom_editorial_theme_sources is
-  'Theme membership for concrete newsroom source identities. Membership never means used, consumed or processed.';
+  'Theme membership for concrete newsroom source identities. Membership never means used, consumed or processed.'
+;
 
 comment on table public.newsroom_editorial_theme_articles is
-  'Permanent Theme membership for canonical editorial_articles identities; article fields remain canonical on editorial_articles.';
+  'Permanent Theme membership for canonical editorial_articles identities; article fields remain canonical on editorial_articles.'
+;
 
 comment on constraint newsroom_editorial_theme_sources_article_fkey
   on public.newsroom_editorial_theme_sources is
-  'Cascade avoids making an optional Theme a blocker for an existing canonical source deletion flow.';
+  'Cascade avoids making an optional Theme a blocker for an existing canonical source deletion flow.'
+;
 
 comment on constraint newsroom_editorial_theme_articles_article_fkey
   on public.newsroom_editorial_theme_articles is
-  'Cascade avoids making an optional Theme a blocker for the existing canonical article deletion flow.';
+  'Cascade avoids making an optional Theme a blocker for the existing canonical article deletion flow.'
+;
 
-notify pgrst, 'reload schema';
+notify pgrst, 'reload schema'
+;
 
-commit;
+commit
+;

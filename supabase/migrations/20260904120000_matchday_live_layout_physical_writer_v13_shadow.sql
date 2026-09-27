@@ -1,4 +1,5 @@
-begin;
+begin
+;
 
 -- LOTE 7E - PASSO 3
 -- Native physical OCC and shadow writer. This contract is deliberately not
@@ -21,12 +22,13 @@ as $function$
     when 'five_news_secondary' then 5
     else null
   end;
-$function$;
+$function$
+;
 
 revoke all on function
   jornada_private.matchday_live_layout_visual_family_capacity_v13(text)
-from public, anon, authenticated, service_role;
-
+from public, anon, authenticated, service_role
+;
 
 create function
 jornada_private.normalize_matchday_live_layout_physical_placements_v13(
@@ -74,12 +76,13 @@ as $function$
       else '[]'::jsonb
     end
   ) with ordinality as raw_row(payload, ordinality);
-$function$;
+$function$
+;
 
 revoke all on function
   jornada_private.normalize_matchday_live_layout_physical_placements_v13(jsonb)
-from public, anon, authenticated, service_role;
-
+from public, anon, authenticated, service_role
+;
 
 create function
 jornada_private.normalize_matchday_live_layout_bank_item_ids_v13(
@@ -110,12 +113,13 @@ as $function$
       else '[]'::jsonb
     end
   ) with ordinality as raw_row(value, ordinality);
-$function$;
+$function$
+;
 
 revoke all on function
   jornada_private.normalize_matchday_live_layout_bank_item_ids_v13(jsonb)
-from public, anon, authenticated, service_role;
-
+from public, anon, authenticated, service_role
+;
 
 create function public.matchday_editorial_profile_workspace_token_v13(
   p_matchday_id uuid,
@@ -237,21 +241,24 @@ as $function$
       )
     )::text
   ) as state_token;
-$function$;
+$function$
+;
 
 revoke all on function
   public.matchday_editorial_profile_workspace_token_v13(uuid, text)
-from public, anon, authenticated, service_role;
+from public, anon, authenticated, service_role
+;
 
 grant execute on function
   public.matchday_editorial_profile_workspace_token_v13(uuid, text)
-to service_role;
+to service_role
+;
 
 comment on function
   public.matchday_editorial_profile_workspace_token_v13(uuid, text)
 is
-  'Deterministic OCC token for the legacy workspace inputs plus authoritative physical zones, blocks, placements, Bank state and displaced memory.';
-
+  'Deterministic OCC token for the legacy workspace inputs plus authoritative physical zones, blocks, placements, Bank state and displaced memory.'
+;
 
 create function
 jornada_private.apply_matchday_live_layout_physical_state_v13_shadow(
@@ -1514,7 +1521,8 @@ begin
     pg_catalog.jsonb_array_length(p_displaced_bank_item_ids),
     pg_catalog.jsonb_array_length(p_worked_bank_item_ids);
 end;
-$function$;
+$function$
+;
 
 revoke all on function
   jornada_private.apply_matchday_live_layout_physical_state_v13_shadow(
@@ -1528,7 +1536,8 @@ revoke all on function
     jsonb,
     jsonb
   )
-from public, anon, authenticated, service_role;
+from public, anon, authenticated, service_role
+;
 
 comment on function
   jornada_private.apply_matchday_live_layout_physical_state_v13_shadow(
@@ -1543,8 +1552,11 @@ comment on function
     jsonb
   )
 is
-  'Private shadow writer for authoritative physical placements, explicit Bank intent, displaced memory and event clocks. It is not an application authority.';
+  'Private shadow writer for authoritative physical placements, explicit Bank intent, displaced memory and event clocks. It is not an application authority.'
+;
 
-notify pgrst, 'reload schema';
+notify pgrst, 'reload schema'
+;
 
-commit;
+commit
+;

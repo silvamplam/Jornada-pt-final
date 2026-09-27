@@ -283,3 +283,4 @@ revoke all on function public.newsroom_prepare_mesa_intents_v1(jsonb,text)
   from public,anon,authenticated,service_role;
 grant execute on function public.newsroom_prepare_mesa_intents_v1(jsonb,text)
   to service_role;
+;

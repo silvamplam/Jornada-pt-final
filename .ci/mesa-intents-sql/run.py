@@ -18,8 +18,8 @@ import time
 from uuid import uuid4
 
 ROOT = Path(__file__).resolve().parents[2]
-MIGRATION = 'supabase/migrations/20260917210000_newsroom_mesa_intent_preparation_v1.sql'
-GROUPING_V2_MIGRATION = 'supabase/migrations/20260920213530_newsroom_mesa_new_output_grouping_v2.sql'
+MIGRATION = 'supabase/migrations/20260918140702_newsroom_mesa_intent_preparation_v1.sql'
+GROUPING_V2_MIGRATION = 'supabase/migrations/20260921051856_newsroom_mesa_new_output_grouping_v2.sql'
 parser = argparse.ArgumentParser()
 parser.add_argument('--socket', type=Path)
 parser.add_argument('--psql', default='psql')
@@ -216,7 +216,7 @@ for path in constants['MESA_MIGRATIONS']:
     load(path)
 load(constants['MIGRATION_2C'])
 load(constants['SCOPED_READ_MIGRATION'])
-load('supabase/migrations/20260914114311_newsroom_mesa_theme_continuity_v1.sql')
+load('supabase/migrations/20260914171729_newsroom_mesa_theme_continuity_v1.sql')
 load('supabase/migrations/20260919014256_newsroom_mesa_global_article_candidates_v1.sql')
 
 # Capture old function definitions, privileges and configuration before applying

@@ -18,7 +18,7 @@ const route = readFileSync(
 );
 
 const migration = readFileSync(
-  "supabase/migrations/20260826103000_historical_composition_body_order.sql",
+  "supabase/migrations/20260826094033_historical_composition_body_order.sql",
   "utf8",
 );
 

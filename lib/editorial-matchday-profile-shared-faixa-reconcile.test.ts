@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 import { EDITORIAL_PROFILES } from "@/lib/editorial-profiles";
 
 const migration = readFileSync(fileURLToPath(new URL(
-  "../supabase/migrations/20260822211352_matchday_editorial_profile_shared_faixa_reconcile.sql",
+  "../supabase/migrations/20260822223715_matchday_editorial_profile_shared_faixa_reconcile.sql",
   import.meta.url,
 )), "utf8");
 const sql = migration.replace(/\s+/g, " ").trim();

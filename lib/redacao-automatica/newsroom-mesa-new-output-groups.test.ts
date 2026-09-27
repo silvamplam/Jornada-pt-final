@@ -224,7 +224,7 @@ test("an unresolved quantity is distinct from an explicit decision of zero new a
   assert.ok(zeroWithExisting);
   assert.equal(mesaNewOutputGroupingReady(zeroWithExisting), true);
 
-  const migration = readFileSync("supabase/migrations/20260920213530_newsroom_mesa_new_output_grouping_v2.sql", "utf8");
+  const migration = readFileSync("supabase/migrations/20260921051856_newsroom_mesa_new_output_grouping_v2.sql", "utf8");
   assert.match(migration, /case when cardinality\(v_loose_ids\)=0 then 0 else null end/);
   const client = readFileSync("app/admin/editorial/redacao-automatica/mesa/producao/[dossierId]/_new-output-grouping.tsx", "utf8");
   assert.match(client, /targetValue\.trim\(\) === ""/);
@@ -249,7 +249,7 @@ test("explicit zero removes only loose planning groups and can return to plannin
 });
 
 test("SQL treats Theme and source seeds as planning metadata and never as source usage", () => {
-  const sql = readFileSync("supabase/migrations/20260920213530_newsroom_mesa_new_output_grouping_v2.sql", "utf8");
+  const sql = readFileSync("supabase/migrations/20260921051856_newsroom_mesa_new_output_grouping_v2.sql", "utf8");
   assert.match(sql, /newsroom_mesa_new_output_theme_targets/);
   assert.match(sql, /seedThemeId only/);
   assert.doesNotMatch(sql, /insert\s+into\s+public\.newsroom_mesa_output_source_usage/i);
@@ -264,7 +264,7 @@ test("SQL treats Theme and source seeds as planning metadata and never as source
 });
 
 test("RPCs use revisions, command receipts, locks and an atomic materialization boundary", () => {
-  const sql = readFileSync("supabase/migrations/20260920213530_newsroom_mesa_new_output_grouping_v2.sql", "utf8");
+  const sql = readFileSync("supabase/migrations/20260921051856_newsroom_mesa_new_output_grouping_v2.sql", "utf8");
   assert.match(sql, /newsroom_mesa_new_output_grouping_commands/);
   assert.match(sql, /p_command_id uuid/);
   assert.match(sql, /pg_advisory_xact_lock/);

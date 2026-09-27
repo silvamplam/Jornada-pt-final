@@ -4,11 +4,11 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 
 const bridgeMigrationPath =
-  "supabase/migrations/20260901201453_matchday_live_layout_cutover_bridge.sql";
+  "supabase/migrations/20260901205409_matchday_live_layout_cutover_bridge.sql";
 const activationMigrationPath =
-  "supabase/migrations/20260901201455_matchday_live_layout_authoritative_activation.sql";
+  "supabase/migrations/20260901210438_matchday_live_layout_authoritative_activation.sql";
 const historicalRepublishMigrationPath =
-  "supabase/migrations/20260902053337_matchday_historical_republish_independence.sql";
+  "supabase/migrations/20260902091016_matchday_historical_republish_independence.sql";
 const bridgeMigration = readFileSync(bridgeMigrationPath, "utf8");
 const activationMigration = readFileSync(activationMigrationPath, "utf8");
 
@@ -282,7 +282,7 @@ test("working tree fica limitado ao cutover e artefactos protegidos", () => {
     "supabase/sql/test-matchday-historical-republish-independence-pg17.sql",
     "supabase/sql/test-matchday-live-desk-historical-bank-delta-pg17.sql",
     "supabase/sql/test-matchday-live-layout-physical-handoff-pg17.sql",
-    "supabase/migrations/20260908142701_historical_republish_v19_certificate_archive_integrity.sql",
+    "supabase/migrations/20260908151027_historical_republish_v19_certificate_archive_integrity.sql",
     "lib/matchday-historical-republish-v19-certificate.test.ts",
     "lib/matchday-live-layout-physical-handoff.test.ts",
     "app/admin/editorial/artigos/_articleForm.tsx",

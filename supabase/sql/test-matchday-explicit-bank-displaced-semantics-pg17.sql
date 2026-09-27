@@ -1,7 +1,7 @@
 \set ON_ERROR_STOP on
 
 -- Run against the production-schema snapshot after applying
--- 20260902110327_matchday_live_desk_aggregate_tracking_reader.sql. The first
+-- 20260902121536_matchday_live_desk_aggregate_tracking_reader.sql. The first
 -- transaction deliberately creates an overlap with the old memory trigger;
 -- the forward migration below must repair it before the runtime tests begin.
 begin;
@@ -313,7 +313,7 @@ select jornada_private.project_matchday_live_layout_placements_to_legacy(
 
 commit;
 
-\ir ../migrations/20260902130518_matchday_explicit_bank_displaced_semantics.sql
+\ir ../migrations/20260902151042_matchday_explicit_bank_displaced_semantics.sql
 
 begin;
 

@@ -105,7 +105,7 @@ test("reset é limitado ao ciclo, preserva manual e promove membros de Tema a ma
 
 test("produção aceita fontes sem classificação e não as recalcula automaticamente", () => {
   const authorityMigration = read(
-    "supabase/migrations/20260924200000_newsroom_article_plan_output_classification_authority.sql",
+    "supabase/migrations/20260924162021_newsroom_article_plan_output_classification_authority.sql",
   );
   const prepareRoute = read(
     "app/api/admin/editorial/redacao-automatica/mesa/preparar/route.ts",

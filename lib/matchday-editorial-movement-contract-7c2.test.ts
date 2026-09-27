@@ -306,7 +306,7 @@ test("rota usa v29 e o serializer transporta relógios editoriais de chegada", (
 
 test("v12 serializa antes da leitura e preserva relógios de Faixa", () => {
   const migration = readFileSync(
-    "supabase/migrations/20260903204800_matchday_editorial_movement_contract_v12.sql",
+    "supabase/migrations/20260903214507_matchday_editorial_movement_contract_v12.sql",
     "utf8",
   );
 

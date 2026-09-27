@@ -116,7 +116,7 @@ test("fixture PG17 cobre snapshot e termina sempre em rollback", () => {
 
 test("ficheiros explicitamente fora de ambito nao foram alterados", () => {
   const protectedPaths = [
-    "supabase/migrations/20260903204800_matchday_editorial_movement_contract_v12.sql",
+    "supabase/migrations/20260903214507_matchday_editorial_movement_contract_v12.sql",
     writerPath,
     "lib/public-matchday-thematic.ts",
     "lib/public-matchday-editorial-body.ts",

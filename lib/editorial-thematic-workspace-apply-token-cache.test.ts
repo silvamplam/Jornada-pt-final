@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 
 const migration = readFileSync(
-  "supabase/migrations/20260830183000_thematic_workspace_apply_token_cache.sql",
+  "supabase/migrations/20260830181927_thematic_workspace_apply_token_cache.sql",
   "utf8",
 );
 

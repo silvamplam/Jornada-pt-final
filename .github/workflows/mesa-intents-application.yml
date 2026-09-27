@@ -5,8 +5,8 @@ on:
     paths:
       - .ci/mesa-intents-sql/**
       - .ci/mesa-intents-ui/**
-      - supabase/migrations/20260926183411_mesa_continuity_explicit_articles_and_reads.sql
-      - supabase/migrations/20260926220638_restore_legacy_mesa_lifecycle_publications.sql
+      - supabase/migrations/20260926193320_mesa_continuity_explicit_articles_and_reads.sql
+      - supabase/migrations/20260926224911_restore_legacy_mesa_lifecycle_publications.sql
       - .github/workflows/mesa-intents-application.yml
       - lib/redacao-automatica/**
       - app/api/admin/editorial/redacao-automatica/**
@@ -16,8 +16,8 @@ on:
     paths:
       - .ci/mesa-intents-sql/**
       - .ci/mesa-intents-ui/**
-      - supabase/migrations/20260926183411_mesa_continuity_explicit_articles_and_reads.sql
-      - supabase/migrations/20260926220638_restore_legacy_mesa_lifecycle_publications.sql
+      - supabase/migrations/20260926193320_mesa_continuity_explicit_articles_and_reads.sql
+      - supabase/migrations/20260926224911_restore_legacy_mesa_lifecycle_publications.sql
       - .github/workflows/mesa-intents-application.yml
       - lib/redacao-automatica/**
       - app/api/admin/editorial/redacao-automatica/**

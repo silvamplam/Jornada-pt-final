@@ -17,7 +17,7 @@ const route = readFileSync(
 const migration = readFileSync(
   join(
     root,
-    "supabase/migrations/20260904003000_apply_matchday_agenda_tv_sync_v2.sql",
+    "supabase/migrations/20260904002633_apply_matchday_agenda_tv_sync_v2.sql",
   ),
   "utf8",
 );

@@ -3,7 +3,7 @@ import fs from "node:fs";
 import test from "node:test";
 
 const sql = fs.readFileSync(
-  "supabase/migrations/20260907224500_matchday_roundup_context_boundary_v28.sql",
+  "supabase/migrations/20260907222744_matchday_roundup_context_boundary_v28.sql",
   "utf8",
 );
 

@@ -25,7 +25,7 @@ const automaticBank = source(
   "supabase/steps/73-composicao-historica-banco-automatico-apply.sql",
 );
 const historicalWorkspace = source(
-  "supabase/migrations/20260825145814_historical_composition_workspace.sql",
+  "supabase/migrations/20260826050409_historical_composition_workspace.sql",
 );
 
 test("Mesa Viva resolve sempre e apenas a linha is_managed atual", () => {

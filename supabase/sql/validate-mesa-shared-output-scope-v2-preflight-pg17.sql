@@ -1,7 +1,7 @@
 \set ON_ERROR_STOP on
 
 -- Run on the disposable PostgreSQL 17 copy after
--- 20260912152810_mesa_production_workspace_v2_provenance.sql and before the
+-- 20260912172405_mesa_production_workspace_v2_provenance.sql and before the
 -- shared-output-scope migration. Seeds one historical exclusive-origin row so
 -- the paired postflight can prove that the forward migration performs no
 -- historical backfill or reinterpretation.

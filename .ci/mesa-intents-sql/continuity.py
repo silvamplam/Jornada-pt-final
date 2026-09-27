@@ -8,7 +8,7 @@ from uuid import uuid4
 base = runpy.run_path(str(Path(__file__).with_name('publication.py')))
 execute, load, scalar, prepare, package, article, publish, finish, receipts, uid, val, test, report = (
     base[name] for name in ('execute','load','scalar','prepare','package','article','publish','finish','receipts','uid','val','test','report'))
-load('supabase/migrations/20260926183411_mesa_continuity_explicit_articles_and_reads.sql')
+load('supabase/migrations/20260926193320_mesa_continuity_explicit_articles_and_reads.sql')
 
 
 def explicit_theme_continuity():

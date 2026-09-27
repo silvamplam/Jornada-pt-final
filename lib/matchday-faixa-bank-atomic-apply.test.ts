@@ -3,11 +3,11 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 
 const migration = readFileSync(
-  "supabase/migrations/20260902095825_matchday_faixa_bank_atomic_apply_fix.sql",
+  "supabase/migrations/20260902103721_matchday_faixa_bank_atomic_apply_fix.sql",
   "utf8",
 );
 const aggregateReaderMigration = readFileSync(
-  "supabase/migrations/20260902110327_matchday_live_desk_aggregate_tracking_reader.sql",
+  "supabase/migrations/20260902121536_matchday_live_desk_aggregate_tracking_reader.sql",
   "utf8",
 );
 const reader = readFileSync(

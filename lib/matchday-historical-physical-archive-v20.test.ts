@@ -8,7 +8,7 @@ const migrationPath =
 const v19MigrationPath =
   "supabase/migrations/20260905142832_matchday_live_layout_physical_handoff_v19.sql";
 const v19HistoricalFixPath =
-  "supabase/migrations/20260908142701_historical_republish_v19_certificate_archive_integrity.sql";
+  "supabase/migrations/20260908151027_historical_republish_v19_certificate_archive_integrity.sql";
 const smokePath =
   "supabase/sql/test-matchday-live-layout-physical-handoff-pg17.sql";
 

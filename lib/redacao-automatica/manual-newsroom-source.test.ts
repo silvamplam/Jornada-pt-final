@@ -177,11 +177,11 @@ test("uma fonte manual nova permanece sem classificação automática", async ()
 test("migration persiste uma fonte compatível com NOVAS e sem autor inventado", () => {
   const migration = readFileSync(path.join(
     process.cwd(),
-    "supabase/migrations/20260920115213_manual_newsroom_source_v1.sql",
+    "supabase/migrations/20260920141132_manual_newsroom_source_v1.sql",
   ), "utf8");
   const readModel = readFileSync(path.join(
     process.cwd(),
-    "supabase/migrations/20260914074012_newsroom_mesa_scoped_read_model_v1.sql",
+    "supabase/migrations/20260914172949_newsroom_mesa_scoped_read_model_v1.sql",
   ), "utf8");
   assert.match(migration, /'manual_entry', p_source_url, p_source_url, null/);
   assert.match(migration, /null, null, null, v_published_at/);

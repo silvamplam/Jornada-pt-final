@@ -4,7 +4,7 @@ import test from "node:test";
 
 const route = readFileSync("app/api/admin/editorial/composicao/route.ts", "utf8");
 const migration = readFileSync(
-  "supabase/migrations/20260825145814_historical_composition_workspace.sql",
+  "supabase/migrations/20260826050409_historical_composition_workspace.sql",
   "utf8",
 );
 const smoke = readFileSync(

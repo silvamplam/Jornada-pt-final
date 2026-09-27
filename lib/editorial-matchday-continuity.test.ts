@@ -7,7 +7,7 @@ function source(path: string) {
 }
 
 const correctiveMigration =
-  "supabase/migrations/20260818175500_matchday_editorial_continuity_live_snapshot.sql";
+  "supabase/migrations/20260818175756_matchday_editorial_continuity_live_snapshot.sql";
 
 test("o handoff nasce da p?gina viva e n?o da composi??o hier?rquica", () => {
   const migration = source(correctiveMigration);

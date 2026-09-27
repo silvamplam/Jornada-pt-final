@@ -448,3 +448,4 @@ from desired
 where faixa_row.id = desired.faixa_id;
 
 commit;
+;

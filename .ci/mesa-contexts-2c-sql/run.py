@@ -83,19 +83,19 @@ MESA_MIGRATIONS = [
     "supabase/migrations/20260908112602_newsroom_editorial_themes_foundation.sql",
     "supabase/migrations/20260908122938_newsroom_editorial_article_classifications_foundation.sql",
     "supabase/migrations/20260909100000_newsroom_editorial_production_workspace_foundation.sql",
-    "supabase/migrations/20260910223000_newsroom_mesa_theme_organization_v1.sql",
+    "supabase/migrations/20260911100419_newsroom_mesa_theme_organization_v1.sql",
     "supabase/migrations/20260911232119_jornada_mesa_grupos_temas_v2.sql",
     "supabase/migrations/20260911232721_jornada_mesa_grupos_temas_v2_fk_indexes.sql",
     "supabase/migrations/20260912004733_jornada_dossie_producao_sem_limite.sql",
-    "supabase/migrations/20260912152810_mesa_production_workspace_v2_provenance.sql",
-    "supabase/migrations/20260912173257_allow_mesa_v2_source_package_manifest_v5.sql",
-    "supabase/migrations/20260912175044_mesa_workspace_shared_output_scope_v2.sql",
+    "supabase/migrations/20260912172405_mesa_production_workspace_v2_provenance.sql",
+    "supabase/migrations/20260912192043_allow_mesa_v2_source_package_manifest_v5.sql",
+    "supabase/migrations/20260912192155_mesa_workspace_shared_output_scope_v2.sql",
 ]
 
 MIGRATION_2C = "supabase/migrations/20260913134418_newsroom_mesa_contexts_production_2c.sql"
 TEST_2C = "supabase/sql/test-newsroom-mesa-contexts-production-2c-pg17.sql"
 SCOPED_READ_PREFLIGHT = "supabase/sql/validate-newsroom-mesa-scoped-read-model-v1-preflight-pg17.sql"
-SCOPED_READ_MIGRATION = "supabase/migrations/20260914074012_newsroom_mesa_scoped_read_model_v1.sql"
+SCOPED_READ_MIGRATION = "supabase/migrations/20260914172949_newsroom_mesa_scoped_read_model_v1.sql"
 SCOPED_READ_POSTFLIGHT = "supabase/sql/validate-newsroom-mesa-scoped-read-model-v1-postflight-pg17.sql"
 
 PROTECTED_SCHEMA_SNAPSHOT_SQL = r"""

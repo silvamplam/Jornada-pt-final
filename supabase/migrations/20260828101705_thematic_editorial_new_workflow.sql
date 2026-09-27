@@ -1,5 +1,3 @@
-begin;
-
 alter table public.matchday_editorial_bank_items
   add column editorially_worked_at timestamptz;
 
@@ -489,5 +487,4 @@ grant execute on function public.apply_matchday_editorial_profile_workspace_v8(
   jsonb, jsonb
 )
 to service_role;
-
-commit;
+;

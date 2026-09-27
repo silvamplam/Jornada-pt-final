@@ -1,4 +1,5 @@
-begin;
+begin
+;
 
 -- Mesa da Redacao - estado persistente anterior ao Source Package.
 -- O Dossie continua a ser a operacao e o Article Plan continua a ser o output.
@@ -50,12 +51,14 @@ begin
     raise exception 'production_workspace_preflight_column_conflict';
   end if;
 end;
-$preflight$;
+$preflight$
+;
 
 alter table public.newsroom_editorial_dossiers
   add column preparation_key uuid,
   add constraint newsroom_editorial_dossiers_preparation_key_key
-    unique (preparation_key);
+    unique (preparation_key)
+;
 
 create function public.newsroom_protect_dossier_preparation_key_v1()
 returns trigger
@@ -73,13 +76,15 @@ begin
 
   return new;
 end;
-$function$;
+$function$
+;
 
 create trigger newsroom_editorial_dossiers_protect_preparation_key_v1
 before update of preparation_key
 on public.newsroom_editorial_dossiers
 for each row
-execute function public.newsroom_protect_dossier_preparation_key_v1();
+execute function public.newsroom_protect_dossier_preparation_key_v1()
+;
 
 create table public.newsroom_editorial_dossier_published_contexts (
   id uuid primary key default gen_random_uuid(),
@@ -101,7 +106,8 @@ create table public.newsroom_editorial_dossier_published_contexts (
     unique (dossier_id, editorial_article_id),
   constraint ned_published_contexts_sort_order_check
     check (sort_order >= 0)
-);
+)
+;
 
 create table public.newsroom_editorial_dossier_article_plan_published_contexts (
   dossier_id uuid not null,
@@ -121,7 +127,8 @@ create table public.newsroom_editorial_dossier_article_plan_published_contexts (
     on delete cascade,
   constraint ned_plan_published_contexts_sort_order_check
     check (sort_order >= 0)
-);
+)
+;
 
 create table public.newsroom_editorial_dossier_images (
   id uuid primary key default gen_random_uuid(),
@@ -190,21 +197,24 @@ create table public.newsroom_editorial_dossier_images (
     check (storage_path is null or pg_catalog.btrim(storage_path) <> ''),
   constraint ned_images_file_name_not_blank
     check (file_name is null or pg_catalog.btrim(file_name) <> '')
-);
+)
+;
 
 create unique index ned_images_newsroom_origin_uidx
   on public.newsroom_editorial_dossier_images (
     dossier_id,
     newsroom_article_id
   )
-  where origin_kind = 'newsroom';
+  where origin_kind = 'newsroom'
+;
 
 create unique index ned_images_published_origin_uidx
   on public.newsroom_editorial_dossier_images (
     dossier_id,
     editorial_article_id
   )
-  where origin_kind = 'published';
+  where origin_kind = 'published'
+;
 
 alter table public.newsroom_editorial_dossier_article_plans
   add column destination text not null default 'new',
@@ -245,20 +255,23 @@ alter table public.newsroom_editorial_dossier_article_plans
         image_choice = 'dossier_image'
         and dossier_image_id is not null
       )
-    );
+    )
+;
 
 create index ned_published_contexts_dossier_order_idx
   on public.newsroom_editorial_dossier_published_contexts (
     dossier_id,
     sort_order,
     id
-  );
+  )
+;
 
 create index ned_published_contexts_article_idx
   on public.newsroom_editorial_dossier_published_contexts (
     editorial_article_id,
     dossier_id
-  );
+  )
+;
 
 create index ned_plan_published_contexts_plan_order_idx
   on public.newsroom_editorial_dossier_article_plan_published_contexts (
@@ -266,64 +279,85 @@ create index ned_plan_published_contexts_plan_order_idx
     article_plan_id,
     sort_order,
     dossier_published_context_id
-  );
+  )
+;
 
 create index ned_plan_published_contexts_context_idx
   on public.newsroom_editorial_dossier_article_plan_published_contexts (
     dossier_published_context_id,
     article_plan_id
-  );
+  )
+;
 
 create index ned_images_dossier_created_idx
   on public.newsroom_editorial_dossier_images (
     dossier_id,
     created_at,
     id
-  );
+  )
+;
 
 create index ned_article_plans_update_target_idx
   on public.newsroom_editorial_dossier_article_plans (
     update_target_editorial_article_id,
     dossier_id
   )
-  where update_target_editorial_article_id is not null;
+  where update_target_editorial_article_id is not null
+;
 
 alter table public.newsroom_editorial_dossier_published_contexts
-  enable row level security;
+  enable row level security
+;
+
 alter table public.newsroom_editorial_dossier_published_contexts
-  force row level security;
+  force row level security
+;
+
 alter table public.newsroom_editorial_dossier_article_plan_published_contexts
-  enable row level security;
+  enable row level security
+;
+
 alter table public.newsroom_editorial_dossier_article_plan_published_contexts
-  force row level security;
+  force row level security
+;
+
 alter table public.newsroom_editorial_dossier_images
-  enable row level security;
+  enable row level security
+;
+
 alter table public.newsroom_editorial_dossier_images
-  force row level security;
+  force row level security
+;
 
 revoke all privileges
 on table public.newsroom_editorial_dossier_published_contexts
-from public, anon, authenticated, service_role;
+from public, anon, authenticated, service_role
+;
 
 revoke all privileges
 on table public.newsroom_editorial_dossier_article_plan_published_contexts
-from public, anon, authenticated, service_role;
+from public, anon, authenticated, service_role
+;
 
 revoke all privileges
 on table public.newsroom_editorial_dossier_images
-from public, anon, authenticated, service_role;
+from public, anon, authenticated, service_role
+;
 
 grant select
 on table public.newsroom_editorial_dossier_published_contexts
-to service_role;
+to service_role
+;
 
 grant select
 on table public.newsroom_editorial_dossier_article_plan_published_contexts
-to service_role;
+to service_role
+;
 
 grant select
 on table public.newsroom_editorial_dossier_images
-to service_role;
+to service_role
+;
 
 create function public.newsroom_prepare_editorial_dossier_workspace_v1(
   p_preparation_key uuid,
@@ -621,7 +655,8 @@ begin
     v_published_count,
     v_image_count;
 end;
-$function$;
+$function$
+;
 
 create function public.newsroom_save_dossier_article_plan_state_v1(
   p_dossier_id uuid,
@@ -801,7 +836,8 @@ begin
     p_image_choice,
     p_dossier_image_id;
 end;
-$function$;
+$function$
+;
 
 create function public.newsroom_add_dossier_upload_image_v1(
   p_dossier_id uuid,
@@ -894,11 +930,13 @@ begin
     case when v_created then 'created' else 'reused' end,
     v_image.frozen_url;
 end;
-$function$;
+$function$
+;
 
 revoke all
 on function public.newsroom_protect_dossier_preparation_key_v1()
-from public, anon, authenticated, service_role;
+from public, anon, authenticated, service_role
+;
 
 revoke all
 on function public.newsroom_prepare_editorial_dossier_workspace_v1(
@@ -908,7 +946,8 @@ on function public.newsroom_prepare_editorial_dossier_workspace_v1(
   uuid[],
   uuid[]
 )
-from public, anon, authenticated, service_role;
+from public, anon, authenticated, service_role
+;
 
 revoke all
 on function public.newsroom_save_dossier_article_plan_state_v1(
@@ -920,7 +959,8 @@ on function public.newsroom_save_dossier_article_plan_state_v1(
   text,
   uuid
 )
-from public, anon, authenticated, service_role;
+from public, anon, authenticated, service_role
+;
 
 revoke all
 on function public.newsroom_add_dossier_upload_image_v1(
@@ -930,7 +970,8 @@ on function public.newsroom_add_dossier_upload_image_v1(
   text,
   text
 )
-from public, anon, authenticated, service_role;
+from public, anon, authenticated, service_role
+;
 
 grant execute
 on function public.newsroom_prepare_editorial_dossier_workspace_v1(
@@ -940,7 +981,8 @@ on function public.newsroom_prepare_editorial_dossier_workspace_v1(
   uuid[],
   uuid[]
 )
-to service_role;
+to service_role
+;
 
 grant execute
 on function public.newsroom_save_dossier_article_plan_state_v1(
@@ -952,7 +994,8 @@ on function public.newsroom_save_dossier_article_plan_state_v1(
   text,
   uuid
 )
-to service_role;
+to service_role
+;
 
 grant execute
 on function public.newsroom_add_dossier_upload_image_v1(
@@ -962,32 +1005,43 @@ on function public.newsroom_add_dossier_upload_image_v1(
   text,
   text
 )
-to service_role;
+to service_role
+;
 
 comment on column public.newsroom_editorial_dossiers.preparation_key is
-  'Stable idempotency key for the atomic Mesa PREPARAR operation. Null identifies legacy dossiers.';
+  'Stable idempotency key for the atomic Mesa PREPARAR operation. Null identifies legacy dossiers.'
+;
 
 comment on table public.newsroom_editorial_dossier_published_contexts is
-  'Canonical published articles available only as editorial context in one production dossier. This relation never means UPDATE.';
+  'Canonical published articles available only as editorial context in one production dossier. This relation never means UPDATE.'
+;
 
 comment on table public.newsroom_editorial_dossier_article_plan_published_contexts is
-  'Per-plan selection from the published contexts of the same dossier.';
+  'Per-plan selection from the published contexts of the same dossier.'
+;
 
 comment on column public.newsroom_editorial_dossier_article_plans.destination is
-  'Pre-package output destination: new or update.';
+  'Pre-package output destination: new or update.'
+;
 
 comment on column public.newsroom_editorial_dossier_article_plans.update_target_editorial_article_id is
-  'Canonical published article targeted by an update plan. The writer validates published status; a future Source Package writer must revalidate it. editorial_article_id keeps its separate materialized-output meaning.';
+  'Canonical published article targeted by an update plan. The writer validates published status; a future Source Package writer must revalidate it. editorial_article_id keeps its separate materialized-output meaning.'
+;
 
 comment on table public.newsroom_editorial_dossier_images is
-  'Dossier-local common image bank with one frozen URL and exclusive newsroom, published or upload provenance.';
+  'Dossier-local common image bank with one frozen URL and exclusive newsroom, published or upload provenance.'
+;
 
 comment on column public.newsroom_editorial_dossier_images.frozen_url is
-  'Image URL available and frozen when this row was created. For newsroom origin, newsroom_articles is the image authority; the textual snapshot remains only on the dossier source.';
+  'Image URL available and frozen when this row was created. For newsroom origin, newsroom_articles is the image authority; the textual snapshot remains only on the dossier source.'
+;
 
 comment on column public.newsroom_editorial_dossier_article_plans.image_choice is
-  'Single image decision authority: unselected, preserve_published or dossier_image.';
+  'Single image decision authority: unselected, preserve_published or dossier_image.'
+;
 
-notify pgrst, 'reload schema';
+notify pgrst, 'reload schema'
+;
 
-commit;
+commit
+;

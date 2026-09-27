@@ -1,0 +1,50 @@
+name: Migration history - isolated PostgreSQL 17.6 replay
+on:
+  push:
+    branches:
+      - jornada-supabase-migration-history-reconciliation-20260927
+    paths:
+      - 'supabase/migrations/**'
+      - '.ci/migration-replay/**'
+      - '.github/workflows/migration-history-replay.yml'
+      - 'docs/migration-reconciliation/**'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  replay:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      SUPABASE_ACCESS_TOKEN: ''
+      SUPABASE_DB_PASSWORD: ''
+      SUPABASE_URL: ''
+      SUPABASE_SERVICE_ROLE_KEY: ''
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Prepare pinned CLI outside the isolated database
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p .ci/migration-replay/tools
+          curl --fail --location --silent --show-error https://github.com/supabase/cli/releases/download/v2.117.0/supabase_linux_amd64.tar.gz \
+            -o .ci/migration-replay/tools/cli.tar.gz
+          curl --fail --location --silent --show-error https://github.com/supabase/cli/releases/download/v2.117.0/supabase_2.117.0_checksums.txt \
+            -o .ci/migration-replay/tools/checksums.txt
+          cd .ci/migration-replay/tools
+          grep 'supabase_linux_amd64.tar.gz$' checksums.txt | sed 's/supabase_linux_amd64.tar.gz/cli.tar.gz/' | sha256sum --check
+          tar -xzf cli.tar.gz supabase
+          ./supabase migration up --help
+      - name: Replay the entire reconstructed history in a fresh network-less container
+        run: bash .ci/migration-replay/run.sh
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: migration-replay-evidence
+          path: .ci/migration-replay/output
+          retention-days: 14
