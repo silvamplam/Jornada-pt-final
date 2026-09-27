@@ -109,17 +109,18 @@ function cleanSourceId(value: string): string {
   return value.trim().toLowerCase();
 }
 
-function isLegacyEditorialVisualFamily(
+function isProfileEditorialVisualFamily(
   value: unknown,
 ): value is (
   typeof LEGACY_EDITORIAL_VISUAL_FAMILIES
-)[number] {
+)[number] | "six_news_1_2_3" {
   return (
-    typeof value === "string"
-    && LEGACY_EDITORIAL_VISUAL_FAMILIES.includes(
-      value as (
-        typeof LEGACY_EDITORIAL_VISUAL_FAMILIES
-      )[number],
+    value === "six_news_1_2_3"
+    || (
+      typeof value === "string"
+      && LEGACY_EDITORIAL_VISUAL_FAMILIES.includes(
+        value as (typeof LEGACY_EDITORIAL_VISUAL_FAMILIES)[number],
+      )
     )
   );
 }
@@ -281,7 +282,7 @@ export function validateMatchdayEditorialProfilePageControls(
           .sort()
           .join(",")
       || MATCHDAY_EDITORIAL_PROFILE_THEMATIC_ZONE_ORDER_KEYS.some(
-        (zoneKey) => !isLegacyEditorialVisualFamily(
+        (zoneKey) => !isProfileEditorialVisualFamily(
           layouts[zoneKey],
         ),
       )
@@ -496,7 +497,7 @@ export function normalizeMatchdayEditorialProfileThematicZoneLayouts(
         .sort()
         .join(",")
     || MATCHDAY_EDITORIAL_PROFILE_THEMATIC_ZONE_ORDER_KEYS.some(
-      (zoneKey) => !isLegacyEditorialVisualFamily(
+      (zoneKey) => !isProfileEditorialVisualFamily(
         value[zoneKey],
       ),
     )

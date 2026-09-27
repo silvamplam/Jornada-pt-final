@@ -350,6 +350,29 @@ test("serializer representa create como topologia final completa", () => {
   );
 });
 
+test("Viva cria 1+2+3, transporta seis posições no Apply e rejeita a sétima", () => {
+  const initial = createPhysicalDeskState(workspace(5));
+  let state = createPhysicalDeskZone(initial, {
+    publicTitle: "Atualidade", visualFamily: "six_news_1_2_3",
+  });
+  const zone = state.current.zones.find((candidate) => !initial.current.zones.some((old) => old.id === candidate.id));
+  assert.ok(zone);
+  assert.equal(zone.capacity, 6);
+  for (let position = 1; position <= 6; position += 1) {
+    state = movePhysicalDeskItemToSlot(state, id(40, position + 5), {
+      placementType: "zone", zoneId: zone.id, slotPosition: position,
+    });
+  }
+  const payload = parsePhysicalDeskApplyPayload(buildPhysicalDeskApplyPayload("liga_portugal_v1", state));
+  const rpc = physicalDeskApplyRpcArguments(MATCHDAY_ID, payload);
+  assert.equal(rpc.p_zones.find((row) => row.id === zone.id)?.visual_family, "six_news_1_2_3");
+  assert.deepEqual(payload.placements.filter((row) => row.zoneId === zone.id).map((row) => row.slotPosition), [1, 2, 3, 4, 5, 6]);
+  assert.throws(() => parsePhysicalDeskApplyPayload({
+    ...payload,
+    placements: payload.placements.map((row) => row.zoneId === zone.id && row.slotPosition === 6 ? { ...row, slotPosition: 7 } : row),
+  }));
+});
+
 test("serializer transporta zona sem título público", () => {
   const initial = createPhysicalDeskState(workspace(5));
   const created = createPhysicalDeskZone(initial, {

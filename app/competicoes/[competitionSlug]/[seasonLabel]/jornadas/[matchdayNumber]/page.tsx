@@ -86,6 +86,7 @@ const PUBLIC_STAT_COLUMNS: Array<{ key: keyof ClassificationSplit; label: string
 
 type HistoricalDynamicZoneVisualFamily =
   | "six_news"
+  | "six_news_1_2_3"
   | "five_news_balanced"
   | "five_news_secondary";
 

@@ -2781,7 +2781,7 @@ type HierarchicalDeskPlanOperation =
 
 type HistoricalDynamicZonePlan = {
   publicTitle: string;
-  visualFamily: "six_news" | "five_news_balanced" | "five_news_secondary";
+  visualFamily: "six_news" | "five_news_balanced" | "five_news_secondary" | "six_news_1_2_3";
   items: Array<{
     position: number;
     bankItemId: string;
@@ -2790,6 +2790,7 @@ type HistoricalDynamicZonePlan = {
 
 const HISTORICAL_DYNAMIC_ZONE_CAPACITIES = {
   six_news: 6,
+  six_news_1_2_3: 6,
   five_news_balanced: 5,
   five_news_secondary: 5,
 } as const;
@@ -3483,6 +3484,7 @@ type HistoricalDynamicPublicationZoneRow = {
   public_title: string;
   visual_family:
     | "six_news"
+    | "six_news_1_2_3"
     | "five_news_balanced"
     | "five_news_secondary";
 };
@@ -3499,6 +3501,7 @@ type HistoricalDynamicPublicationItemRow = {
 
 const HISTORICAL_DYNAMIC_PUBLICATION_CAPACITY = {
   six_news: 6,
+  six_news_1_2_3: 6,
   five_news_balanced: 5,
   five_news_secondary: 5,
 } as const;
