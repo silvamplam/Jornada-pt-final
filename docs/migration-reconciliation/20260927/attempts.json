@@ -121,6 +121,22 @@
       "migrations_applied": 149,
       "first_failure": "No SQL migration failure. Comparison found inherited ACL/comment metadata missing on 3 functions and public schema grant, plus 32 functions outside the migration dependency closure.",
       "correction": "Include the three original foundation function definitions from steps 113/117 with captured ACL/comments, and public schema postgres grant. Explicitly inventory excluded functions using the same dependency-closure rule as tables. Dry-run and migration list passed."
+    },
+    {
+      "run": 36327203323,
+      "commit": "3030a2af32ad07f82abb2914af9b06d554b055f8",
+      "phase": "complete",
+      "baseline_passed": true,
+      "replay_passed": true,
+      "migrations_applied": 149,
+      "first_failure": null,
+      "compared_objects": 438,
+      "differences": 0,
+      "excluded_tables": 30,
+      "excluded_functions": 32,
+      "cli_migration_list": "149 local/149 isolated remote aligned",
+      "isolated_dry_run": "Remote database is up to date",
+      "server_version": "17.6"
     }
   ]
 }

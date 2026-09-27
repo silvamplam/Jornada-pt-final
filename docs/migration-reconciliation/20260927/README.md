@@ -1,6 +1,7 @@
 # Migration history reconciliation — 2026-09-27
 
-Work in progress on `jornada-supabase-migration-history-reconciliation-20260927`.
+Reconstruction complete on `jornada-supabase-migration-history-reconciliation-20260927`.
+See [REPORT.md](REPORT.md) for the final replay, comparison, decisions and proposed repairs.
 Production is read-only throughout this phase. No remote repair or migration execution is authorized.
 
 ## Evidence and historical authority
@@ -33,7 +34,8 @@ The CI workflow uses a fresh PostgreSQL 17.6 container with real Supabase extens
 CLI migration execution, list and dry-run use only loopback inside that container.
 Full replay and catalogue comparison are required before any proposed remote repair.
 
-Current repair authorization: **none**. Final decisions will be recorded after validation.
+Current repair authorization: **none**. Final decisions are recorded in `repair-plan.json`;
+all six proposed repairs remain unexecuted and require explicit authorization.
 
 ## Historical execution prerequisites discovered by full replay
 

@@ -1,0 +1,63 @@
+{
+  "project": "mztkeurmeadwbgebmuvv",
+  "branch": "jornada-supabase-migration-history-reconciliation-20260927",
+  "authorization": "NOT AUTHORIZED: stop before remote repair; request explicit approval",
+  "execution_status": "not executed",
+  "replay_run": "https://github.com/silvamplam/Jornada-pt-final/actions/runs/36327203323",
+  "compared_objects": 438,
+  "contract_differences": 0,
+  "rationale": "Reconcile installed state, not claim evidence of the original execution time. No SQL migration needs to execute in production.",
+  "applied": [
+    {
+      "version": "20260815230610",
+      "name": "matchday_editorial_desk_real_apply",
+      "decision": "safe to mark applied after explicit authorization",
+      "evidence": "matchday_editorial_desk_control and both introduced RPCs exist; complete replay including later replacements matches production tables, function definitions, security, ACL and comments.",
+      "command": "supabase migration repair 20260815230610 --status applied --linked"
+    },
+    {
+      "version": "20260816094000",
+      "name": "matchday_editorial_desk_cross_matchday_history",
+      "decision": "safe to mark applied after explicit authorization",
+      "evidence": "All three v2 RPC identities exist. Their final definitions/metadata match the full replay. No other remote version records this migration.",
+      "command": "supabase migration repair 20260816094000 --status applied --linked"
+    },
+    {
+      "version": "20260816160000",
+      "name": "match_postponed_rollover_exclusion",
+      "decision": "safe to mark applied after explicit authorization",
+      "evidence": "matches.rollover_excluded is boolean NOT NULL DEFAULT false with the exact persisted comment; production read-only check found zero postponed rows not excluded. This proves current postconditions, not when the historical backfill ran.",
+      "command": "supabase migration repair 20260816160000 --status applied --linked"
+    },
+    {
+      "version": "20260921122500",
+      "name": "match_video_summary_manual_only",
+      "decision": "safe to mark applied after explicit authorization",
+      "evidence": "jornada-video-summaries-quarter-hour is absent in production and after replay; the migration only removes that job if present. No other history version records its removal.",
+      "command": "supabase migration repair 20260921122500 --status applied --linked"
+    },
+    {
+      "version": "20260922002000",
+      "name": "newsroom_current_feed_manual_only",
+      "decision": "safe to mark applied after explicit authorization",
+      "evidence": "jornada-newsroom-current-feed-quarter-hour is absent in production and after replay; the migration only removes that job if present. No other history version records its removal.",
+      "command": "supabase migration repair 20260922002000 --status applied --linked"
+    },
+    {
+      "version": "20260927134943",
+      "name": "replay_preserve_production_carryover_v18_validations",
+      "decision": "mark applied without execution after explicit authorization",
+      "evidence": "Both v18 function definitions match production byte-for-byte after replay. The new migration documents already installed, previously unrecorded validations. Its guard prevents execution outside the isolated replay.",
+      "command": "supabase migration repair 20260927134943 --status applied --linked"
+    }
+  ],
+  "reverted": [],
+  "other_repairs": [],
+  "schema_or_data_changes": [],
+  "preconditions": [
+    "Verify linked project remains mztkeurmeadwbgebmuvv",
+    "Re-read remote history/catalog and stop if changed from evidence",
+    "Obtain explicit authorization for exactly these six versions",
+    "Do not run db push or execute migration SQL in production"
+  ]
+}

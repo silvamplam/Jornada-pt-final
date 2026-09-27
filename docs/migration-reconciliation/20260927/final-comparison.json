@@ -1,0 +1,2076 @@
+{
+  "compared_count": 438,
+  "difference_count": 0,
+  "excluded": [
+    {
+      "kind": "tables",
+      "name": "public.goals",
+      "reason": "outside dependency closure; neither defined, renamed nor referenced by the chain/baseline"
+    },
+    {
+      "kind": "tables",
+      "name": "public.headlines",
+      "reason": "outside dependency closure; neither defined, renamed nor referenced by the chain/baseline"
+    },
+    {
+      "kind": "tables",
+      "name": "public.live_updates",
+      "reason": "outside dependency closure; neither defined, renamed nor referenced by the chain/baseline"
+    },
+    {
+      "kind": "tables",
+      "name": "public.match_events",
+      "reason": "outside dependency closure; neither defined, renamed nor referenced by the chain/baseline"
+    },
+    {
+      "kind": "tables",
+      "name": "public.newsroom_editorial_compose_requests",
+      "reason": "outside dependency closure; neither defined, renamed nor referenced by the chain/baseline"
+    },
+    {
+      "kind": "tables",
+      "name": "public.newsroom_editorial_dossier_article_plan_generations",
+      "reason": "outside dependency closure; neither defined, renamed nor referenced by the chain/baseline"
+    },
+    {
+      "kind": "tables",
+      "name": "public.newsroom_editorial_profile_activation_events",
+      "reason": "outside dependency closure; neither defined, renamed nor referenced by the chain/baseline"
+    },
+    {
+      "kind": "tables",
+      "name": "public.newsroom_editorial_review_batch_items",
+      "reason": "outside dependency closure; neither defined, renamed nor referenced by the chain/baseline"
+    },
+    {
+      "kind": "tables",
+      "name": "public.players",
+      "reason": "outside dependency closure; neither defined, renamed nor referenced by the chain/baseline"
+    },
+    {
+      "kind": "tables",
+      "name": "public.portal_audit_events",
+      "reason": "outside dependency closure; neither defined, renamed nor referenced by the chain/baseline"
+    },
+    {
+      "kind": "tables",
+      "name": "public.portal_competition_categories",
+      "reason": "outside dependency closure; neither defined, renamed nor referenced by the chain/baseline"
+    },
+    {
+      "kind": "tables",
+      "name": "public.portal_competition_format_catalog",
+      "reason": "outside dependency closure; neither defined, renamed nor referenced by the chain/baseline"
+    },
+    {
+      "kind": "tables",
+      "name": "public.portal_competition_formats",
+      "reason": "outside dependency closure; neither defined, renamed nor referenced by the chain/baseline"
+    },
+    {
+      "kind": "tables",
+      "name": "public.portal_competition_participants",
+      "reason": "outside dependency closure; neither defined, renamed nor referenced by the chain/baseline"
+    },
+    {
+      "kind": "tables",
+      "name": "public.portal_content_submissions",
+      "reason": "outside dependency closure; neither defined, renamed nor referenced by the chain/baseline"
+    },
+    {
+      "kind": "tables",
+      "name": "public.portal_event_participants",
+      "reason": "outside dependency closure; neither defined, renamed nor referenced by the chain/baseline"
+    },
+    {
+      "kind": "tables",
+      "name": "public.portal_events",
+      "reason": "outside dependency closure; neither defined, renamed nor referenced by the chain/baseline"
+    },
+    {
+      "kind": "tables",
+      "name": "public.portal_games",
+      "reason": "outside dependency closure; neither defined, renamed nor referenced by the chain/baseline"
+    },
+    {
+      "kind": "tables",
+      "name": "public.portal_participants",
+      "reason": "outside dependency closure; neither defined, renamed nor referenced by the chain/baseline"
+    },
+    {
+      "kind": "tables",
+      "name": "public.portal_ranking_entries",
+      "reason": "outside dependency closure; neither defined, renamed nor referenced by the chain/baseline"
+    },
+    {
+      "kind": "tables",
+      "name": "public.portal_rankings",
+      "reason": "outside dependency closure; neither defined, renamed nor referenced by the chain/baseline"
+    },
+    {
+      "kind": "tables",
+      "name": "public.portal_result_entries",
+      "reason": "outside dependency closure; neither defined, renamed nor referenced by the chain/baseline"
+    },
+    {
+      "kind": "tables",
+      "name": "public.portal_results",
+      "reason": "outside dependency closure; neither defined, renamed nor referenced by the chain/baseline"
+    },
+    {
+      "kind": "tables",
+      "name": "public.portal_stages",
+      "reason": "outside dependency closure; neither defined, renamed nor referenced by the chain/baseline"
+    },
+    {
+      "kind": "tables",
+      "name": "public.site_featured_matches",
+      "reason": "outside dependency closure; neither defined, renamed nor referenced by the chain/baseline"
+    },
+    {
+      "kind": "tables",
+      "name": "public.standing_rows",
+      "reason": "outside dependency closure; neither defined, renamed nor referenced by the chain/baseline"
+    },
+    {
+      "kind": "tables",
+      "name": "public.standings",
+      "reason": "outside dependency closure; neither defined, renamed nor referenced by the chain/baseline"
+    },
+    {
+      "kind": "tables",
+      "name": "public.team_alias_audit_events",
+      "reason": "outside dependency closure; neither defined, renamed nor referenced by the chain/baseline"
+    },
+    {
+      "kind": "tables",
+      "name": "public.team_deletion_audit_events",
+      "reason": "outside dependency closure; neither defined, renamed nor referenced by the chain/baseline"
+    },
+    {
+      "kind": "tables",
+      "name": "public.team_public_name_audit_events",
+      "reason": "outside dependency closure; neither defined, renamed nor referenced by the chain/baseline"
+    },
+    {
+      "kind": "functions",
+      "name": "public.manage_team_alias(p_action text, p_actor_type text, p_actor_reference text, p_source text, p_team_alias_id uuid, p_team_id uuid, p_alias text, p_request_reference text)",
+      "reason": "outside dependency closure; neither defined, renamed nor referenced by the chain/baseline"
+    },
+    {
+      "kind": "functions",
+      "name": "public.manage_team_alias_batch(p_country_id uuid, p_rows jsonb, p_apply boolean, p_actor_type text, p_actor_reference text, p_source text, p_request_reference text)",
+      "reason": "outside dependency closure; neither defined, renamed nor referenced by the chain/baseline"
+    },
+    {
+      "kind": "functions",
+      "name": "public.manage_team_creation_batch(p_country_id uuid, p_rows jsonb, p_apply boolean, p_confirmed_preview_fingerprint text, p_confirmed_complete_existing_lines jsonb, p_actor_type text, p_actor_reference text, p_source text, p_request_reference text)",
+      "reason": "outside dependency closure; neither defined, renamed nor referenced by the chain/baseline"
+    },
+    {
+      "kind": "functions",
+      "name": "public.manage_team_public_name(p_team_id uuid, p_public_name text, p_actor_type text, p_actor_reference text, p_source text, p_request_reference text)",
+      "reason": "outside dependency closure; neither defined, renamed nor referenced by the chain/baseline"
+    },
+    {
+      "kind": "functions",
+      "name": "public.manage_team_safe_deletion(p_team_id uuid, p_apply boolean, p_confirmed_preview_fingerprint text, p_confirmed_action text, p_actor_type text, p_actor_reference text, p_source text, p_request_reference text)",
+      "reason": "outside dependency closure; neither defined, renamed nor referenced by the chain/baseline"
+    },
+    {
+      "kind": "functions",
+      "name": "public.newsroom_activate_editorial_profile_version(p_profile_id uuid, p_version_id uuid, p_expected_active_version_id uuid, p_event_type text, p_reason text, p_created_by_actor_type text, p_created_by_actor_id text)",
+      "reason": "outside dependency closure; neither defined, renamed nor referenced by the chain/baseline"
+    },
+    {
+      "kind": "functions",
+      "name": "public.newsroom_apply_editorial_dossier_article_plan_generation(p_dossier_id uuid, p_article_plan_id uuid, p_editorial_article_id uuid, p_expected_article_updated_at timestamp with time zone, p_generated_body text, p_provider text, p_model text, p_prompt_version text, p_provider_response_id text, p_input_hash text, p_input_snapshot jsonb, p_input_tokens integer, p_output_tokens integer, p_total_tokens integer)",
+      "reason": "outside dependency closure; neither defined, renamed nor referenced by the chain/baseline"
+    },
+    {
+      "kind": "functions",
+      "name": "public.newsroom_apply_editorial_review(p_action text, p_items jsonb)",
+      "reason": "outside dependency closure; neither defined, renamed nor referenced by the chain/baseline"
+    },
+    {
+      "kind": "functions",
+      "name": "public.newsroom_apply_generated_article(p_dossier_id uuid, p_article_plan_id uuid, p_editorial_article_id uuid, p_expected_article_updated_at timestamp with time zone, p_generated_title text, p_generated_post_title text, p_image_url text, p_generated_body text, p_provider text, p_model text, p_prompt_version text, p_provider_response_id text, p_input_hash text, p_input_snapshot jsonb, p_input_tokens integer, p_output_tokens integer, p_total_tokens integer)",
+      "reason": "outside dependency closure; neither defined, renamed nor referenced by the chain/baseline"
+    },
+    {
+      "kind": "functions",
+      "name": "public.newsroom_claim_editorial_compose_generation(p_submission_id uuid, p_request_fingerprint text, p_claim_token uuid)",
+      "reason": "outside dependency closure; neither defined, renamed nor referenced by the chain/baseline"
+    },
+    {
+      "kind": "functions",
+      "name": "public.newsroom_complete_editorial_compose_generation(p_submission_id uuid, p_request_fingerprint text, p_claim_token uuid)",
+      "reason": "outside dependency closure; neither defined, renamed nor referenced by the chain/baseline"
+    },
+    {
+      "kind": "functions",
+      "name": "public.newsroom_create_complete_manual_entry(p_submission_id uuid, p_request_fingerprint text, p_ante_title text, p_title text, p_post_title text, p_author text, p_body jsonb, p_published_date text, p_published_time text, p_image_url text, p_content_hash text)",
+      "reason": "outside dependency closure; neither defined, renamed nor referenced by the chain/baseline"
+    },
+    {
+      "kind": "functions",
+      "name": "public.newsroom_create_editorial_dossier_article_plan_draft(p_dossier_id uuid, p_article_plan_id uuid)",
+      "reason": "outside dependency closure; neither defined, renamed nor referenced by the chain/baseline"
+    },
+    {
+      "kind": "functions",
+      "name": "public.newsroom_create_editorial_profile_version(p_profile_id uuid, p_based_on_version_id uuid, p_expected_latest_version_number integer, p_document_text text, p_content_hash text, p_change_summary text, p_created_by_actor_type text, p_created_by_actor_id text)",
+      "reason": "outside dependency closure; neither defined, renamed nor referenced by the chain/baseline"
+    },
+    {
+      "kind": "functions",
+      "name": "public.newsroom_create_manual_entry(p_submission_id uuid, p_request_fingerprint text, p_title text, p_body jsonb, p_published_date text, p_image_url text, p_content_hash text)",
+      "reason": "outside dependency closure; neither defined, renamed nor referenced by the chain/baseline"
+    },
+    {
+      "kind": "functions",
+      "name": "public.newsroom_fail_editorial_compose_generation(p_submission_id uuid, p_request_fingerprint text, p_claim_token uuid, p_error_code text)",
+      "reason": "outside dependency closure; neither defined, renamed nor referenced by the chain/baseline"
+    },
+    {
+      "kind": "functions",
+      "name": "public.newsroom_persist_article_snapshot(p_source_code text, p_original_url text, p_normalized_url text, p_external_id text, p_title text, p_subtitle text, p_summary text, p_author text, p_published_at timestamp with time zone, p_modified_at timestamp with time zone, p_detected_at timestamp with time zone, p_image_url text, p_processing_status text, p_content_hash text, p_body jsonb, p_source_metadata jsonb, p_extracted_at timestamp with time zone)",
+      "reason": "outside dependency closure; neither defined, renamed nor referenced by the chain/baseline"
+    },
+    {
+      "kind": "functions",
+      "name": "public.newsroom_pin_editorial_profile_version_for_plan(p_dossier_id uuid, p_plan_id uuid)",
+      "reason": "outside dependency closure; neither defined, renamed nor referenced by the chain/baseline"
+    },
+    {
+      "kind": "functions",
+      "name": "public.newsroom_prepare_editorial_compose(p_submission_id uuid, p_request_fingerprint text, p_working_title text, p_editorial_instructions text, p_context_instructions text, p_article_kind text, p_length_mode text, p_output_language text, p_newsroom_article_ids uuid[], p_newsroom_snapshot_ids uuid[], p_source_roles text[], p_source_priorities integer[], p_source_notes text[])",
+      "reason": "outside dependency closure; neither defined, renamed nor referenced by the chain/baseline"
+    },
+    {
+      "kind": "functions",
+      "name": "public.newsroom_reject_editorial_generation_mutation()",
+      "reason": "outside dependency closure; neither defined, renamed nor referenced by the chain/baseline"
+    },
+    {
+      "kind": "functions",
+      "name": "public.newsroom_reject_editorial_profile_activation_event_mutation()",
+      "reason": "outside dependency closure; neither defined, renamed nor referenced by the chain/baseline"
+    },
+    {
+      "kind": "functions",
+      "name": "public.portal_create_competition(p_portal_modality_id uuid, p_name text, p_slug text, p_scope text, p_format text, p_status text)",
+      "reason": "outside dependency closure; neither defined, renamed nor referenced by the chain/baseline"
+    },
+    {
+      "kind": "functions",
+      "name": "public.portal_create_competition_event(p_portal_competition_id uuid, p_name text, p_portal_stage_id uuid, p_type text, p_event_order integer, p_scheduled_at timestamp with time zone, p_venue text, p_notes text, p_participant_ids uuid[], p_status text)",
+      "reason": "outside dependency closure; neither defined, renamed nor referenced by the chain/baseline"
+    },
+    {
+      "kind": "functions",
+      "name": "public.portal_create_competition_format(p_portal_competition_id uuid, p_catalog_format_id uuid, p_name text, p_code text, p_format_scope text, p_format_family text, p_event_model text, p_result_model text, p_ranking_model text, p_notes text, p_status text)",
+      "reason": "outside dependency closure; neither defined, renamed nor referenced by the chain/baseline"
+    },
+    {
+      "kind": "functions",
+      "name": "public.portal_create_competition_participant(p_portal_competition_id uuid, p_name text, p_type text, p_group_label text, p_seed_order integer, p_external_reference text, p_notes text, p_status text, p_registration_status text)",
+      "reason": "outside dependency closure; neither defined, renamed nor referenced by the chain/baseline"
+    },
+    {
+      "kind": "functions",
+      "name": "public.portal_create_competition_structure(p_portal_competition_id uuid, p_name text, p_type text, p_stage_order integer, p_scheduled_date date, p_status text)",
+      "reason": "outside dependency closure; neither defined, renamed nor referenced by the chain/baseline"
+    },
+    {
+      "kind": "functions",
+      "name": "public.portal_create_content_submission(p_portal_competition_id uuid, p_type text, p_title text, p_summary text, p_body text, p_media_url text, p_portal_stage_id uuid, p_portal_event_id uuid, p_portal_participant_id uuid)",
+      "reason": "outside dependency closure; neither defined, renamed nor referenced by the chain/baseline"
+    },
+    {
+      "kind": "functions",
+      "name": "public.portal_create_modality(p_portal_context_id uuid, p_catalog_code text, p_name text, p_slug text, p_local_code text, p_status text, p_notes text)",
+      "reason": "outside dependency closure; neither defined, renamed nor referenced by the chain/baseline"
+    },
+    {
+      "kind": "functions",
+      "name": "public.portal_recalculate_competition_ranking(p_portal_competition_id uuid, p_portal_ranking_id uuid)",
+      "reason": "outside dependency closure; neither defined, renamed nor referenced by the chain/baseline"
+    },
+    {
+      "kind": "functions",
+      "name": "public.portal_recalculate_demo_competition_ranking()",
+      "reason": "outside dependency closure; neither defined, renamed nor referenced by the chain/baseline"
+    },
+    {
+      "kind": "functions",
+      "name": "public.portal_upsert_result_entry(p_portal_event_id uuid, p_portal_participant_id uuid, p_score_text text, p_score_numeric numeric, p_points numeric, p_outcome text, p_result_status text)",
+      "reason": "outside dependency closure; neither defined, renamed nor referenced by the chain/baseline"
+    },
+    {
+      "kind": "functions",
+      "name": "public.prevent_team_deletion_audit_event_mutation()",
+      "reason": "outside dependency closure; neither defined, renamed nor referenced by the chain/baseline"
+    }
+  ],
+  "compared": [
+    {
+      "kind": "tables",
+      "name": "jornada_private.match_video_summary_automation_tokens"
+    },
+    {
+      "kind": "tables",
+      "name": "jornada_private.matchday_editorial_bank_classification_authorizations"
+    },
+    {
+      "kind": "tables",
+      "name": "jornada_private.matchday_historical_article_decisions"
+    },
+    {
+      "kind": "tables",
+      "name": "jornada_private.matchday_historical_physical_archive_certificates_v20"
+    },
+    {
+      "kind": "tables",
+      "name": "jornada_private.matchday_live_layout_cutover_control"
+    },
+    {
+      "kind": "tables",
+      "name": "jornada_private.matchday_live_layout_downstream_context"
+    },
+    {
+      "kind": "tables",
+      "name": "jornada_private.matchday_live_layout_physical_bank_maps"
+    },
+    {
+      "kind": "tables",
+      "name": "jornada_private.matchday_live_layout_physical_carryover_context"
+    },
+    {
+      "kind": "tables",
+      "name": "jornada_private.matchday_live_layout_physical_carryovers"
+    },
+    {
+      "kind": "tables",
+      "name": "jornada_private.matchday_live_layout_physical_cutovers"
+    },
+    {
+      "kind": "tables",
+      "name": "jornada_private.matchday_live_layout_physical_handoffs"
+    },
+    {
+      "kind": "tables",
+      "name": "jornada_private.matchday_live_layout_physical_target_zone_identities"
+    },
+    {
+      "kind": "tables",
+      "name": "jornada_private.matchday_live_layout_physical_topology_transitions"
+    },
+    {
+      "kind": "tables",
+      "name": "jornada_private.matchday_live_layout_physical_zone_maps"
+    },
+    {
+      "kind": "tables",
+      "name": "jornada_private.matchday_live_layout_placement_shadow_sync_queue"
+    },
+    {
+      "kind": "tables",
+      "name": "jornada_private.matchday_live_layout_shadow_sync_queue"
+    },
+    {
+      "kind": "tables",
+      "name": "jornada_private.matchday_live_layout_zone_legacy_projection"
+    },
+    {
+      "kind": "tables",
+      "name": "jornada_private.newsroom_automatic_feed_tokens"
+    },
+    {
+      "kind": "tables",
+      "name": "public.articles"
+    },
+    {
+      "kind": "tables",
+      "name": "public.broadcast_channels"
+    },
+    {
+      "kind": "tables",
+      "name": "public.competitions"
+    },
+    {
+      "kind": "tables",
+      "name": "public.countries"
+    },
+    {
+      "kind": "tables",
+      "name": "public.editorial_articles"
+    },
+    {
+      "kind": "tables",
+      "name": "public.editorial_contents"
+    },
+    {
+      "kind": "tables",
+      "name": "public.match_video_summary_candidates"
+    },
+    {
+      "kind": "tables",
+      "name": "public.match_video_summary_discoveries"
+    },
+    {
+      "kind": "tables",
+      "name": "public.matchday_editorial_bank_items"
+    },
+    {
+      "kind": "tables",
+      "name": "public.matchday_editorial_continuity_transitions"
+    },
+    {
+      "kind": "tables",
+      "name": "public.matchday_editorial_desk_control"
+    },
+    {
+      "kind": "tables",
+      "name": "public.matchday_editorial_profile_assignments"
+    },
+    {
+      "kind": "tables",
+      "name": "public.matchday_editorial_profile_manual_overrides"
+    },
+    {
+      "kind": "tables",
+      "name": "public.matchday_editorial_profile_reconcile_control"
+    },
+    {
+      "kind": "tables",
+      "name": "public.matchday_editorial_profile_state_items"
+    },
+    {
+      "kind": "tables",
+      "name": "public.matchday_editorial_profile_zone_items"
+    },
+    {
+      "kind": "tables",
+      "name": "public.matchday_editorials"
+    },
+    {
+      "kind": "tables",
+      "name": "public.matchday_hierarchical_composition_slots"
+    },
+    {
+      "kind": "tables",
+      "name": "public.matchday_highlights"
+    },
+    {
+      "kind": "tables",
+      "name": "public.matchday_historical_composition_zone_items"
+    },
+    {
+      "kind": "tables",
+      "name": "public.matchday_historical_composition_zones"
+    },
+    {
+      "kind": "tables",
+      "name": "public.matchday_horizontal_news"
+    },
+    {
+      "kind": "tables",
+      "name": "public.matchday_latest_news"
+    },
+    {
+      "kind": "tables",
+      "name": "public.matchday_live_layout_bank_item_state_memory"
+    },
+    {
+      "kind": "tables",
+      "name": "public.matchday_live_layout_blocks"
+    },
+    {
+      "kind": "tables",
+      "name": "public.matchday_live_layout_items"
+    },
+    {
+      "kind": "tables",
+      "name": "public.matchday_live_layout_latest_companion"
+    },
+    {
+      "kind": "tables",
+      "name": "public.matchday_live_layout_placements"
+    },
+    {
+      "kind": "tables",
+      "name": "public.matchday_live_layout_workspace_settings"
+    },
+    {
+      "kind": "tables",
+      "name": "public.matchday_live_layout_zones"
+    },
+    {
+      "kind": "tables",
+      "name": "public.matchday_reference_composition_items"
+    },
+    {
+      "kind": "tables",
+      "name": "public.matchday_reference_compositions"
+    },
+    {
+      "kind": "tables",
+      "name": "public.matchday_roundup_items"
+    },
+    {
+      "kind": "tables",
+      "name": "public.matchdays"
+    },
+    {
+      "kind": "tables",
+      "name": "public.matches"
+    },
+    {
+      "kind": "tables",
+      "name": "public.newsroom_article_snapshots"
+    },
+    {
+      "kind": "tables",
+      "name": "public.newsroom_articles"
+    },
+    {
+      "kind": "tables",
+      "name": "public.newsroom_editorial_article_classifications"
+    },
+    {
+      "kind": "tables",
+      "name": "public.newsroom_editorial_article_sources"
+    },
+    {
+      "kind": "tables",
+      "name": "public.newsroom_editorial_dossier_article_plan_published_contexts"
+    },
+    {
+      "kind": "tables",
+      "name": "public.newsroom_editorial_dossier_article_plan_sources"
+    },
+    {
+      "kind": "tables",
+      "name": "public.newsroom_editorial_dossier_article_plans"
+    },
+    {
+      "kind": "tables",
+      "name": "public.newsroom_editorial_dossier_images"
+    },
+    {
+      "kind": "tables",
+      "name": "public.newsroom_editorial_dossier_published_contexts"
+    },
+    {
+      "kind": "tables",
+      "name": "public.newsroom_editorial_dossier_sources"
+    },
+    {
+      "kind": "tables",
+      "name": "public.newsroom_editorial_dossiers"
+    },
+    {
+      "kind": "tables",
+      "name": "public.newsroom_editorial_profile_versions"
+    },
+    {
+      "kind": "tables",
+      "name": "public.newsroom_editorial_profiles"
+    },
+    {
+      "kind": "tables",
+      "name": "public.newsroom_editorial_review_batches"
+    },
+    {
+      "kind": "tables",
+      "name": "public.newsroom_editorial_review_states"
+    },
+    {
+      "kind": "tables",
+      "name": "public.newsroom_editorial_source_packages"
+    },
+    {
+      "kind": "tables",
+      "name": "public.newsroom_editorial_theme_articles"
+    },
+    {
+      "kind": "tables",
+      "name": "public.newsroom_editorial_theme_dossiers"
+    },
+    {
+      "kind": "tables",
+      "name": "public.newsroom_editorial_theme_sources"
+    },
+    {
+      "kind": "tables",
+      "name": "public.newsroom_editorial_themes"
+    },
+    {
+      "kind": "tables",
+      "name": "public.newsroom_manual_entry_requests"
+    },
+    {
+      "kind": "tables",
+      "name": "public.newsroom_mesa_article_plan_contexts"
+    },
+    {
+      "kind": "tables",
+      "name": "public.newsroom_mesa_containment_guard"
+    },
+    {
+      "kind": "tables",
+      "name": "public.newsroom_mesa_intent_article_receipts"
+    },
+    {
+      "kind": "tables",
+      "name": "public.newsroom_mesa_intent_finalizations"
+    },
+    {
+      "kind": "tables",
+      "name": "public.newsroom_mesa_intent_preparations"
+    },
+    {
+      "kind": "tables",
+      "name": "public.newsroom_mesa_material_versions"
+    },
+    {
+      "kind": "tables",
+      "name": "public.newsroom_mesa_new_output_group_sources"
+    },
+    {
+      "kind": "tables",
+      "name": "public.newsroom_mesa_new_output_grouping_commands"
+    },
+    {
+      "kind": "tables",
+      "name": "public.newsroom_mesa_new_output_grouping_preparations"
+    },
+    {
+      "kind": "tables",
+      "name": "public.newsroom_mesa_new_output_groupings"
+    },
+    {
+      "kind": "tables",
+      "name": "public.newsroom_mesa_new_output_groups"
+    },
+    {
+      "kind": "tables",
+      "name": "public.newsroom_mesa_new_output_theme_targets"
+    },
+    {
+      "kind": "tables",
+      "name": "public.newsroom_mesa_organization_requests"
+    },
+    {
+      "kind": "tables",
+      "name": "public.newsroom_mesa_output_origins"
+    },
+    {
+      "kind": "tables",
+      "name": "public.newsroom_mesa_output_publications"
+    },
+    {
+      "kind": "tables",
+      "name": "public.newsroom_mesa_output_source_usage"
+    },
+    {
+      "kind": "tables",
+      "name": "public.newsroom_mesa_production_context_items"
+    },
+    {
+      "kind": "tables",
+      "name": "public.newsroom_mesa_production_context_sources"
+    },
+    {
+      "kind": "tables",
+      "name": "public.newsroom_mesa_production_contexts"
+    },
+    {
+      "kind": "tables",
+      "name": "public.newsroom_mesa_publication_events"
+    },
+    {
+      "kind": "tables",
+      "name": "public.newsroom_mesa_theme_materials"
+    },
+    {
+      "kind": "tables",
+      "name": "public.newsroom_mesa_version_article_refs"
+    },
+    {
+      "kind": "tables",
+      "name": "public.newsroom_mesa_version_source_refs"
+    },
+    {
+      "kind": "tables",
+      "name": "public.portal_access_profiles"
+    },
+    {
+      "kind": "tables",
+      "name": "public.portal_competitions"
+    },
+    {
+      "kind": "tables",
+      "name": "public.portal_contexts"
+    },
+    {
+      "kind": "tables",
+      "name": "public.portal_entities"
+    },
+    {
+      "kind": "tables",
+      "name": "public.portal_modalities"
+    },
+    {
+      "kind": "tables",
+      "name": "public.portal_modality_catalog"
+    },
+    {
+      "kind": "tables",
+      "name": "public.portal_permissions"
+    },
+    {
+      "kind": "tables",
+      "name": "public.portal_users"
+    },
+    {
+      "kind": "tables",
+      "name": "public.season_teams"
+    },
+    {
+      "kind": "tables",
+      "name": "public.seasons"
+    },
+    {
+      "kind": "tables",
+      "name": "public.site_advertising_slots"
+    },
+    {
+      "kind": "tables",
+      "name": "public.site_editorial_highlights"
+    },
+    {
+      "kind": "tables",
+      "name": "public.site_editorial_horizontal_news"
+    },
+    {
+      "kind": "tables",
+      "name": "public.site_editorial_latest_news"
+    },
+    {
+      "kind": "tables",
+      "name": "public.site_editorial_roundup_items"
+    },
+    {
+      "kind": "tables",
+      "name": "public.site_editorials"
+    },
+    {
+      "kind": "tables",
+      "name": "public.team_aliases"
+    },
+    {
+      "kind": "tables",
+      "name": "public.teams"
+    },
+    {
+      "kind": "functions",
+      "name": "jornada_private.acquire_matchday_live_desk_handoff_lock()"
+    },
+    {
+      "kind": "functions",
+      "name": "jornada_private.acquire_matchday_live_layout_cutover_core_lock()"
+    },
+    {
+      "kind": "functions",
+      "name": "jornada_private.acquire_matchday_live_layout_cutover_writer_lock()"
+    },
+    {
+      "kind": "functions",
+      "name": "jornada_private.apply_editorial_desk_v2_pre_physical_facade(p_matchday_id uuid, p_expected_revision bigint, p_expected_state_token text, p_faixa_visible boolean, p_articles jsonb)"
+    },
+    {
+      "kind": "functions",
+      "name": "jornada_private.apply_matchday_editorial_desk_state_v2_pre_bridge(p_matchday_id uuid, p_expected_revision bigint, p_expected_state_token text, p_faixa_visible boolean, p_articles jsonb)"
+    },
+    {
+      "kind": "functions",
+      "name": "jornada_private.apply_matchday_editorial_desk_state_v2_pre_cutover(p_matchday_id uuid, p_expected_revision bigint, p_expected_state_token text, p_faixa_visible boolean, p_articles jsonb)"
+    },
+    {
+      "kind": "functions",
+      "name": "jornada_private.apply_matchday_editorial_desk_state_v2_pre_handoff(p_matchday_id uuid, p_expected_revision bigint, p_expected_state_token text, p_faixa_visible boolean, p_articles jsonb)"
+    },
+    {
+      "kind": "functions",
+      "name": "jornada_private.apply_matchday_editorial_profile_workspace_v11_pre_handoff(p_matchday_id uuid, p_profile_key text, p_expected_revision bigint, p_expected_state_token text, p_overrides jsonb, p_zone_items jsonb, p_faixa_source_ids jsonb, p_opening jsonb, p_page_controls jsonb, p_selection_bank_item_ids jsonb, p_video_module jsonb, p_worked_source_ids jsonb, p_authoritative_zone_items jsonb, p_authoritative_faixa_items jsonb, p_displaced_bank_item_ids jsonb)"
+    },
+    {
+      "kind": "functions",
+      "name": "jornada_private.apply_matchday_editorial_profile_workspace_v9_pre_bridge(p_matchday_id uuid, p_profile_key text, p_expected_revision bigint, p_expected_state_token text, p_overrides jsonb, p_zone_items jsonb, p_faixa_source_ids jsonb, p_opening jsonb, p_page_controls jsonb, p_selection_bank_item_ids jsonb, p_video_module jsonb, p_worked_source_ids jsonb)"
+    },
+    {
+      "kind": "functions",
+      "name": "jornada_private.apply_matchday_editorial_profile_workspace_v9_pre_cutover(p_matchday_id uuid, p_profile_key text, p_expected_revision bigint, p_expected_state_token text, p_overrides jsonb, p_zone_items jsonb, p_faixa_source_ids jsonb, p_opening jsonb, p_page_controls jsonb, p_selection_bank_item_ids jsonb, p_video_module jsonb, p_worked_source_ids jsonb)"
+    },
+    {
+      "kind": "functions",
+      "name": "jornada_private.apply_matchday_live_layout_physical_state_v13_shadow(p_matchday_id uuid, p_profile_key text, p_expected_state_token text, p_authoritative_placements jsonb, p_explicit_bank_item_ids jsonb, p_displaced_bank_item_ids jsonb, p_worked_bank_item_ids jsonb, p_faixa_arrival_bank_item_ids jsonb, p_displaced_arrival_bank_item_ids jsonb)"
+    },
+    {
+      "kind": "functions",
+      "name": "jornada_private.apply_matchday_live_layout_physical_workspace_v14_core(p_matchday_id uuid, p_profile_key text, p_expected_physical_state_token text, p_zones jsonb, p_blocks jsonb, p_placements jsonb, p_faixa_slot_count integer, p_explicit_bank_item_ids jsonb, p_displaced_bank_item_ids jsonb, p_worked_bank_item_ids jsonb, p_faixa_arrival_bank_item_ids jsonb, p_displaced_arrival_bank_item_ids jsonb, p_presentation jsonb)"
+    },
+    {
+      "kind": "functions",
+      "name": "jornada_private.apply_matchday_live_layout_physical_workspace_v20_core(p_matchday_id uuid, p_profile_key text, p_expected_physical_state_token text, p_zones jsonb, p_blocks jsonb, p_placements jsonb, p_faixa_slot_count integer, p_explicit_bank_item_ids jsonb, p_displaced_bank_item_ids jsonb, p_worked_bank_item_ids jsonb, p_faixa_arrival_bank_item_ids jsonb, p_displaced_arrival_bank_item_ids jsonb, p_presentation jsonb)"
+    },
+    {
+      "kind": "functions",
+      "name": "jornada_private.apply_matchday_live_layout_physical_workspace_v20_core_impl(p_matchday_id uuid, p_profile_key text, p_expected_physical_state_token text, p_zones jsonb, p_blocks jsonb, p_placements jsonb, p_faixa_slot_count integer, p_explicit_bank_item_ids jsonb, p_displaced_bank_item_ids jsonb, p_worked_bank_item_ids jsonb, p_faixa_arrival_bank_item_ids jsonb, p_displaced_arrival_bank_item_ids jsonb, p_presentation jsonb)"
+    },
+    {
+      "kind": "functions",
+      "name": "jornada_private.apply_matchday_live_layout_placement_plan(p_matchday_id uuid, p_plan jsonb, p_project_legacy boolean)"
+    },
+    {
+      "kind": "functions",
+      "name": "jornada_private.apply_profile_workspace_v11_pre_physical_facade(p_matchday_id uuid, p_profile_key text, p_expected_revision bigint, p_expected_state_token text, p_overrides jsonb, p_zone_items jsonb, p_faixa_source_ids jsonb, p_opening jsonb, p_page_controls jsonb, p_selection_bank_item_ids jsonb, p_video_module jsonb, p_worked_source_ids jsonb, p_authoritative_zone_items jsonb, p_authoritative_faixa_items jsonb, p_displaced_bank_item_ids jsonb)"
+    },
+    {
+      "kind": "functions",
+      "name": "jornada_private.apply_profile_workspace_v12_pre_physical_facade(p_matchday_id uuid, p_profile_key text, p_expected_revision bigint, p_expected_state_token text, p_overrides jsonb, p_zone_items jsonb, p_faixa_source_ids jsonb, p_opening jsonb, p_page_controls jsonb, p_selection_bank_item_ids jsonb, p_video_module jsonb, p_worked_source_ids jsonb, p_authoritative_zone_items jsonb, p_authoritative_faixa_items jsonb, p_displaced_bank_item_ids jsonb, p_faixa_arrival_bank_item_ids jsonb, p_displaced_arrival_bank_item_ids jsonb)"
+    },
+    {
+      "kind": "functions",
+      "name": "jornada_private.assert_matchday_live_layout_downstream_v14(p_matchday_id uuid, p_profile_key text)"
+    },
+    {
+      "kind": "functions",
+      "name": "jornada_private.assert_matchday_live_layout_handoff_companion_v25()"
+    },
+    {
+      "kind": "functions",
+      "name": "jornada_private.assert_matchday_live_layout_historical_physical_archive_v20(p_source_matchday_id uuid, p_target_matchday_id uuid, p_source_composition_id uuid)"
+    },
+    {
+      "kind": "functions",
+      "name": "jornada_private.assert_matchday_live_layout_historical_republish_v19(p_source_matchday_id uuid, p_target_matchday_id uuid, p_source_composition_id uuid)"
+    },
+    {
+      "kind": "functions",
+      "name": "jornada_private.assert_matchday_live_layout_historical_republish_v20(p_source_matchday_id uuid, p_target_matchday_id uuid, p_source_composition_id uuid)"
+    },
+    {
+      "kind": "functions",
+      "name": "jornada_private.assert_matchday_live_layout_legacy_writer_v14(p_matchday_id uuid)"
+    },
+    {
+      "kind": "functions",
+      "name": "jornada_private.assert_matchday_live_layout_physical_carryover_v18(p_source_matchday_id uuid, p_target_matchday_id uuid, p_source_composition_id uuid, p_topology_transition_id uuid, p_profile_key text)"
+    },
+    {
+      "kind": "functions",
+      "name": "jornada_private.assert_matchday_live_layout_physical_handoff_complete_v19(p_source_matchday_id uuid, p_target_matchday_id uuid, p_source_composition_id uuid)"
+    },
+    {
+      "kind": "functions",
+      "name": "jornada_private.assert_matchday_live_layout_physical_handoff_ready_v19(p_source_matchday_id uuid, p_target_matchday_id uuid, p_source_composition_id uuid, p_topology_transition_id uuid, p_carryover_id uuid)"
+    },
+    {
+      "kind": "functions",
+      "name": "jornada_private.assert_matchday_live_layout_physical_topology_source_v17(p_matchday_id uuid, p_profile_key text)"
+    },
+    {
+      "kind": "functions",
+      "name": "jornada_private.assert_matchday_live_layout_projection_write_v14(p_matchday_id uuid, p_legacy_changed boolean)"
+    },
+    {
+      "kind": "functions",
+      "name": "jornada_private.assert_physical_cutover_has_no_selection()"
+    },
+    {
+      "kind": "functions",
+      "name": "jornada_private.authorize_matchday_editorial_bank_classification_writes(p_bank_item_ids uuid[])"
+    },
+    {
+      "kind": "functions",
+      "name": "jornada_private.begin_matchday_live_layout_downstream_v14(p_matchday_id uuid)"
+    },
+    {
+      "kind": "functions",
+      "name": "jornada_private.carry_matchday_faixa_public_title_v31()"
+    },
+    {
+      "kind": "functions",
+      "name": "jornada_private.carry_matchday_live_layout_latest_companion_v25()"
+    },
+    {
+      "kind": "functions",
+      "name": "jornada_private.carry_matchday_video_highlight_title_v30()"
+    },
+    {
+      "kind": "functions",
+      "name": "jornada_private.certify_matchday_historical_physical_archive_after_handoff_v20()"
+    },
+    {
+      "kind": "functions",
+      "name": "jornada_private.certify_matchday_historical_physical_archive_v20(p_handoff_id uuid, p_certification_basis text)"
+    },
+    {
+      "kind": "functions",
+      "name": "jornada_private.clear_matchday_live_layout_memory_for_explicit_bank()"
+    },
+    {
+      "kind": "functions",
+      "name": "jornada_private.derive_matchday_live_layout_placement_shadow(p_matchday_ids uuid[])"
+    },
+    {
+      "kind": "functions",
+      "name": "jornada_private.end_matchday_live_layout_downstream_v14(p_matchday_id uuid)"
+    },
+    {
+      "kind": "functions",
+      "name": "jornada_private.enqueue_matchday_live_layout_placement_shadow_sync()"
+    },
+    {
+      "kind": "functions",
+      "name": "jornada_private.enqueue_matchday_live_layout_shadow_sync()"
+    },
+    {
+      "kind": "functions",
+      "name": "jornada_private.ensure_physical_reference_certificate_v26()"
+    },
+    {
+      "kind": "functions",
+      "name": "jornada_private.fence_matchday_live_layout_legacy_writer()"
+    },
+    {
+      "kind": "functions",
+      "name": "jornada_private.flush_matchday_live_layout_placement_shadow_sync_queue()"
+    },
+    {
+      "kind": "functions",
+      "name": "jornada_private.flush_matchday_live_layout_shadow_sync_queue()"
+    },
+    {
+      "kind": "functions",
+      "name": "jornada_private.freeze_handed_off_source_companion_v25()"
+    },
+    {
+      "kind": "functions",
+      "name": "jornada_private.guard_matchday_roundup_context_v28()"
+    },
+    {
+      "kind": "functions",
+      "name": "jornada_private.initialize_matchday_live_layout_latest_settings_v15()"
+    },
+    {
+      "kind": "functions",
+      "name": "jornada_private.is_matchday_live_layout_carryover_v18(p_matchday_id uuid)"
+    },
+    {
+      "kind": "functions",
+      "name": "jornada_private.is_matchday_live_layout_downstream_v14(p_matchday_id uuid)"
+    },
+    {
+      "kind": "functions",
+      "name": "jornada_private.is_matchday_live_layout_physical_v14(p_matchday_id uuid)"
+    },
+    {
+      "kind": "functions",
+      "name": "jornada_private.matchday_historical_physical_archive_backfill_eligible_v20(p_handoff_id uuid)"
+    },
+    {
+      "kind": "functions",
+      "name": "jornada_private.matchday_historical_physical_archive_components_v20(p_matchday_id uuid)"
+    },
+    {
+      "kind": "functions",
+      "name": "jornada_private.matchday_historical_physical_archive_hash_v20(p_matchday_id uuid)"
+    },
+    {
+      "kind": "functions",
+      "name": "jornada_private.matchday_live_layout_carryover_source_hash_v18(p_matchday_id uuid)"
+    },
+    {
+      "kind": "functions",
+      "name": "jornada_private.matchday_live_layout_continuity_authority_v19(p_source_matchday_id uuid)"
+    },
+    {
+      "kind": "functions",
+      "name": "jornada_private.matchday_live_layout_layout_capacity_v20(p_layout_id text)"
+    },
+    {
+      "kind": "functions",
+      "name": "jornada_private.matchday_live_layout_physical_archive_hash_v19(p_matchday_id uuid)"
+    },
+    {
+      "kind": "functions",
+      "name": "jornada_private.matchday_live_layout_visual_family_capacity_v13(p_visual_family text)"
+    },
+    {
+      "kind": "functions",
+      "name": "jornada_private.matchday_live_layout_workspace_token_v22(p_matchday_id uuid, p_profile_key text)"
+    },
+    {
+      "kind": "functions",
+      "name": "jornada_private.materialize_matchday_live_layout_continuity(p_source_matchday_id uuid, p_target_matchday_id uuid, p_source_composition_id uuid)"
+    },
+    {
+      "kind": "functions",
+      "name": "jornada_private.materialize_matchday_live_layout_physical_carryover_v18(p_source_matchday_id uuid, p_target_matchday_id uuid, p_source_composition_id uuid, p_topology_transition_id uuid)"
+    },
+    {
+      "kind": "functions",
+      "name": "jornada_private.materialize_matchday_live_layout_physical_handoff_v19(p_source_matchday_id uuid, p_target_matchday_id uuid, p_source_composition_id uuid, p_operation text)"
+    },
+    {
+      "kind": "functions",
+      "name": "jornada_private.materialize_matchday_live_layout_physical_topology_v17(p_source_matchday_id uuid, p_target_matchday_id uuid)"
+    },
+    {
+      "kind": "functions",
+      "name": "jornada_private.materialize_matchday_live_layout_physical_topology_v17_impl(p_source_matchday_id uuid, p_target_matchday_id uuid)"
+    },
+    {
+      "kind": "functions",
+      "name": "jornada_private.normalize_matchday_live_layout_bank_item_ids_v13(p_bank_item_ids jsonb)"
+    },
+    {
+      "kind": "functions",
+      "name": "jornada_private.normalize_matchday_live_layout_blocks_v14(p_blocks jsonb)"
+    },
+    {
+      "kind": "functions",
+      "name": "jornada_private.normalize_matchday_live_layout_physical_placements_v13(p_placements jsonb)"
+    },
+    {
+      "kind": "functions",
+      "name": "jornada_private.normalize_matchday_live_layout_placement_plan(p_plan jsonb)"
+    },
+    {
+      "kind": "functions",
+      "name": "jornada_private.normalize_matchday_live_layout_zones_v14(p_zones jsonb)"
+    },
+    {
+      "kind": "functions",
+      "name": "jornada_private.project_matchday_live_layout_bank_item_states(p_matchday_ids uuid[])"
+    },
+    {
+      "kind": "functions",
+      "name": "jornada_private.project_matchday_live_layout_placements_downstream_v14(p_matchday_id uuid, p_profile_key text)"
+    },
+    {
+      "kind": "functions",
+      "name": "jornada_private.project_matchday_live_layout_placements_to_legacy(p_matchday_ids uuid[])"
+    },
+    {
+      "kind": "functions",
+      "name": "jornada_private.project_matchday_live_layout_workspace_best_effort_v20(p_matchday_id uuid, p_profile_key text)"
+    },
+    {
+      "kind": "functions",
+      "name": "jornada_private.project_matchday_live_layout_workspace_v14(p_matchday_id uuid, p_profile_key text)"
+    },
+    {
+      "kind": "functions",
+      "name": "jornada_private.publish_matchday_continuity_legacy_v6(p_matchday_id uuid, p_composition_id uuid)"
+    },
+    {
+      "kind": "functions",
+      "name": "jornada_private.publish_matchday_reference_composition_pre_bridge(p_matchday_id uuid, p_composition_id uuid)"
+    },
+    {
+      "kind": "functions",
+      "name": "jornada_private.read_live_layout_workspace_v13_pre_facade(p_matchday_id uuid, p_profile_key text)"
+    },
+    {
+      "kind": "functions",
+      "name": "jornada_private.reconcile_matchday_live_layout_bank_item_state_memory()"
+    },
+    {
+      "kind": "functions",
+      "name": "jornada_private.reconcile_matchday_live_layout_from_legacy_adapter(p_matchday_id uuid)"
+    },
+    {
+      "kind": "functions",
+      "name": "jornada_private.recover_matchday_continuity_legacy_v6(p_source_matchday_id uuid, p_target_matchday_id uuid, p_source_composition_id uuid)"
+    },
+    {
+      "kind": "functions",
+      "name": "jornada_private.refresh_all_automatic_classifications_from_statement()"
+    },
+    {
+      "kind": "functions",
+      "name": "jornada_private.refresh_automatic_classifications_for_seasons(p_season_ids uuid[])"
+    },
+    {
+      "kind": "functions",
+      "name": "jornada_private.refresh_automatic_classifications_from_aliases_delete()"
+    },
+    {
+      "kind": "functions",
+      "name": "jornada_private.refresh_automatic_classifications_from_aliases_insert()"
+    },
+    {
+      "kind": "functions",
+      "name": "jornada_private.refresh_automatic_classifications_from_aliases_update()"
+    },
+    {
+      "kind": "functions",
+      "name": "jornada_private.refresh_automatic_classifications_from_articles_delete()"
+    },
+    {
+      "kind": "functions",
+      "name": "jornada_private.refresh_automatic_classifications_from_articles_insert()"
+    },
+    {
+      "kind": "functions",
+      "name": "jornada_private.refresh_automatic_classifications_from_articles_update()"
+    },
+    {
+      "kind": "functions",
+      "name": "jornada_private.refresh_automatic_classifications_from_competitions_update()"
+    },
+    {
+      "kind": "functions",
+      "name": "jornada_private.refresh_automatic_classifications_from_matchdays_update()"
+    },
+    {
+      "kind": "functions",
+      "name": "jornada_private.refresh_automatic_classifications_from_season_teams_delete()"
+    },
+    {
+      "kind": "functions",
+      "name": "jornada_private.refresh_automatic_classifications_from_season_teams_insert()"
+    },
+    {
+      "kind": "functions",
+      "name": "jornada_private.refresh_automatic_classifications_from_season_teams_update()"
+    },
+    {
+      "kind": "functions",
+      "name": "jornada_private.refresh_automatic_classifications_from_seasons_update()"
+    },
+    {
+      "kind": "functions",
+      "name": "jornada_private.refresh_automatic_classifications_from_teams_update()"
+    },
+    {
+      "kind": "functions",
+      "name": "jornada_private.refresh_editorial_article_carryover_snapshot_v15(p_snapshot jsonb, p_links text[], p_current_link text, p_label text, p_title text, p_subtitle text, p_image_url text, p_author text, p_latest_label text, p_updated_at timestamp with time zone)"
+    },
+    {
+      "kind": "functions",
+      "name": "jornada_private.refresh_matchday_editorial_bank_automatic_classifications(p_matchday_ids uuid[], p_bank_item_ids uuid[], p_source_ids text[], p_refresh_distribution boolean)"
+    },
+    {
+      "kind": "functions",
+      "name": "jornada_private.reject_physical_selection_placement()"
+    },
+    {
+      "kind": "functions",
+      "name": "jornada_private.retire_matchday_live_layout_physical_source_v19(p_source_matchday_id uuid, p_target_matchday_id uuid, p_source_composition_id uuid, p_topology_transition_id uuid, p_carryover_id uuid, p_source_archive_hash text)"
+    },
+    {
+      "kind": "functions",
+      "name": "jornada_private.retire_matchday_live_layout_source(p_source_matchday_id uuid, p_target_matchday_id uuid, p_source_composition_id uuid)"
+    },
+    {
+      "kind": "functions",
+      "name": "jornada_private.revoke_matchday_editorial_bank_classification_writes(p_bank_item_ids uuid[])"
+    },
+    {
+      "kind": "functions",
+      "name": "jornada_private.set_matchday_editorial_desk_control_season()"
+    },
+    {
+      "kind": "functions",
+      "name": "jornada_private.set_matchday_editorial_profile_assignment_pre_handoff(p_matchday_id uuid, p_profile_key text)"
+    },
+    {
+      "kind": "functions",
+      "name": "jornada_private.sync_live_layout_shadow_pre_physical_facade(p_matchday_ids uuid[])"
+    },
+    {
+      "kind": "functions",
+      "name": "jornada_private.sync_matchday_live_layout_placement_shadow(p_matchday_ids uuid[])"
+    },
+    {
+      "kind": "functions",
+      "name": "jornada_private.sync_matchday_live_layout_shadow(p_matchday_ids uuid[])"
+    },
+    {
+      "kind": "functions",
+      "name": "jornada_private.validate_matchday_live_layout_legacy_projection_v14(p_matchday_id uuid, p_profile_key text)"
+    },
+    {
+      "kind": "functions",
+      "name": "jornada_private.validate_matchday_live_layout_shadow_inputs(p_matchday_ids uuid[])"
+    },
+    {
+      "kind": "functions",
+      "name": "jornada_private.write_matchday_editorial_bank_contextual_classification(p_bank_item_id uuid, p_classification_key text, p_classification_source text)"
+    },
+    {
+      "kind": "functions",
+      "name": "public.activate_matchday_reference_composition(p_matchday_id uuid, p_composition_id uuid, p_publish_draft boolean)"
+    },
+    {
+      "kind": "functions",
+      "name": "public.apply_historical_composition_workspace_plan(p_matchday_id uuid, p_composition_id uuid, p_operations jsonb, p_settings jsonb)"
+    },
+    {
+      "kind": "functions",
+      "name": "public.apply_historical_composition_workspace_plan_v2(p_matchday_id uuid, p_composition_id uuid, p_operations jsonb, p_settings jsonb, p_dynamic_zones jsonb)"
+    },
+    {
+      "kind": "functions",
+      "name": "public.apply_historical_composition_workspace_plan_v3(p_matchday_id uuid, p_composition_id uuid, p_operations jsonb, p_settings jsonb, p_dynamic_zones jsonb)"
+    },
+    {
+      "kind": "functions",
+      "name": "public.apply_matchday_agenda_tv_sync_v1(p_matchday_id uuid, p_rows jsonb)"
+    },
+    {
+      "kind": "functions",
+      "name": "public.apply_matchday_agenda_tv_sync_v2(p_matchday_id uuid, p_rows jsonb)"
+    },
+    {
+      "kind": "functions",
+      "name": "public.apply_matchday_editorial_bank_manual_classification_v1(p_matchday_id uuid, p_bank_item_id uuid, p_classification_key text)"
+    },
+    {
+      "kind": "functions",
+      "name": "public.apply_matchday_editorial_desk_state(p_matchday_id uuid, p_expected_revision bigint, p_expected_state_token text, p_faixa_visible boolean, p_articles jsonb)"
+    },
+    {
+      "kind": "functions",
+      "name": "public.apply_matchday_editorial_desk_state_v2(p_matchday_id uuid, p_expected_revision bigint, p_expected_state_token text, p_faixa_visible boolean, p_articles jsonb)"
+    },
+    {
+      "kind": "functions",
+      "name": "public.apply_matchday_editorial_profile_manual_overrides(p_matchday_id uuid, p_profile_key text, p_overrides jsonb)"
+    },
+    {
+      "kind": "functions",
+      "name": "public.apply_matchday_editorial_profile_reconcile(p_matchday_id uuid, p_profile_key text, p_expected_revision bigint, p_expected_state_token text, p_overrides jsonb, p_zone_items jsonb, p_faixa_source_ids jsonb)"
+    },
+    {
+      "kind": "functions",
+      "name": "public.apply_matchday_editorial_profile_reconcile_v2(p_matchday_id uuid, p_profile_key text, p_expected_revision bigint, p_expected_state_token text, p_overrides jsonb, p_zone_items jsonb, p_faixa_source_ids jsonb)"
+    },
+    {
+      "kind": "functions",
+      "name": "public.apply_matchday_editorial_profile_workspace(p_matchday_id uuid, p_profile_key text, p_expected_revision bigint, p_expected_state_token text, p_overrides jsonb, p_zone_items jsonb, p_faixa_source_ids jsonb, p_opening jsonb, p_page_controls jsonb)"
+    },
+    {
+      "kind": "functions",
+      "name": "public.apply_matchday_editorial_profile_workspace_v10(p_matchday_id uuid, p_profile_key text, p_expected_revision bigint, p_expected_state_token text, p_overrides jsonb, p_zone_items jsonb, p_faixa_source_ids jsonb, p_opening jsonb, p_page_controls jsonb, p_selection_bank_item_ids jsonb, p_video_module jsonb, p_worked_source_ids jsonb)"
+    },
+    {
+      "kind": "functions",
+      "name": "public.apply_matchday_editorial_profile_workspace_v11(p_matchday_id uuid, p_profile_key text, p_expected_revision bigint, p_expected_state_token text, p_overrides jsonb, p_zone_items jsonb, p_faixa_source_ids jsonb, p_opening jsonb, p_page_controls jsonb, p_selection_bank_item_ids jsonb, p_video_module jsonb, p_worked_source_ids jsonb, p_authoritative_zone_items jsonb, p_authoritative_faixa_items jsonb, p_displaced_bank_item_ids jsonb)"
+    },
+    {
+      "kind": "functions",
+      "name": "public.apply_matchday_editorial_profile_workspace_v12(p_matchday_id uuid, p_profile_key text, p_expected_revision bigint, p_expected_state_token text, p_overrides jsonb, p_zone_items jsonb, p_faixa_source_ids jsonb, p_opening jsonb, p_page_controls jsonb, p_selection_bank_item_ids jsonb, p_video_module jsonb, p_worked_source_ids jsonb, p_authoritative_zone_items jsonb, p_authoritative_faixa_items jsonb, p_displaced_bank_item_ids jsonb, p_faixa_arrival_bank_item_ids jsonb, p_displaced_arrival_bank_item_ids jsonb)"
+    },
+    {
+      "kind": "functions",
+      "name": "public.apply_matchday_editorial_profile_workspace_v2(p_matchday_id uuid, p_profile_key text, p_expected_revision bigint, p_expected_state_token text, p_overrides jsonb, p_zone_items jsonb, p_faixa_source_ids jsonb, p_opening jsonb, p_page_controls jsonb)"
+    },
+    {
+      "kind": "functions",
+      "name": "public.apply_matchday_editorial_profile_workspace_v3(p_matchday_id uuid, p_profile_key text, p_expected_revision bigint, p_expected_state_token text, p_overrides jsonb, p_zone_items jsonb, p_faixa_source_ids jsonb, p_opening jsonb, p_page_controls jsonb)"
+    },
+    {
+      "kind": "functions",
+      "name": "public.apply_matchday_editorial_profile_workspace_v4(p_matchday_id uuid, p_profile_key text, p_expected_revision bigint, p_expected_state_token text, p_overrides jsonb, p_zone_items jsonb, p_faixa_source_ids jsonb, p_opening jsonb, p_page_controls jsonb)"
+    },
+    {
+      "kind": "functions",
+      "name": "public.apply_matchday_editorial_profile_workspace_v5(p_matchday_id uuid, p_profile_key text, p_expected_revision bigint, p_expected_state_token text, p_overrides jsonb, p_zone_items jsonb, p_faixa_source_ids jsonb, p_opening jsonb, p_page_controls jsonb, p_selection_bank_item_ids jsonb)"
+    },
+    {
+      "kind": "functions",
+      "name": "public.apply_matchday_editorial_profile_workspace_v6(p_matchday_id uuid, p_profile_key text, p_expected_revision bigint, p_expected_state_token text, p_overrides jsonb, p_zone_items jsonb, p_faixa_source_ids jsonb, p_opening jsonb, p_page_controls jsonb, p_selection_bank_item_ids jsonb, p_video_module jsonb)"
+    },
+    {
+      "kind": "functions",
+      "name": "public.apply_matchday_editorial_profile_workspace_v7(p_matchday_id uuid, p_profile_key text, p_expected_revision bigint, p_expected_state_token text, p_overrides jsonb, p_zone_items jsonb, p_faixa_source_ids jsonb, p_opening jsonb, p_page_controls jsonb, p_selection_bank_item_ids jsonb, p_video_module jsonb)"
+    },
+    {
+      "kind": "functions",
+      "name": "public.apply_matchday_editorial_profile_workspace_v8(p_matchday_id uuid, p_profile_key text, p_expected_revision bigint, p_expected_state_token text, p_overrides jsonb, p_zone_items jsonb, p_faixa_source_ids jsonb, p_opening jsonb, p_page_controls jsonb, p_selection_bank_item_ids jsonb, p_video_module jsonb, p_worked_source_ids jsonb)"
+    },
+    {
+      "kind": "functions",
+      "name": "public.apply_matchday_editorial_profile_workspace_v9(p_matchday_id uuid, p_profile_key text, p_expected_revision bigint, p_expected_state_token text, p_overrides jsonb, p_zone_items jsonb, p_faixa_source_ids jsonb, p_opening jsonb, p_page_controls jsonb, p_selection_bank_item_ids jsonb, p_video_module jsonb, p_worked_source_ids jsonb)"
+    },
+    {
+      "kind": "functions",
+      "name": "public.apply_matchday_live_layout_legacy_slot(p_matchday_id uuid, p_action text, p_placement_type text, p_zone_id uuid, p_slot_position integer, p_source_link_url text)"
+    },
+    {
+      "kind": "functions",
+      "name": "public.apply_matchday_live_layout_movement(p_matchday_id uuid, p_action text, p_bank_item_id uuid, p_placement_type text, p_zone_id uuid, p_slot_position integer, p_expected_target_bank_item_id uuid, p_expect_target_empty boolean)"
+    },
+    {
+      "kind": "functions",
+      "name": "public.apply_matchday_live_layout_physical_v20(p_matchday_id uuid, p_profile_key text, p_expected_physical_state_token text, p_zones jsonb, p_blocks jsonb, p_placements jsonb, p_faixa_slot_count integer, p_explicit_bank_item_ids jsonb, p_displaced_bank_item_ids jsonb, p_worked_bank_item_ids jsonb, p_faixa_arrival_bank_item_ids jsonb, p_displaced_arrival_bank_item_ids jsonb, p_presentation jsonb)"
+    },
+    {
+      "kind": "functions",
+      "name": "public.apply_matchday_live_layout_physical_v22(p_matchday_id uuid, p_profile_key text, p_expected_physical_state_token text, p_latest_companion_zone_id uuid, p_zones jsonb, p_blocks jsonb, p_placements jsonb, p_faixa_slot_count integer, p_explicit_bank_item_ids jsonb, p_displaced_bank_item_ids jsonb, p_worked_bank_item_ids jsonb, p_faixa_arrival_bank_item_ids jsonb, p_displaced_arrival_bank_item_ids jsonb, p_presentation jsonb)"
+    },
+    {
+      "kind": "functions",
+      "name": "public.apply_matchday_live_layout_physical_v29(p_matchday_id uuid, p_profile_key text, p_expected_physical_state_token text, p_latest_companion_zone_id uuid, p_zones jsonb, p_blocks jsonb, p_placements jsonb, p_faixa_slot_count integer, p_explicit_bank_item_ids jsonb, p_displaced_bank_item_ids jsonb, p_worked_bank_item_ids jsonb, p_faixa_arrival_bank_item_ids jsonb, p_displaced_arrival_bank_item_ids jsonb, p_presentation jsonb)"
+    },
+    {
+      "kind": "functions",
+      "name": "public.apply_matchday_live_layout_physical_workspace_v14(p_matchday_id uuid, p_profile_key text, p_expected_physical_state_token text, p_zones jsonb, p_blocks jsonb, p_placements jsonb, p_faixa_slot_count integer, p_explicit_bank_item_ids jsonb, p_displaced_bank_item_ids jsonb, p_worked_bank_item_ids jsonb, p_faixa_arrival_bank_item_ids jsonb, p_displaced_arrival_bank_item_ids jsonb, p_presentation jsonb)"
+    },
+    {
+      "kind": "functions",
+      "name": "public.apply_matchday_live_layout_single_placement_v15(p_matchday_id uuid, p_expected_physical_state_token text, p_action text, p_bank_item_id uuid, p_placement_type text, p_zone_id uuid, p_slot_position integer, p_expected_target_bank_item_id uuid, p_expect_target_empty boolean)"
+    },
+    {
+      "kind": "functions",
+      "name": "public.build_matchday_live_carryover_snapshot(p_matchday_id uuid, p_source_composition_id uuid)"
+    },
+    {
+      "kind": "functions",
+      "name": "public.clear_matchday_editorial_selection_item(p_matchday_id uuid, p_position integer)"
+    },
+    {
+      "kind": "functions",
+      "name": "public.guard_matchday_editorial_bank_contextual_classification()"
+    },
+    {
+      "kind": "functions",
+      "name": "public.initialize_matchday_editorial_thematic_continuity_v3(p_source_matchday_id uuid, p_target_matchday_id uuid, p_source_composition_id uuid)"
+    },
+    {
+      "kind": "functions",
+      "name": "public.match_video_summary_consume_automation_token_v1(p_token text)"
+    },
+    {
+      "kind": "functions",
+      "name": "public.matchday_editorial_desk_article_ids_v2(p_matchday_id uuid)"
+    },
+    {
+      "kind": "functions",
+      "name": "public.matchday_editorial_desk_state_token(p_matchday_id uuid)"
+    },
+    {
+      "kind": "functions",
+      "name": "public.matchday_editorial_desk_state_token_v2(p_matchday_id uuid)"
+    },
+    {
+      "kind": "functions",
+      "name": "public.matchday_editorial_profile_classification_plan(p_matchday_id uuid)"
+    },
+    {
+      "kind": "functions",
+      "name": "public.matchday_editorial_profile_classification_plan_actuality_v1(p_matchday_id uuid)"
+    },
+    {
+      "kind": "functions",
+      "name": "public.matchday_editorial_profile_classification_plan_body_text_v1(p_matchday_id uuid)"
+    },
+    {
+      "kind": "functions",
+      "name": "public.matchday_editorial_profile_continuity_classification_plan(p_matchday_id uuid)"
+    },
+    {
+      "kind": "functions",
+      "name": "public.matchday_editorial_profile_derived_classification_plan_v1(p_matchday_id uuid)"
+    },
+    {
+      "kind": "functions",
+      "name": "public.matchday_editorial_profile_distribution_plan(p_matchday_id uuid)"
+    },
+    {
+      "kind": "functions",
+      "name": "public.matchday_editorial_profile_reconcile_token(p_matchday_id uuid, p_profile_key text)"
+    },
+    {
+      "kind": "functions",
+      "name": "public.matchday_editorial_profile_reconcile_token_uncached(p_matchday_id uuid, p_profile_key text)"
+    },
+    {
+      "kind": "functions",
+      "name": "public.matchday_editorial_profile_workspace_sources(p_matchday_id uuid)"
+    },
+    {
+      "kind": "functions",
+      "name": "public.matchday_editorial_profile_workspace_sources_uncached(p_matchday_id uuid)"
+    },
+    {
+      "kind": "functions",
+      "name": "public.matchday_editorial_profile_workspace_token(p_matchday_id uuid, p_profile_key text)"
+    },
+    {
+      "kind": "functions",
+      "name": "public.matchday_editorial_profile_workspace_token_uncached(p_matchday_id uuid, p_profile_key text)"
+    },
+    {
+      "kind": "functions",
+      "name": "public.matchday_editorial_profile_workspace_token_v13(p_matchday_id uuid, p_profile_key text)"
+    },
+    {
+      "kind": "functions",
+      "name": "public.matchday_live_layout_single_placement_authority_v15(p_matchday_id uuid)"
+    },
+    {
+      "kind": "functions",
+      "name": "public.materialize_matchday_editorial_bank_contextual_classification()"
+    },
+    {
+      "kind": "functions",
+      "name": "public.newsroom_abandon_mesa_production_v2(p_dossier_id uuid)"
+    },
+    {
+      "kind": "functions",
+      "name": "public.newsroom_acknowledge_theme_source_v1(p_theme_id uuid, p_source_id uuid, p_snapshot_id uuid)"
+    },
+    {
+      "kind": "functions",
+      "name": "public.newsroom_add_dossier_upload_image_v1(p_dossier_id uuid, p_frozen_url text, p_storage_bucket text, p_storage_path text, p_file_name text)"
+    },
+    {
+      "kind": "functions",
+      "name": "public.newsroom_apply_automatic_article_classification_v1(p_newsroom_article_id uuid, p_classification_key text)"
+    },
+    {
+      "kind": "functions",
+      "name": "public.newsroom_apply_output_classification_to_bank_v1()"
+    },
+    {
+      "kind": "functions",
+      "name": "public.newsroom_assert_mesa_context_item_sources_v1()"
+    },
+    {
+      "kind": "functions",
+      "name": "public.newsroom_assert_mesa_context_output_usage_v1()"
+    },
+    {
+      "kind": "functions",
+      "name": "public.newsroom_assert_mesa_context_package_v1()"
+    },
+    {
+      "kind": "functions",
+      "name": "public.newsroom_assert_mesa_intent_write_boundary_v1()"
+    },
+    {
+      "kind": "functions",
+      "name": "public.newsroom_assert_mesa_output_source_scope_v1()"
+    },
+    {
+      "kind": "functions",
+      "name": "public.newsroom_assert_mesa_plan_context_assignment_v1()"
+    },
+    {
+      "kind": "functions",
+      "name": "public.newsroom_assert_mesa_plan_context_sources_v1()"
+    },
+    {
+      "kind": "functions",
+      "name": "public.newsroom_assign_mesa_article_plan_context_v1(p_dossier_id uuid, p_article_plan_id uuid, p_production_context_id uuid)"
+    },
+    {
+      "kind": "functions",
+      "name": "public.newsroom_attach_dossier_to_theme_v1(p_dossier_id uuid, p_theme_id uuid)"
+    },
+    {
+      "kind": "functions",
+      "name": "public.newsroom_change_mesa_new_output_groups_v2(p_dossier_id uuid, p_action text, p_group_ids uuid[], p_target_count integer, p_theme_id uuid, p_expected_revision integer, p_command_id uuid)"
+    },
+    {
+      "kind": "functions",
+      "name": "public.newsroom_clear_article_classification_v1(p_newsroom_article_id uuid)"
+    },
+    {
+      "kind": "functions",
+      "name": "public.newsroom_consume_automatic_feed_token_v1(p_token text)"
+    },
+    {
+      "kind": "functions",
+      "name": "public.newsroom_create_editorial_theme_v1(p_title text, p_classification_key text, p_context_text text, p_competition_id uuid, p_season_id uuid, p_matchday_id uuid, p_match_id uuid)"
+    },
+    {
+      "kind": "functions",
+      "name": "public.newsroom_create_manual_source(p_submission_id uuid, p_request_fingerprint text, p_title text, p_body jsonb, p_image_url text, p_published_date text, p_source_url text, p_source_page_title text, p_source_host text, p_content_hash text)"
+    },
+    {
+      "kind": "functions",
+      "name": "public.newsroom_editorial_review_projection(p_article_ids uuid[], p_current_used_article_ids uuid[], p_selected_view text)"
+    },
+    {
+      "kind": "functions",
+      "name": "public.newsroom_editorial_source_package_manifest_v5_context_valid(p_id uuid, p_package_year text, p_package_month text, p_manifest jsonb)"
+    },
+    {
+      "kind": "functions",
+      "name": "public.newsroom_editorial_source_package_manifest_v5_valid(p_id uuid, p_package_year text, p_package_month text, p_manifest jsonb)"
+    },
+    {
+      "kind": "functions",
+      "name": "public.newsroom_editorial_used_state_summaries()"
+    },
+    {
+      "kind": "functions",
+      "name": "public.newsroom_finalize_mesa_intents_v1(p_dossier_id uuid, p_package_id uuid, p_no_change_output_ids uuid[])"
+    },
+    {
+      "kind": "functions",
+      "name": "public.newsroom_finalize_theme_continuity_v1(p_dossier_id uuid, p_package_id uuid, p_no_change_output_ids uuid[])"
+    },
+    {
+      "kind": "functions",
+      "name": "public.newsroom_freeze_output_classification_v1()"
+    },
+    {
+      "kind": "functions",
+      "name": "public.newsroom_guard_frozen_output_classification_v1()"
+    },
+    {
+      "kind": "functions",
+      "name": "public.newsroom_guard_published_article_plan_classification_v1()"
+    },
+    {
+      "kind": "functions",
+      "name": "public.newsroom_latest_snapshot_summaries(p_article_ids uuid[])"
+    },
+    {
+      "kind": "functions",
+      "name": "public.newsroom_link_factual_article_sources_v1()"
+    },
+    {
+      "kind": "functions",
+      "name": "public.newsroom_link_legacy_article_source_v1()"
+    },
+    {
+      "kind": "functions",
+      "name": "public.newsroom_link_receipt_article_sources_v1()"
+    },
+    {
+      "kind": "functions",
+      "name": "public.newsroom_materialize_mesa_new_output_groups_v2(p_dossier_id uuid, p_expected_revision integer, p_command_id uuid)"
+    },
+    {
+      "kind": "functions",
+      "name": "public.newsroom_mesa_after_article_publication_v2()"
+    },
+    {
+      "kind": "functions",
+      "name": "public.newsroom_mesa_after_plan_publication_v2()"
+    },
+    {
+      "kind": "functions",
+      "name": "public.newsroom_mesa_base_material_v2(p_key text)"
+    },
+    {
+      "kind": "functions",
+      "name": "public.newsroom_mesa_capture_material_v2(p_ref jsonb)"
+    },
+    {
+      "kind": "functions",
+      "name": "public.newsroom_mesa_consolidate_publication_v2(p_dossier_id uuid)"
+    },
+    {
+      "kind": "functions",
+      "name": "public.newsroom_mesa_consolidate_publication_v3(p_dossier_id uuid)"
+    },
+    {
+      "kind": "functions",
+      "name": "public.newsroom_mesa_consolidate_publication_v4(p_dossier_id uuid)"
+    },
+    {
+      "kind": "functions",
+      "name": "public.newsroom_mesa_containment_write_lock_v1()"
+    },
+    {
+      "kind": "functions",
+      "name": "public.newsroom_mesa_context_item_sources_valid_v1(p_dossier_id uuid, p_production_context_id uuid)"
+    },
+    {
+      "kind": "functions",
+      "name": "public.newsroom_mesa_context_output_usage_valid_v1(p_dossier_id uuid, p_article_plan_id uuid)"
+    },
+    {
+      "kind": "functions",
+      "name": "public.newsroom_mesa_dossier_source_membership_v1()"
+    },
+    {
+      "kind": "functions",
+      "name": "public.newsroom_mesa_global_article_candidates_v1(p_source_ids uuid[], p_theme_ids uuid[])"
+    },
+    {
+      "kind": "functions",
+      "name": "public.newsroom_mesa_grouping_authority_v2(p_request jsonb)"
+    },
+    {
+      "kind": "functions",
+      "name": "public.newsroom_mesa_grouping_request_v1(p_request jsonb)"
+    },
+    {
+      "kind": "functions",
+      "name": "public.newsroom_mesa_intent_latest_article_receipts_v2(p_article_ids uuid[])"
+    },
+    {
+      "kind": "functions",
+      "name": "public.newsroom_mesa_intent_latest_receipts_v1(p_theme_id uuid)"
+    },
+    {
+      "kind": "functions",
+      "name": "public.newsroom_mesa_intent_output_focus_source_ids_v1(p_context jsonb, p_request jsonb, p_output jsonb, p_outputs jsonb)"
+    },
+    {
+      "kind": "functions",
+      "name": "public.newsroom_mesa_intent_source_v1(p_source_id uuid)"
+    },
+    {
+      "kind": "functions",
+      "name": "public.newsroom_mesa_lock_intent_publication_v1(p_dossier_id uuid, p_package_id uuid)"
+    },
+    {
+      "kind": "functions",
+      "name": "public.newsroom_mesa_normalize_intent_v1(p_request jsonb)"
+    },
+    {
+      "kind": "functions",
+      "name": "public.newsroom_mesa_normalize_refs_v2(p_refs jsonb)"
+    },
+    {
+      "kind": "functions",
+      "name": "public.newsroom_mesa_output_source_in_context_v1(p_dossier_id uuid, p_article_plan_id uuid, p_dossier_source_id uuid)"
+    },
+    {
+      "kind": "functions",
+      "name": "public.newsroom_mesa_page_identities_v1(p_cycle_started_at timestamp with time zone, p_lifecycle text, p_classification_filter text, p_source_code text, p_limit integer, p_offset integer)"
+    },
+    {
+      "kind": "functions",
+      "name": "public.newsroom_mesa_plan_context_sources_valid_v1(p_dossier_id uuid, p_article_plan_id uuid, p_production_context_id uuid)"
+    },
+    {
+      "kind": "functions",
+      "name": "public.newsroom_mesa_preview_intents_v1(p_request jsonb)"
+    },
+    {
+      "kind": "functions",
+      "name": "public.newsroom_mesa_protect_material_source_v2()"
+    },
+    {
+      "kind": "functions",
+      "name": "public.newsroom_mesa_protect_theme_source_v1()"
+    },
+    {
+      "kind": "functions",
+      "name": "public.newsroom_mesa_receipt_continuity_sources_v1(p_dossier_id uuid, p_output_id uuid, p_sources jsonb)"
+    },
+    {
+      "kind": "functions",
+      "name": "public.newsroom_mesa_scope_intent_receipt_sources_v1()"
+    },
+    {
+      "kind": "functions",
+      "name": "public.newsroom_mesa_source_candidates_v1(p_cycle_started_at timestamp with time zone, p_source_code text)"
+    },
+    {
+      "kind": "functions",
+      "name": "public.newsroom_mesa_source_counts_v1(p_cycle_started_at timestamp with time zone, p_source_code text)"
+    },
+    {
+      "kind": "functions",
+      "name": "public.newsroom_mesa_theme_continuity_v1(p_theme_id uuid)"
+    },
+    {
+      "kind": "functions",
+      "name": "public.newsroom_mesa_theme_source_reference_v1()"
+    },
+    {
+      "kind": "functions",
+      "name": "public.newsroom_mesa_theme_summaries_v1(p_theme_ids uuid[])"
+    },
+    {
+      "kind": "functions",
+      "name": "public.newsroom_mesa_timestamp_text_valid_v1(p_value text)"
+    },
+    {
+      "kind": "functions",
+      "name": "public.newsroom_mesa_version_refs_v2()"
+    },
+    {
+      "kind": "functions",
+      "name": "public.newsroom_organize_theme_materials_v2(p_request_id uuid, p_theme_id uuid, p_title text, p_classification_key text, p_source_ids uuid[], p_material_refs jsonb)"
+    },
+    {
+      "kind": "functions",
+      "name": "public.newsroom_organize_theme_selection_v3(p_request_id uuid, p_theme_id uuid, p_title text, p_classification_key text, p_source_ids uuid[], p_editorial_article_ids uuid[], p_material_refs jsonb)"
+    },
+    {
+      "kind": "functions",
+      "name": "public.newsroom_organize_theme_sources_v1(p_request_id uuid, p_theme_id uuid, p_title text, p_classification_key text, p_source_ids uuid[])"
+    },
+    {
+      "kind": "functions",
+      "name": "public.newsroom_place_mesa_intent_latest_v1(p_dossier_id uuid, p_package_id uuid, p_article_ids uuid[])"
+    },
+    {
+      "kind": "functions",
+      "name": "public.newsroom_prepare_editorial_dossier_workspace_v1(p_preparation_key uuid, p_title text, p_newsroom_article_ids uuid[], p_newsroom_snapshot_ids uuid[], p_published_context_article_ids uuid[])"
+    },
+    {
+      "kind": "functions",
+      "name": "public.newsroom_prepare_editorial_theme_v1()"
+    },
+    {
+      "kind": "functions",
+      "name": "public.newsroom_prepare_mesa_contexts_v3(p_preparation_key uuid, p_title text, p_contexts jsonb, p_incorporate_theme_id uuid, p_incorporate_source_ids uuid[])"
+    },
+    {
+      "kind": "functions",
+      "name": "public.newsroom_prepare_mesa_grouping_v2(p_request jsonb, p_expected_authority_fingerprint text)"
+    },
+    {
+      "kind": "functions",
+      "name": "public.newsroom_prepare_mesa_intents_v1(p_request jsonb, p_expected_authority_fingerprint text)"
+    },
+    {
+      "kind": "functions",
+      "name": "public.newsroom_prepare_mesa_intents_v1_context_v1(p_request jsonb, p_expected_authority_fingerprint text)"
+    },
+    {
+      "kind": "functions",
+      "name": "public.newsroom_prepare_mesa_materials_v2(p_preparation_key uuid, p_theme_id uuid, p_title text, p_source_refs jsonb, p_material_refs jsonb)"
+    },
+    {
+      "kind": "functions",
+      "name": "public.newsroom_prepare_theme_continuity_v1(p_preparation_key uuid, p_theme_id uuid, p_new_article_count integer, p_expected_authority_fingerprint text)"
+    },
+    {
+      "kind": "functions",
+      "name": "public.newsroom_prepare_theme_dossier_v1(p_theme_id uuid, p_preparation_key uuid, p_title text, p_newsroom_article_ids uuid[], p_newsroom_snapshot_ids uuid[], p_published_context_article_ids uuid[])"
+    },
+    {
+      "kind": "functions",
+      "name": "public.newsroom_preview_abandon_mesa_production_v2(p_dossier_id uuid)"
+    },
+    {
+      "kind": "functions",
+      "name": "public.newsroom_preview_mesa_grouping_v2(p_request jsonb)"
+    },
+    {
+      "kind": "functions",
+      "name": "public.newsroom_protect_bound_mesa_plan_context_v1()"
+    },
+    {
+      "kind": "functions",
+      "name": "public.newsroom_protect_dossier_preparation_key_v1()"
+    },
+    {
+      "kind": "functions",
+      "name": "public.newsroom_protect_editorial_dossier_source_frozen_identity()"
+    },
+    {
+      "kind": "functions",
+      "name": "public.newsroom_protect_editorial_plan_profile_pin()"
+    },
+    {
+      "kind": "functions",
+      "name": "public.newsroom_protect_editorial_profile()"
+    },
+    {
+      "kind": "functions",
+      "name": "public.newsroom_protect_frozen_dossier_source_v1()"
+    },
+    {
+      "kind": "functions",
+      "name": "public.newsroom_publish_mesa_intent_output_v1(p_dossier_id uuid, p_output_id uuid, p_package_id uuid, p_dossier_source_ids uuid[], p_article jsonb)"
+    },
+    {
+      "kind": "functions",
+      "name": "public.newsroom_publish_mesa_intent_output_v2(p_dossier_id uuid, p_output_id uuid, p_package_id uuid, p_dossier_source_ids uuid[], p_article jsonb, p_classification_key text)"
+    },
+    {
+      "kind": "functions",
+      "name": "public.newsroom_publish_mesa_output_v2(p_dossier_id uuid, p_output_id uuid, p_package_id uuid, p_dossier_source_ids uuid[], p_article jsonb)"
+    },
+    {
+      "kind": "functions",
+      "name": "public.newsroom_publish_mesa_output_v3(p_dossier_id uuid, p_output_id uuid, p_package_id uuid, p_dossier_source_ids uuid[], p_article jsonb, p_classification_key text)"
+    },
+    {
+      "kind": "functions",
+      "name": "public.newsroom_read_article_classification_states_v1(p_newsroom_article_ids uuid[])"
+    },
+    {
+      "kind": "functions",
+      "name": "public.newsroom_reject_editorial_profile_version_mutation()"
+    },
+    {
+      "kind": "functions",
+      "name": "public.newsroom_reject_mesa_context_mutation_v1()"
+    },
+    {
+      "kind": "functions",
+      "name": "public.newsroom_reject_snapshot_mutation()"
+    },
+    {
+      "kind": "functions",
+      "name": "public.newsroom_remove_theme_source_v1(p_theme_id uuid, p_source_id uuid)"
+    },
+    {
+      "kind": "functions",
+      "name": "public.newsroom_save_dossier_article_plan_state_v1(p_dossier_id uuid, p_article_plan_id uuid, p_destination text, p_update_target_editorial_article_id uuid, p_published_context_ids uuid[], p_image_choice text, p_dossier_image_id uuid)"
+    },
+    {
+      "kind": "functions",
+      "name": "public.newsroom_save_dossier_article_plan_state_v2(p_dossier_id uuid, p_article_plan_id uuid, p_destination text, p_update_target_editorial_article_id uuid, p_published_context_ids uuid[], p_image_choice text, p_dossier_image_id uuid, p_classification_key text)"
+    },
+    {
+      "kind": "functions",
+      "name": "public.newsroom_save_dossier_article_plan_state_v3(p_dossier_id uuid, p_article_plan_id uuid, p_destination text, p_update_target_editorial_article_id uuid, p_published_context_ids uuid[], p_image_choice text, p_dossier_image_id uuid, p_classification_key text, p_classification_mode text)"
+    },
+    {
+      "kind": "functions",
+      "name": "public.newsroom_save_editorial_dossier_article_plan(p_dossier_id uuid, p_article_plan_id uuid, p_working_title text, p_status text, p_sort_order integer, p_article_kind text, p_length_mode text, p_editorial_instructions text, p_dossier_source_ids uuid[])"
+    },
+    {
+      "kind": "functions",
+      "name": "public.newsroom_save_mesa_context_article_plan_v1(p_dossier_id uuid, p_article_plan_id uuid, p_working_title text, p_status text, p_sort_order integer, p_article_kind text, p_length_mode text, p_editorial_instructions text, p_dossier_source_ids uuid[], p_production_context_id uuid)"
+    },
+    {
+      "kind": "functions",
+      "name": "public.newsroom_set_article_classification_updated_at_v1()"
+    },
+    {
+      "kind": "functions",
+      "name": "public.newsroom_set_article_updated_at()"
+    },
+    {
+      "kind": "functions",
+      "name": "public.newsroom_set_editorial_dossier_updated_at()"
+    },
+    {
+      "kind": "functions",
+      "name": "public.newsroom_set_editorial_theme_article_membership_v1(p_theme_id uuid, p_editorial_article_id uuid, p_associated boolean)"
+    },
+    {
+      "kind": "functions",
+      "name": "public.newsroom_set_editorial_theme_source_membership_v1(p_theme_id uuid, p_newsroom_article_id uuid, p_associated boolean)"
+    },
+    {
+      "kind": "functions",
+      "name": "public.newsroom_set_editorial_theme_status_v1(p_theme_id uuid, p_status text)"
+    },
+    {
+      "kind": "functions",
+      "name": "public.newsroom_set_editorial_theme_updated_at_v1()"
+    },
+    {
+      "kind": "functions",
+      "name": "public.newsroom_set_manual_article_classification_v1(p_newsroom_article_id uuid, p_classification_key text)"
+    },
+    {
+      "kind": "functions",
+      "name": "public.newsroom_set_manual_article_classifications_v2(p_newsroom_article_ids uuid[], p_classification_key text)"
+    },
+    {
+      "kind": "functions",
+      "name": "public.newsroom_set_mesa_output_origin_v2(p_dossier_id uuid, p_article_plan_id uuid, p_origin_kind text, p_origin_dossier_source_id uuid, p_material_key text, p_material_version_id uuid)"
+    },
+    {
+      "kind": "functions",
+      "name": "public.newsroom_set_mesa_shared_outputs_v2(p_dossier_id uuid, p_article_plan_ids uuid[])"
+    },
+    {
+      "kind": "functions",
+      "name": "public.newsroom_update_editorial_theme_v1(p_theme_id uuid, p_title text, p_classification_key text, p_context_text text, p_competition_id uuid, p_season_id uuid, p_matchday_id uuid, p_match_id uuid)"
+    },
+    {
+      "kind": "functions",
+      "name": "public.normalize_matchday_editorial_profile_evidence(p_value text)"
+    },
+    {
+      "kind": "functions",
+      "name": "public.normalize_matchday_latest_news_order(p_matchday_id uuid)"
+    },
+    {
+      "kind": "functions",
+      "name": "public.normalize_team_identity_v1(p_value text)"
+    },
+    {
+      "kind": "functions",
+      "name": "public.portal_can_select_scope(target_portal_entity_id uuid, target_portal_context_id uuid, target_portal_competition_id uuid)"
+    },
+    {
+      "kind": "functions",
+      "name": "public.preserve_matchday_editorial_worked_state()"
+    },
+    {
+      "kind": "functions",
+      "name": "public.publish_matchday_reference_composition(p_matchday_id uuid, p_composition_id uuid)"
+    },
+    {
+      "kind": "functions",
+      "name": "public.publish_matchday_reference_composition_with_continuity(p_matchday_id uuid, p_composition_id uuid)"
+    },
+    {
+      "kind": "functions",
+      "name": "public.read_matchday_historical_article_decisions_v1(p_matchday_id uuid)"
+    },
+    {
+      "kind": "functions",
+      "name": "public.read_matchday_live_desk_aggregate_tracking(p_matchday_id uuid, p_profile_key text)"
+    },
+    {
+      "kind": "functions",
+      "name": "public.read_matchday_live_layout_workspace_v13(p_matchday_id uuid, p_profile_key text)"
+    },
+    {
+      "kind": "functions",
+      "name": "public.read_matchday_live_layout_workspace_v22(p_matchday_id uuid, p_profile_key text)"
+    },
+    {
+      "kind": "functions",
+      "name": "public.recover_matchday_live_layout_continuity(p_source_matchday_id uuid, p_target_matchday_id uuid, p_source_composition_id uuid)"
+    },
+    {
+      "kind": "functions",
+      "name": "public.refresh_matchday_editorial_bank_contextual_classification(p_bank_item_id uuid)"
+    },
+    {
+      "kind": "functions",
+      "name": "public.refresh_matchday_editorial_profile_distribution(p_matchday_id uuid)"
+    },
+    {
+      "kind": "functions",
+      "name": "public.refresh_matchday_editorial_profile_distribution_from_assignment()"
+    },
+    {
+      "kind": "functions",
+      "name": "public.refresh_matchday_editorial_profile_distribution_from_bank()"
+    },
+    {
+      "kind": "functions",
+      "name": "public.refresh_matchday_live_layout_legacy(p_matchday_id uuid)"
+    },
+    {
+      "kind": "functions",
+      "name": "public.remove_deleted_editorial_source_from_matchday_bank()"
+    },
+    {
+      "kind": "functions",
+      "name": "public.reopen_matchday_reference_composition(p_matchday_id uuid, p_composition_id uuid)"
+    },
+    {
+      "kind": "functions",
+      "name": "public.replace_historical_composition_dynamic_zones(p_matchday_id uuid, p_composition_id uuid, p_dynamic_zones jsonb)"
+    },
+    {
+      "kind": "functions",
+      "name": "public.rls_auto_enable()"
+    },
+    {
+      "kind": "functions",
+      "name": "public.set_editorial_contents_updated_at()"
+    },
+    {
+      "kind": "functions",
+      "name": "public.set_matchday_below_headline_presentation_v15(p_matchday_id uuid, p_below_headline_mode text, p_below_headline_heading text, p_below_headline_heading_color text)"
+    },
+    {
+      "kind": "functions",
+      "name": "public.set_matchday_editorial_bank_items_updated_at()"
+    },
+    {
+      "kind": "functions",
+      "name": "public.set_matchday_editorial_profile_assignment(p_matchday_id uuid, p_profile_key text)"
+    },
+    {
+      "kind": "functions",
+      "name": "public.set_matchday_editorial_selection_item(p_matchday_id uuid, p_position integer, p_bank_item_id uuid)"
+    },
+    {
+      "kind": "functions",
+      "name": "public.set_matchday_hierarchical_composition_slots_updated_at()"
+    },
+    {
+      "kind": "functions",
+      "name": "public.set_matchday_historical_article_decision_v1(p_matchday_id uuid, p_article_ids uuid[], p_decision text)"
+    },
+    {
+      "kind": "functions",
+      "name": "public.set_matchday_latest_news_settings_v15(p_matchday_id uuid, p_latest_zone_mode text, p_latest_zone_title text, p_latest_zone_title_color text, p_write_title boolean)"
+    },
+    {
+      "kind": "functions",
+      "name": "public.set_matchday_latest_zone_placement_v15(p_matchday_id uuid, p_latest_zone_placement text)"
+    },
+    {
+      "kind": "functions",
+      "name": "public.set_matchday_latest_zone_placement_v29(p_matchday_id uuid, p_latest_zone_placement text)"
+    },
+    {
+      "kind": "functions",
+      "name": "public.set_matchday_reference_composition_items_updated_at()"
+    },
+    {
+      "kind": "functions",
+      "name": "public.set_matchday_reference_compositions_updated_at()"
+    },
+    {
+      "kind": "functions",
+      "name": "public.set_matchday_roundup_presentation_v15(p_matchday_id uuid, p_complementary_mode text, p_complementary_roundup_item_id uuid, p_roundup_video_heading text, p_roundup_video_heading_color text)"
+    },
+    {
+      "kind": "functions",
+      "name": "public.set_site_editorial_updated_at()"
+    },
+    {
+      "kind": "functions",
+      "name": "public.sync_editorial_article_live_snapshots_v15(p_article_id uuid, p_previous_slug text)"
+    },
+    {
+      "kind": "functions",
+      "name": "public.sync_editorial_content_live_snapshots_v15(p_content_id uuid, p_previous_slug text)"
+    },
+    {
+      "kind": "functions",
+      "name": "public.sync_match_scheduled_date()"
+    },
+    {
+      "kind": "functions",
+      "name": "public.sync_matchday_editorial_selection_from_bank()"
+    },
+    {
+      "kind": "functions",
+      "name": "public.sync_matchday_zone_publication_to_bank(p_matchday_id uuid, p_link_url text)"
+    },
+    {
+      "kind": "functions",
+      "name": "public.sync_matchday_zone_row_to_bank()"
+    },
+    {
+      "kind": "functions",
+      "name": "public.sync_published_editorial_source_to_matchday_bank()"
+    },
+    {
+      "kind": "functions",
+      "name": "public.upsert_matchday_editorial_bank_publication(p_matchday_id uuid, p_source_type text, p_source_id text, p_source_slug text, p_label text, p_title text, p_subtitle text, p_image_url text, p_link_url text)"
+    }
+  ],
+  "differences": [],
+  "normalization": [
+    "SQL whitespace and comments; quoted values preserved",
+    "physical column order; named columns are compared",
+    "cron database name differs intentionally; commands/schedule/active/user compared"
+  ]
+}
