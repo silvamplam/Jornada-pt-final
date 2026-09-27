@@ -7,6 +7,7 @@ export const LEGACY_EDITORIAL_VISUAL_FAMILIES = [
 export const EDITORIAL_VISUAL_FAMILIES = [
   ...LEGACY_EDITORIAL_VISUAL_FAMILIES,
   "four_news",
+  "six_news_1_2_3",
 ] as const;
 
 export type EditorialVisualFamily =
@@ -17,6 +18,7 @@ export const EDITORIAL_VISUAL_FAMILY_RENDERER_KEYS = [
   "hierarchical_other_games",
   "secondary_news",
   "four_news_grid",
+  "six_news_tiered",
 ] as const;
 
 export type EditorialVisualFamilyRendererKey =
@@ -150,6 +152,19 @@ export const EDITORIAL_VISUAL_FAMILY_DEFINITIONS: Readonly<
       { position: 2, key: "four_news_2", role: "Notícia 2" },
       { position: 3, key: "four_news_3", role: "Notícia 3" },
       { position: 4, key: "four_news_4", role: "Notícia 4" },
+    ],
+  ),
+  six_news_1_2_3: defineEditorialVisualFamily(
+    "six_news_1_2_3",
+    "6 notícias — 1 + 2 + 3",
+    "six_news_tiered",
+    [
+      { position: 1, key: "tiered_lead", role: "Destaque horizontal" },
+      { position: 2, key: "tiered_middle_1", role: "Intermédia 1" },
+      { position: 3, key: "tiered_middle_2", role: "Intermédia 2" },
+      { position: 4, key: "tiered_final_1", role: "Final 1" },
+      { position: 5, key: "tiered_final_2", role: "Final 2" },
+      { position: 6, key: "tiered_final_3", role: "Final 3" },
     ],
   ),
 });

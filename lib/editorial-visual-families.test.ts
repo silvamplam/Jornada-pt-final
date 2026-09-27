@@ -32,6 +32,7 @@ const expectedCapacity: Readonly<
   five_news_balanced: 5,
   five_news_secondary: 5,
   four_news: 4,
+  six_news_1_2_3: 6,
 };
 
 function publicItem(
@@ -257,6 +258,7 @@ test("renderer desconhecido falha de forma explícita", () => {
     hierarchical_other_games: "other-games",
     secondary_news: "secondary",
     four_news_grid: "four-news",
+    six_news_tiered: "six-news-tiered",
   };
 
   assert.throws(
@@ -269,7 +271,7 @@ test("renderer desconhecido falha de forma explícita", () => {
   );
 });
 
-test("os quatro layouts preservam o contrato público atual", () => {
+test("a nova família acrescenta um renderer e preserva os quatro layouts anteriores", () => {
   assert.deepEqual(
     EDITORIAL_VISUAL_FAMILIES,
     [
@@ -277,6 +279,7 @@ test("os quatro layouts preservam o contrato público atual", () => {
       "five_news_balanced",
       "five_news_secondary",
       "four_news",
+      "six_news_1_2_3",
     ],
   );
 
@@ -302,6 +305,10 @@ test("os quatro layouts preservam o contrato público atual", () => {
       {
         id: "four_news",
         rendererKey: "four_news_grid",
+      },
+      {
+        id: "six_news_1_2_3",
+        rendererKey: "six_news_tiered",
       },
     ],
   );

@@ -303,6 +303,19 @@ test("sexta zona arbitrária usa UUID, título e sort_order físicos", () => {
   );
 });
 
+test("reader público preserva a família 1+2+3 e as seis imagens canónicas", () => {
+  const selected = zone(1, "six_news_1_2_3", "Atualidade");
+  const snapshot = buildFixture({
+    zones: [selected],
+    placements: Array.from({ length: 6 }, (_, index) => ({
+      type: "zone", zoneId: selected.id, position: index + 1,
+    })),
+  });
+  assert.equal(snapshot.zones[0].layoutId, "six_news_1_2_3");
+  assert.deepEqual(snapshot.zones[0].slots.map((slot) => slot.item?.imageUrl),
+    Array.from({ length: 6 }, (_, index) => `/images/${index + 1}.jpg`));
+});
+
 test("sort_order dos blocks é a única autoridade da ordem pública", () => {
   const zones = [zone(1), zone(2), zone(3)];
   const current = fixture({ zones });

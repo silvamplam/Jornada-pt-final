@@ -120,7 +120,7 @@ export type HierarchicalCompositionDeskDynamicZone = {
   id: string;
   sortOrder: number;
   publicTitle: string;
-  visualFamily: "six_news" | "five_news_balanced" | "five_news_secondary";
+  visualFamily: "six_news" | "five_news_balanced" | "five_news_secondary" | "six_news_1_2_3";
   items: Array<{
     id: string;
     position: number;
@@ -4143,7 +4143,7 @@ export default function HierarchicalCompositionDeskClient({
                     onCommit={commitDynamicZonePublicTitle}
                   />
                 </label>
-                <label><select aria-label="Layout da zona editorial" value={activeDynamicZone.visualFamily} onChange={(event) => updateDynamicZone(activeDynamicZone.clientId, { visualFamily: event.target.value as HistoricalDynamicZoneVisualFamily })}><option value="six_news">6 notícias</option><option value="five_news_balanced">5 notícias equilibradas</option><option value="five_news_secondary">5 notícias secundárias</option></select></label>
+                <label><select aria-label="Layout da zona editorial" value={activeDynamicZone.visualFamily} onChange={(event) => updateDynamicZone(activeDynamicZone.clientId, { visualFamily: event.target.value as HistoricalDynamicZoneVisualFamily })}><option value="six_news">6 notícias</option><option value="five_news_balanced">5 notícias equilibradas</option><option value="five_news_secondary">5 notícias secundárias</option><option value="six_news_1_2_3">{HISTORICAL_DYNAMIC_ZONE_LAYOUTS.six_news_1_2_3.label}</option></select></label>
                 {selectedBankItemIds.length > 0 ? <button className="hc-dynamic-zone-place" type="button" onClick={() => placeSelectedInDynamicZone(activeDynamicZone.clientId)}>Colocar {selectedBankItemIds.length} aqui</button> : null}
               </div>
               <section className="hc-desk-zone">

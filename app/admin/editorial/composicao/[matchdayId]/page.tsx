@@ -214,7 +214,7 @@ type HistoricalCompositionDynamicZoneRow = {
   composition_id: string;
   sort_order: number;
   public_title: string;
-  visual_family: "six_news" | "five_news_balanced" | "five_news_secondary";
+  visual_family: "six_news" | "five_news_balanced" | "five_news_secondary" | "six_news_1_2_3";
 };
 
 type HistoricalCompositionDynamicZoneItemRow = {

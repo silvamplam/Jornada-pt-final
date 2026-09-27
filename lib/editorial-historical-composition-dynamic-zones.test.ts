@@ -9,7 +9,7 @@ import {
   normalizeHistoricalDynamicZoneTitle,
 } from "./editorial-historical-composition-workspace";
 
-test("as zonas históricas reutilizam as quatro famílias visuais suportadas", () => {
+test("as zonas históricas reutilizam as famílias visuais suportadas", () => {
   assert.deepEqual(
     Object.keys(HISTORICAL_DYNAMIC_ZONE_LAYOUTS),
     [
@@ -17,6 +17,7 @@ test("as zonas históricas reutilizam as quatro famílias visuais suportadas", (
       "five_news_balanced",
       "five_news_secondary",
       "four_news",
+      "six_news_1_2_3",
     ],
   );
 
@@ -38,6 +39,12 @@ test("as zonas históricas reutilizam as quatro famílias visuais suportadas", (
   assert.equal(
     historicalDynamicZoneCapacity("four_news"),
     4,
+  );
+  assert.equal(historicalDynamicZoneCapacity("six_news_1_2_3"), 6);
+  assert.equal(isHistoricalDynamicZoneVisualFamily("six_news_1_2_3"), true);
+  assert.deepEqual(
+    historicalDynamicZonePositions("six_news_1_2_3").map((slot) => slot.label),
+    ["Destaque horizontal", "Intermédia 1", "Intermédia 2", "Final 1", "Final 2", "Final 3"],
   );
 });
 

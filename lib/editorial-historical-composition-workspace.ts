@@ -67,6 +67,7 @@ export const HISTORICAL_DYNAMIC_ZONE_LAYOUTS: Readonly<
   four_news: historicalDynamicZoneLayout(
     "four_news",
   ),
+  six_news_1_2_3: historicalDynamicZoneLayout("six_news_1_2_3"),
 });
 
 export type HistoricalDynamicZoneVisualFamily = EditorialVisualFamily;

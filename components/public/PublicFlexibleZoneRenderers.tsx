@@ -13,6 +13,7 @@ import type { ComponentType } from "react";
 
 import PublicBeyondMatchdayNews from "./PublicBeyondMatchdayNews";
 import PublicFourNewsGrid from "./PublicFourNewsGrid";
+import PublicSixNewsTiered from "./PublicSixNewsTiered";
 import {
   PublicHierarchicalLiveLayouts,
 } from "./PublicHierarchicalComposition";
@@ -253,6 +254,7 @@ const PUBLIC_FLEXIBLE_ZONE_RENDERERS = Object.freeze({
   hierarchical_other_games: HierarchicalZoneRenderer,
   secondary_news: SecondaryNewsZoneRenderer,
   four_news_grid: FourNewsZoneRenderer,
+  six_news_tiered: PublicSixNewsTiered,
 }) satisfies Readonly<
   Record<
     EditorialVisualFamilyRendererKey,
