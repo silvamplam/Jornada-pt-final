@@ -7,7 +7,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 
 import HierarchicalCompositionInterpretivePreview from "../components/admin/HierarchicalCompositionInterpretivePreview";
 import PublicHierarchicalComposition from "../components/public/PublicHierarchicalComposition";
-import type { PublicBeyondMatchdayNewsItem } from "../components/public/PublicBeyondMatchdayNews";
+import PublicBeyondMatchdayNews, { type PublicBeyondMatchdayNewsItem } from "../components/public/PublicBeyondMatchdayNews";
 import {
   HIERARCHICAL_COMPOSITION_SLOT_KEYS,
   type HierarchicalCompositionSlot,
@@ -117,16 +117,42 @@ test("público e preview aplicam a mesma política editorial de pós-títulos ao
   assertSubtitlePolicy(previewMarkup);
 });
 
-test("Para Lá apresenta pós-título nas quatro secundárias e mantém as inferiores sem imagem", () => {
+test("Para Lá apresenta as cinco imagens editoriais e pós-títulos no público e preview", () => {
   for (const markup of [publicMarkup, previewMarkup]) {
     const $ = load(markup);
     assert.equal($(".public-beyond-matchday-lead .public-beyond-matchday-subtitle").length, 1);
-    assert.equal($("[data-secondary-presentation='image']").length, 2);
-    assert.equal($("[data-secondary-presentation='image'] .public-beyond-matchday-subtitle").length, 2);
-    assert.equal($("[data-secondary-presentation='text']").length, 2);
-    assert.equal($("[data-secondary-presentation='text'] .public-beyond-matchday-subtitle").length, 2);
-    assert.equal($("[data-secondary-presentation='text'] .public-beyond-matchday-media").length, 0);
+    assert.equal($("[data-secondary-presentation='image']").length, 4);
+    assert.equal($("[data-secondary-presentation='image'] .public-beyond-matchday-subtitle").length, 4);
+    assert.equal($("[data-secondary-presentation='text']").length, 0);
+    for (const [index, item] of beyondMatchdayItems.entries()) {
+      const card = $(`.public-beyond-matchday [data-public-slot-position='${index + 1}']`);
+      assert.equal(card.find("img").length, 1);
+      assert.equal(card.find("img").attr("src"), item.imageUrl);
+      assert.equal(card.find(".public-beyond-matchday-media").attr("href"), item.linkUrl);
+    }
   }
+});
+
+test("Para Lá usa a identidade Jornada quando a imagem falta e preserva os slots vazios", () => {
+  const items = beyondMatchdayItems.map((item, index) => ({
+    ...item,
+    imageUrl: index === 0 ? null : index === 3 ? "   " : item.imageUrl,
+  }));
+  const $ = load(renderToStaticMarkup(
+    <PublicBeyondMatchdayNews items={items} contextLabel="" />,
+  ));
+  assert.equal($(".public-beyond-matchday img").length, 5);
+  assert.equal($("img[data-editorial-image-fallback='true']").length, 2);
+  assert.equal($("[data-public-slot-position='1'] img").attr("src"), "/assets/jornada-logo-original.png");
+  assert.equal($("[data-public-slot-position='4'] img").attr("src"), "/assets/jornada-logo-original.png");
+  assert.equal($("[data-public-slot-position='5'] img").attr("src"), items[4].imageUrl);
+
+  const partial = load(renderToStaticMarkup(
+    <PublicBeyondMatchdayNews items={[items[0], null, items[2], null, items[4]]} contextLabel="" />,
+  ));
+  assert.equal(partial("article").length, 3);
+  assert.equal(partial(".public-beyond-matchday-slot-empty").length, 2);
+  assert.equal(partial("[data-public-slot-position='5'] img").attr("src"), items[4].imageUrl);
 });
 
 test("as imagens públicas ganham verticalidade apenas no centro da composição de seis", () => {
@@ -258,11 +284,6 @@ test("a página pública liberta títulos e o preview preserva os clamps semânt
         ".public-beyond-matchday-secondary-card[data-secondary-presentation=\"image\"] .public-beyond-matchday-subtitle",
       ),
       "-webkit-line-clamp",
-      "3",
-    );
-    assertDeclaration(
-      cssRule(css, ".public-beyond-matchday-text-only .public-beyond-matchday-subtitle"),
-      "-webkit-line-clamp",
       "2",
     );
   }
@@ -289,7 +310,7 @@ test("a principal 2 elimina o corte silencioso e as compactas usam uma reserva c
   }
 });
 
-test("o Editorial continua livre e as inferiores de Para Lá não recebem altura artificial", () => {
+test("o Editorial continua livre e Para Lá equilibra as linhas sem alturas fixas", () => {
   for (const markup of [publicMarkup, previewMarkup]) {
     const $ = load(markup);
     assert.equal($(".composition-interpretive-editorial-body .composition-interpretive-editorial-copy").length, 1);
@@ -301,7 +322,9 @@ test("o Editorial continua livre e as inferiores de Para Lá não recebem altura
     const css = cssFrom(markup);
     const editorialBody = cssRule(css, ".composition-interpretive-editorial-body");
     assert.doesNotMatch(editorialBody, /line-clamp|max-height|overflow/);
-    assertDeclaration(cssRule(css, ".public-beyond-matchday-text-only"), "min-height", "0");
-    assert.equal($("[data-secondary-presentation='text'] .public-beyond-matchday-subtitle").length, 2);
+    const secondaryGrid = cssRule(css, ".public-beyond-matchday-secondary-grid");
+    assertDeclaration(secondaryGrid, "grid-auto-rows", "1fr");
+    assert.doesNotMatch(secondaryGrid, /(?:min-|max-)?height:/);
+    assert.equal($("[data-secondary-presentation='image'] .public-beyond-matchday-subtitle").length, 4);
   }
 });

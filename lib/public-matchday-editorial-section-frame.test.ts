@@ -79,7 +79,7 @@ test("a família visual não altera o contrato exterior", () => {
   );
 });
 
-test("secondary abdica da segunda fronteira mas conserva separadores internos", () => {
+test("secondary abdica da segunda fronteira e separa os cartões pelo gap", () => {
   assert.match(
     flexibleZoneRenderers,
     /<PublicBeyondMatchdayNews[\s\S]*?ownsSectionBoundary=\{false\}/,
@@ -96,10 +96,7 @@ test("secondary abdica da segunda fronteira mas conserva separadores internos", 
   assert.match(embeddedBoundary, /padding-top: 0/);
   assert.match(embeddedBoundary, /padding-bottom: 0/);
   assert.match(embeddedBoundary, /border-top: 0/);
-  assert.match(
-    beyondMatchday,
-    /\.public-beyond-matchday-text-only \{[\s\S]*?border-top: 1px solid #dbe4ee/,
-  );
+  assert.match(cssRule(beyondMatchday, ".public-beyond-matchday-secondary-grid"), /gap: 22px 18px/);
 });
 
 test("o frame é o único proprietário da transição, entrada e separador", () => {
