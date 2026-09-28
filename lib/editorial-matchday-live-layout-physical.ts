@@ -1,3 +1,4 @@
+import { normalizeEditorialZoneTitleColor } from "@/lib/editorial-zone-title-color";
 import {
   EDITORIAL_VISUAL_FAMILIES,
   editorialVisualFamilyCapacity,
@@ -19,6 +20,7 @@ export type MatchdayLiveLayoutZoneRow = Readonly<{
   id: LiveLayoutZoneId;
   matchday_id: string;
   public_title: string;
+  public_title_color?: string | null;
   visual_family: EditorialVisualFamily;
 }>;
 
@@ -52,6 +54,7 @@ export type MatchdayLiveLayoutZoneItem = Readonly<{
 export type MatchdayLiveLayoutZone = Readonly<{
   id: LiveLayoutZoneId;
   publicTitle: string;
+  publicTitleColor?: string | null;
   visualFamily: EditorialVisualFamily;
   capacity: number;
   sortOrder: number;
@@ -149,6 +152,7 @@ export function parseMatchdayLiveLayoutZoneRow(
     id: parseLiveLayoutZoneId(row.id),
     matchday_id: requiredText(row.matchday_id, "zone-matchday-invalid"),
     public_title: publicTitle,
+    public_title_color: normalizeEditorialZoneTitleColor(row.public_title_color),
     visual_family: visualFamily as EditorialVisualFamily,
   };
 }
@@ -321,6 +325,7 @@ export function buildMatchdayLiveLayoutPhysicalSnapshot(
   const zones = Array.from(zoneById.values(), (zone): MatchdayLiveLayoutZone => ({
     id: zone.id,
     publicTitle: zone.public_title,
+      publicTitleColor: zone.public_title_color ?? null,
     visualFamily: zone.visual_family,
     capacity: editorialVisualFamilyCapacity(zone.visual_family),
     sortOrder: zoneSortOrders.get(zone.id)!,

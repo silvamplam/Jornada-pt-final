@@ -1,3 +1,5 @@
+import { editorialVisualFamilyPublicationPositionsAreValid } from "@/lib/editorial-visual-families";
+import { normalizeEditorialZoneTitleColor } from "@/lib/editorial-zone-title-color";
 import { cookies } from "next/headers";
 import { adminRelativeRedirect } from "@/lib/admin-relative-redirect";
 import { ADMIN_SESSION_COOKIE, verifyAdminSession } from "@/lib/admin-session";
@@ -2781,7 +2783,8 @@ type HierarchicalDeskPlanOperation =
 
 type HistoricalDynamicZonePlan = {
   publicTitle: string;
-  visualFamily: "six_news" | "five_news_balanced" | "five_news_secondary" | "six_news_1_2_3";
+  publicTitleColor: string | null;
+  visualFamily: "six_news" | "five_news_balanced" | "five_news_secondary" | "six_news_1_2_3" | "five_news_column";
   items: Array<{
     position: number;
     bankItemId: string;
@@ -2793,6 +2796,7 @@ const HISTORICAL_DYNAMIC_ZONE_CAPACITIES = {
   six_news_1_2_3: 6,
   five_news_balanced: 5,
   five_news_secondary: 5,
+  five_news_column: 5,
 } as const;
 
 type HierarchicalDeskSettings = {
@@ -2947,6 +2951,9 @@ function parseHistoricalDynamicZones(
 
     const record = value as Record<string, unknown>;
 
+    let publicTitleColor: string | null;
+    try { publicTitleColor = normalizeEditorialZoneTitleColor(record.publicTitleColor); }
+    catch { throw new CompositionPublicationError("A cor do título da coluna deve usar #RRGGBB."); }
     const rawPublicTitle = record.publicTitle;
 
     const validPublicTitleType =
@@ -3026,6 +3033,7 @@ function parseHistoricalDynamicZones(
 
     return {
       publicTitle,
+      publicTitleColor,
       visualFamily:
         visualFamily as HistoricalDynamicZonePlan["visualFamily"],
       items,
@@ -3486,7 +3494,8 @@ type HistoricalDynamicPublicationZoneRow = {
     | "six_news"
     | "six_news_1_2_3"
     | "five_news_balanced"
-    | "five_news_secondary";
+    | "five_news_secondary"
+    | "five_news_column";
 };
 
 type HistoricalDynamicPublicationItemRow = {
@@ -3504,6 +3513,7 @@ const HISTORICAL_DYNAMIC_PUBLICATION_CAPACITY = {
   six_news_1_2_3: 6,
   five_news_balanced: 5,
   five_news_secondary: 5,
+  five_news_column: 5,
 } as const;
 
 const HISTORICAL_DYNAMIC_OPENING_KEYS = [
@@ -3588,11 +3598,10 @@ async function validateHistoricalDynamicPublication(
       zone.sort_order === zoneIndex + 1;
 
     const validItems =
-      zoneItems.length === capacity
+      editorialVisualFamilyPublicationPositionsAreValid(zone.visual_family, zoneItems.map((item) => item.position))
       && zoneItems.every(
-        (item, itemIndex) =>
-          item.position === itemIndex + 1
-          && Boolean(item.label_snapshot?.trim())
+        (item) =>
+          Boolean(item.label_snapshot?.trim())
           && Boolean(item.title_snapshot?.trim())
           && Boolean(item.subtitle_snapshot?.trim())
           && Boolean(item.image_url_snapshot?.trim())

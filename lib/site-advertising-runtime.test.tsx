@@ -377,8 +377,8 @@ test("integração pública mantém publicidade fora dos dados editoriais e elim
     "app/competicoes/[competitionSlug]/[seasonLabel]/jornadas/[matchdayNumber]/page.tsx",
   );
   for (const collection of [
-    "physicalSnapshot.blocks",
-    "thematicEditorialBodyBlocks",
+    "physicalVisualBlocks",
+    "thematicVisualBlocks",
     "liveEditorialBodyBlocks",
   ]) {
     assert.ok(
@@ -386,7 +386,7 @@ test("integração pública mantém publicidade fora dos dados editoriais e elim
     );
   }
   assert.match(page, /afterOpeningNews=\{horizontalAdvertisement\}/);
-  assert.match(page, /historicalDynamicBodyBlocks\.map\(/);
+  assert.match(page, /historicalDynamicVisualBlocks\.map\(/);
   assert.doesNotMatch(page, /openingHasSideAdvertisement|hierarchicalEditorialImageUrl/);
   for (const p of [
     "components/public/PublicGamesPage.tsx",

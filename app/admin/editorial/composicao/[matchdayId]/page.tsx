@@ -1,3 +1,6 @@
+import { editorialVisualFamilyPublicationPositionsAreValid } from "@/lib/editorial-visual-families";
+import { composePublicEditorialColumnRuns } from "@/lib/public-editorial-column-runs";
+import PublicEditorialColumnRunLayout from "@/components/public/PublicEditorialColumnRunLayout";
 import BackofficeImage from "@/components/admin/BackofficeImage";
 import type { ReactNode } from "react";
 import { articleClassificationLabel } from "@/lib/editorial-classifications";
@@ -214,7 +217,8 @@ type HistoricalCompositionDynamicZoneRow = {
   composition_id: string;
   sort_order: number;
   public_title: string;
-  visual_family: "six_news" | "five_news_balanced" | "five_news_secondary" | "six_news_1_2_3";
+  public_title_color: string | null;
+  visual_family: "six_news" | "five_news_balanced" | "five_news_secondary" | "six_news_1_2_3" | "five_news_column";
 };
 
 type HistoricalCompositionDynamicZoneItemRow = {
@@ -1930,7 +1934,7 @@ async function readHistoricalCompositionDynamicZones(
 
   const [zones, items] = await Promise.all([
     fetchSupabaseAdminTable<HistoricalCompositionDynamicZoneRow>(
-      `matchday_historical_composition_zones?select=id,composition_id,sort_order,public_title,visual_family&composition_id=eq.${encodeURIComponent(
+      `matchday_historical_composition_zones?select=id,composition_id,sort_order,public_title,public_title_color,visual_family&composition_id=eq.${encodeURIComponent(
         compositionId,
       )}&order=sort_order.asc`,
     ),
@@ -1945,6 +1949,7 @@ async function readHistoricalCompositionDynamicZones(
     id: zone.id,
     sortOrder: zone.sort_order,
     publicTitle: zone.public_title,
+    publicTitleColor: zone.public_title_color,
     visualFamily: zone.visual_family,
     items: items
       .filter((item) => item.zone_id === zone.id)
@@ -4142,6 +4147,7 @@ export default async function AdminEditorialCompositionPage({ params, searchPara
         key: `historical-preview:${zone.id}`,
         visualFamily: zone.visualFamily,
         publicTitle: zone.publicTitle.trim(),
+        publicTitleColor: zone.publicTitleColor,
         items: zone.items
           .slice()
           .sort(
@@ -4195,6 +4201,10 @@ export default async function AdminEditorialCompositionPage({ params, searchPara
       },
     );
   }
+
+  const historicalDynamicPreviewVisualBlocks = composePublicEditorialColumnRuns(
+    historicalDynamicPreviewBodyBlocks, (block) => block.kind === "zone" ? block.zone : undefined,
+  );
 
   const groupedCompositionItems = groupCompositionItemsBySection(compositionItems);
   const missingHierarchicalSlots = missingHierarchicalCompositionSlots(hierarchicalSlots);
@@ -4254,11 +4264,10 @@ export default async function AdminEditorialCompositionPage({ params, searchPara
         const complete =
           zone.sortOrder === zoneIndex + 1
           && Boolean(zone.publicTitle.trim())
-          && items.length === capacity
+          && editorialVisualFamilyPublicationPositionsAreValid(zone.visualFamily, items.map((item) => item.position))
           && items.every(
-            (item, itemIndex) =>
-              item.position === itemIndex + 1
-              && Boolean(item.label?.trim())
+            (item) =>
+              Boolean(item.label?.trim())
               && Boolean(item.title?.trim())
               && Boolean(item.subtitle?.trim())
               && Boolean(item.imageUrl?.trim())
@@ -4856,8 +4865,10 @@ export default async function AdminEditorialCompositionPage({ params, searchPara
                     videoHighlight={null}
                   />
 
-                  {historicalDynamicPreviewBodyBlocks.map(
+                  {historicalDynamicPreviewVisualBlocks.map(
                     (block) => {
+                      if (block.kind === "column_run") return <PublicEditorialColumnRunLayout
+                        key={block.key} zones={block.zones} matchdayNumber={matchday.number} />;
                       if (block.kind === "video") {
                         return (
                           <PublicHierarchicalPosteriorMoments
@@ -5408,13 +5419,9 @@ export default async function AdminEditorialCompositionPage({ params, searchPara
                       videoHighlight={null}
                     />
 
-                    {historicalDynamicPreviewZones.map((zone) => (
-                      <PublicFlexibleZoneLayout
-                        key={zone.key}
-                        matchdayNumber={matchday.number}
-                        zone={zone}
-                      />
-                    ))}
+                    {historicalDynamicPreviewVisualBlocks.map((block) => block.kind === "column_run"
+                      ? <PublicEditorialColumnRunLayout key={block.key} zones={block.zones} matchdayNumber={matchday.number} />
+                      : block.kind === "zone" ? <PublicFlexibleZoneLayout key={block.zone.key} zone={block.zone} matchdayNumber={matchday.number} /> : null)}
                   </div>
                 ) : (
                   <HierarchicalCompositionEditor

@@ -8,6 +8,7 @@ export const EDITORIAL_VISUAL_FAMILIES = [
   ...LEGACY_EDITORIAL_VISUAL_FAMILIES,
   "four_news",
   "six_news_1_2_3",
+  "five_news_column",
 ] as const;
 
 export type EditorialVisualFamily =
@@ -19,6 +20,7 @@ export const EDITORIAL_VISUAL_FAMILY_RENDERER_KEYS = [
   "secondary_news",
   "four_news_grid",
   "six_news_tiered",
+  "five_news_column",
 ] as const;
 
 export type EditorialVisualFamilyRendererKey =
@@ -35,6 +37,9 @@ export type EditorialVisualFamilyDefinition = Readonly<{
   label: string;
   slots: readonly EditorialVisualFamilySlotDefinition[];
   rendererKey: EditorialVisualFamilyRendererKey;
+  allowsPartialPublication: boolean;
+  canHostLatest: boolean;
+  columnRun: boolean;
 }>;
 
 export type EditorialVisualFamilyPlacement<T> = Readonly<{
@@ -66,6 +71,7 @@ function defineEditorialVisualFamily(
   label: string,
   rendererKey: EditorialVisualFamilyRendererKey,
   slots: readonly EditorialVisualFamilySlotDefinition[],
+  policy: Partial<Pick<EditorialVisualFamilyDefinition, "allowsPartialPublication" | "canHostLatest" | "columnRun">> = {},
 ): EditorialVisualFamilyDefinition {
   const frozenSlots = Object.freeze(
     slots.map((slot, index) => {
@@ -97,6 +103,10 @@ function defineEditorialVisualFamily(
     label,
     slots: frozenSlots,
     rendererKey,
+    allowsPartialPublication: false,
+    canHostLatest: true,
+    columnRun: false,
+    ...policy,
   });
 }
 
@@ -167,6 +177,19 @@ export const EDITORIAL_VISUAL_FAMILY_DEFINITIONS: Readonly<
       { position: 6, key: "tiered_final_3", role: "Final 3" },
     ],
   ),
+  five_news_column: defineEditorialVisualFamily(
+    "five_news_column",
+    "Coluna · 5 notícias",
+    "five_news_column",
+    [
+      { position: 1, key: "column_lead", role: "Destaque · imagem pública" },
+      { position: 2, key: "column_title_2", role: "Só título na página pública" },
+      { position: 3, key: "column_title_3", role: "Só título na página pública" },
+      { position: 4, key: "column_title_4", role: "Só título na página pública" },
+      { position: 5, key: "column_title_5", role: "Só título na página pública" },
+    ],
+    { allowsPartialPublication: true, canHostLatest: false, columnRun: true },
+  ),
 });
 
 const editorialVisualFamilySet = new Set<string>(
@@ -194,6 +217,19 @@ export function editorialVisualFamilyCapacity(
   family: EditorialVisualFamily,
 ): number {
   return EDITORIAL_VISUAL_FAMILY_DEFINITIONS[family].slots.length;
+}
+
+export function editorialVisualFamilyPublicationPositionsAreValid(
+  family: unknown,
+  positions: readonly number[],
+): boolean {
+  const definition = editorialVisualFamilyDefinition(family);
+  if (!definition) return false;
+  const capacity = definition.slots.length;
+  return (definition.allowsPartialPublication || positions.length === capacity)
+    && new Set(positions).size === positions.length
+    && positions.every((position) => Number.isSafeInteger(position)
+      && position >= 1 && position <= capacity);
 }
 
 export function materializeEditorialVisualFamilySlots<T>(

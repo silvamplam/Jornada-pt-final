@@ -1,3 +1,5 @@
+import { normalizeEditorialZoneTitleColor } from "@/lib/editorial-zone-title-color";
+import PublicFiveNewsColumn from "./PublicFiveNewsColumn";
 import {
   editorialVisualFamilyDefinition,
   materializeEditorialVisualFamilySlots,
@@ -40,6 +42,7 @@ export type PublicFlexibleZone = Readonly<{
   key: string;
   visualFamily: EditorialVisualFamily;
   publicTitle: string;
+  publicTitleColor?: string | null;
   slots: readonly PublicFlexibleZoneSlot[];
 }>;
 
@@ -47,13 +50,15 @@ export type PublicFlexibleZoneInput = Readonly<{
   key: string;
   visualFamily: EditorialVisualFamily;
   publicTitle: string;
+  publicTitleColor?: string | null;
   items: readonly PublicFlexibleZoneItem[];
 }>;
 
-type PublicFlexibleZoneRendererProps = Readonly<{
+export type PublicFlexibleZoneRendererProps = Readonly<{
   ariaLabel: string;
   matchdayNumber: number;
   publicTitle: string;
+  publicTitleColor?: string | null;
   slots: readonly PublicFlexibleZoneSlot[];
   visualFamily: EditorialVisualFamily;
   zoneKey: string;
@@ -106,6 +111,7 @@ export function createPublicFlexibleZone(
     key: input.key,
     visualFamily: input.visualFamily,
     publicTitle: input.publicTitle,
+    publicTitleColor: normalizeEditorialZoneTitleColor(input.publicTitleColor),
     slots: slotResult.slots,
   };
 }
@@ -255,6 +261,7 @@ const PUBLIC_FLEXIBLE_ZONE_RENDERERS = Object.freeze({
   secondary_news: SecondaryNewsZoneRenderer,
   four_news_grid: FourNewsZoneRenderer,
   six_news_tiered: PublicSixNewsTiered,
+  five_news_column: PublicFiveNewsColumn,
 }) satisfies Readonly<
   Record<
     EditorialVisualFamilyRendererKey,
@@ -321,6 +328,7 @@ export function PublicFlexibleZoneContent({
       ariaLabel={publicTitle || "Bloco editorial"}
       matchdayNumber={matchdayNumber}
       publicTitle={publicTitle}
+      publicTitleColor={zone.publicTitleColor}
       slots={zone.slots}
       visualFamily={zone.visualFamily}
       zoneKey={zone.key}

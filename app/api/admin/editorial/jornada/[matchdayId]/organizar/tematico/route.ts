@@ -120,6 +120,7 @@ function mutationErrorResponse(error: unknown) {
     );
   }
   if (includesAnyDatabaseError(message, [
+    "editorial-zone-title-color-invalid",
     "matchday-live-layout-physical-v20-zone-shape-invalid",
     "matchday-live-layout-physical-v20-zone-value-invalid",
     "matchday-live-layout-physical-v20-zone-duplicate",

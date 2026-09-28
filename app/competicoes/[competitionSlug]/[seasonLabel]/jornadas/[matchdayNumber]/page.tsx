@@ -1,3 +1,6 @@
+import { editorialVisualFamilyPublicationPositionsAreValid } from "@/lib/editorial-visual-families";
+import { composePublicEditorialColumnRuns } from "@/lib/public-editorial-column-runs";
+import PublicEditorialColumnRunLayout from "@/components/public/PublicEditorialColumnRunLayout";
 import PublicMatchdayHeader from "@/components/public/PublicMatchdayHeader";
 import PublicHorizontalAdvertisement from "@/components/public/PublicHorizontalAdvertisement";
 import { renderPublicAdvertisingBoundary } from "@/components/public/renderPublicAdvertisingBoundary";
@@ -88,13 +91,15 @@ type HistoricalDynamicZoneVisualFamily =
   | "six_news"
   | "six_news_1_2_3"
   | "five_news_balanced"
-  | "five_news_secondary";
+  | "five_news_secondary"
+  | "five_news_column";
 
 type HistoricalDynamicZoneRow = {
   id: string;
   composition_id: string;
   sort_order: number;
   public_title: string;
+  public_title_color: string | null;
   visual_family: HistoricalDynamicZoneVisualFamily;
 };
 
@@ -123,7 +128,7 @@ async function readPublicHistoricalDynamicZones(
 ): Promise<HistoricalDynamicPublicZoneState[]> {
   const [zoneRows, itemRows] = await Promise.all([
     fetchSupabaseAdminTable<HistoricalDynamicZoneRow>(
-      `matchday_historical_composition_zones?select=id,composition_id,sort_order,public_title,visual_family&composition_id=eq.${encodeURIComponent(
+      `matchday_historical_composition_zones?select=id,composition_id,sort_order,public_title,public_title_color,visual_family&composition_id=eq.${encodeURIComponent(
         compositionId,
       )}&order=sort_order.asc`,
     ).catch(() => []),
@@ -143,6 +148,7 @@ async function readPublicHistoricalDynamicZones(
       key: `historical:${row.id}`,
       visualFamily: row.visual_family,
       publicTitle: row.public_title.trim(),
+      publicTitleColor: row.public_title_color,
       items: sourceItems.map((item) => ({
         id: item.id,
         sourceId:
@@ -168,19 +174,13 @@ async function readPublicHistoricalDynamicZones(
       })),
     });
 
-    const capacity = zone.slots.length;
-
     const positions =
       sourceItems.map((item) => item.position);
 
     const complete =
       row.sort_order === zoneIndex + 1
       && Boolean(row.public_title.trim())
-      && sourceItems.length === capacity
-      && positions.every(
-        (position, index) =>
-          position === index + 1,
-      )
+      && editorialVisualFamilyPublicationPositionsAreValid(row.visual_family, positions)
       && sourceItems.every(
         (item) =>
           Boolean(item.label_snapshot?.trim())
@@ -3157,6 +3157,10 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
         ?? historicalDynamicZones.length,
     );
 
+  const historicalDynamicVisualBlocks = composePublicEditorialColumnRuns(
+    historicalDynamicBodyBlocks, (block) => block.kind === "zone" ? block.zone : undefined,
+  );
+
   const historicalOpeningKeys = [
     "dominant_main",
     "other_chronicle_1",
@@ -3712,7 +3716,7 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
     highlightCount: visibleHighlights.length,
     roundupCount: visibleRoundupItems.length,
     hasComplementaryStory: hasPublishedComplementaryStory,
-    latestNewsCount: latestNewsItems.length,
+    latestNewsCount: physicalLatestDestination?.kind === "ineligible_host" ? 0 : latestNewsItems.length,
     latestZonePlacement,
     importantNewsCount: visibleImportantNewsItems.length
   });
@@ -3887,6 +3891,7 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
 
   const showBodyLatestBlock =
     latestZonePlacement === "four_news"
+    && physicalLatestDestination?.kind !== "ineligible_host"
     && latestNewsItems.length > 0;
 
   const showFourNewsLatestLayout =
@@ -3908,6 +3913,18 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
 
   const physicalZoneById = new Map(
     physicalSnapshot?.zones.map((zone) => [zone.zoneId, zone] as const) ?? [],
+  );
+
+  const physicalVisualBlocks = composePublicEditorialColumnRuns(
+    physicalSnapshot?.blocks ?? [], (block) => {
+      const zone = block.kind === "zone" ? physicalZoneById.get(block.zoneId) : undefined;
+      return zone ? { key: zone.zoneId, visualFamily: zone.layoutId,
+        publicTitle: zone.publicTitle, publicTitleColor: zone.publicTitleColor, slots: zone.slots } : undefined;
+    },
+  );
+  const thematicVisualBlocks = composePublicEditorialColumnRuns(
+    thematicEditorialBodyBlocks, (block) => block.kind === "zone"
+      ? createPublicFlexibleZone({ ...block.zone, items: block.zone.items }) : undefined,
   );
 
   const physicalLatestCompanionZone =
@@ -4192,7 +4209,9 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
             />
 
             {useHistoricalDynamicZones
-              ? historicalDynamicBodyBlocks.map((block) => {
+              ? historicalDynamicVisualBlocks.map((block) => {
+                  if (block.kind === "column_run") return <PublicEditorialColumnRunLayout
+                    key={block.key} zones={block.zones} matchdayNumber={context.matchday.number} />;
                   if (block.kind === "video") {
                     if (effectiveRoundupItems.length === 0) return null;
 
@@ -4299,7 +4318,9 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
       )}
 
       {!usePublishedReferenceComposition && physicalSnapshot
-        ? renderPublicAdvertisingBoundary(physicalSnapshot.blocks, (block) => {
+        ? renderPublicAdvertisingBoundary(physicalVisualBlocks, (block) => {
+            if (block.kind === "column_run") return <PublicEditorialColumnRunLayout
+              key={block.key} zones={block.zones} matchdayNumber={context.matchday.number} />;
             if (block.kind === "video") {
               if (
                 !physicalSnapshot.video.active
@@ -4366,13 +4387,16 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
                   key: zone.zoneId,
                   visualFamily: zone.layoutId,
                   publicTitle: zone.publicTitle,
+                  publicTitleColor: zone.publicTitleColor,
                   slots: zone.slots,
                 }}
               />
             );
           }, horizontalAdvertisement, openingHasNews)
         : !usePublishedReferenceComposition && thematicSnapshot
-          ? renderPublicAdvertisingBoundary(thematicEditorialBodyBlocks, (block) => {
+          ? renderPublicAdvertisingBoundary(thematicVisualBlocks, (block) => {
+            if (block.kind === "column_run") return <PublicEditorialColumnRunLayout
+              key={block.key} zones={block.zones} matchdayNumber={context.matchday.number} />;
             if (block.kind === "video") {
               if (
                 complementaryMode !== "roundup_video"

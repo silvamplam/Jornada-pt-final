@@ -294,6 +294,7 @@ test("sexta zona arbitrária usa UUID, título e sort_order físicos", () => {
   assert.deepEqual(snapshot.zones[5], {
     zoneId: zones[5]!.id,
     publicTitle: "Observatório",
+    publicTitleColor: null,
     layoutId: "five_news_secondary",
     slots: snapshot.zones[5]!.slots,
   });
@@ -505,4 +506,24 @@ test("DTO e reader físicos não contêm classificação nem fontes temáticas",
   assert.doesNotMatch(source, /reconcile_control/);
   assert.doesNotMatch(source, /writeSupabase|\bPOST\b|\bPATCH\b|\bDELETE\b/);
   assert.doesNotMatch(JSON.stringify(snapshot), /classification|automaticEligible|bankItems|memory/);
+});
+
+test("impossible column host is localized, preserves all articles and slots, and never invalidates the physical snapshot", () => {
+  const column = zone(1, "five_news_column", "Benfica");
+  const other = zone(2, "five_news_column", "Sporting");
+  const options = { zones: [column, other], placements: [
+    { type: "zone" as const, zoneId: column.id, position: 2 },
+    { type: "zone" as const, zoneId: column.id, position: 5 },
+    { type: "zone" as const, zoneId: other.id, position: 1 },
+  ] };
+  const valid = buildFixture(options);
+  const invalid = buildFixture({ ...options, latestPlacement: "four_news", latestCompanionZoneId: column.id });
+  assert.equal(invalid.kind, "physical");
+  assert.deepEqual(invalid.zones, valid.zones);
+  assert.deepEqual(invalid.blocks, valid.blocks);
+  assert.deepEqual(invalid.latest.destination, { kind: "ineligible_host", storagePlacement: "four_news",
+    companionZoneId: column.id, visualFamily: "five_news_column", diagnostic: "latest-companion-host-ineligible" });
+  const corrected = buildFixture({ ...options, latestPlacement: "hidden", latestCompanionZoneId: null });
+  assert.deepEqual(corrected.latest.destination, { kind: "hidden" });
+  assert.deepEqual(corrected.zones, invalid.zones);
 });

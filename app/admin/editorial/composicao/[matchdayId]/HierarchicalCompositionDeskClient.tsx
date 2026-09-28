@@ -1,5 +1,6 @@
 "use client";
 
+import EditorialZoneTitleColorControl from "@/components/admin/EditorialZoneTitleColorControl";
 import BackofficeImage from "@/components/admin/BackofficeImage";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, type DragEvent, type ReactNode } from "react";
@@ -66,6 +67,7 @@ type DynamicZonePlan = {
   clientId: string;
   persistedId: string | null;
   publicTitle: string;
+  publicTitleColor?: string | null;
   visualFamily: HistoricalDynamicZoneVisualFamily;
   items: Record<number, TargetCard | null>;
 };
@@ -120,7 +122,8 @@ export type HierarchicalCompositionDeskDynamicZone = {
   id: string;
   sortOrder: number;
   publicTitle: string;
-  visualFamily: "six_news" | "five_news_balanced" | "five_news_secondary" | "six_news_1_2_3";
+  publicTitleColor?: string | null;
+  visualFamily: "six_news" | "five_news_balanced" | "five_news_secondary" | "six_news_1_2_3" | "five_news_column";
   items: Array<{
     id: string;
     position: number;
@@ -2472,7 +2475,7 @@ function identity(card: TargetCard | null) {
   return card.persistedId ? `persisted:${card.persistedId}` : "";
 }
 
-function initialDynamicZonePlan(
+export function initialDynamicZonePlan(
   zones: HierarchicalCompositionDeskDynamicZone[],
 ): DynamicZonePlan[] {
   return zones
@@ -2489,13 +2492,15 @@ function initialDynamicZonePlan(
       const publicTitle = /^Zona editorial \d+$/i.test(zone.publicTitle.trim())
         ? `Zona editorial ${index + 1}`
         : zone.publicTitle;
-      return { clientId: zone.id, persistedId: zone.id, publicTitle, visualFamily: zone.visualFamily, items };
+      return { clientId: zone.id, persistedId: zone.id, publicTitle,
+        publicTitleColor: zone.publicTitleColor ?? null, visualFamily: zone.visualFamily, items };
     });
 }
 
-function dynamicZonesFingerprint(zones: DynamicZonePlan[]) {
+export function dynamicZonesFingerprint(zones: DynamicZonePlan[]) {
   return JSON.stringify(zones.map((zone) => ({
     publicTitle: zone.publicTitle.trim(),
+    publicTitleColor: zone.publicTitleColor ?? null,
     visualFamily: zone.visualFamily,
     items: historicalDynamicZonePositions(zone.visualFamily).map((position) => zone.items[position.position]?.bankItemId ?? null),
   })));
@@ -3048,7 +3053,7 @@ export default function HierarchicalCompositionDeskClient({
     );
   }
 
-  function updateDynamicZone(clientId: string, patch: Partial<Pick<DynamicZonePlan, "publicTitle" | "visualFamily">>) {
+  function updateDynamicZone(clientId: string, patch: Partial<Pick<DynamicZonePlan, "publicTitle" | "publicTitleColor" | "visualFamily">>) {
     const dynamicZones = plan.dynamicZones.map((zone) => {
       if (zone.clientId !== clientId) return zone;
       if (patch.visualFamily && patch.visualFamily !== zone.visualFamily) {
@@ -3458,6 +3463,7 @@ export default function HierarchicalCompositionDeskClient({
       if (dynamicZonesChanged) {
         body.set("dynamic_zones_json", JSON.stringify(plan.dynamicZones.map((zone) => ({
           publicTitle: zone.publicTitle.trim(),
+          publicTitleColor: zone.publicTitleColor ?? null,
           visualFamily: zone.visualFamily,
           items: historicalDynamicZonePositions(zone.visualFamily).map((position) => {
             const card = zone.items[position.position];
@@ -4143,7 +4149,10 @@ export default function HierarchicalCompositionDeskClient({
                     onCommit={commitDynamicZonePublicTitle}
                   />
                 </label>
-                <label><select aria-label="Layout da zona editorial" value={activeDynamicZone.visualFamily} onChange={(event) => updateDynamicZone(activeDynamicZone.clientId, { visualFamily: event.target.value as HistoricalDynamicZoneVisualFamily })}><option value="six_news">6 notícias</option><option value="five_news_balanced">5 notícias equilibradas</option><option value="five_news_secondary">5 notícias secundárias</option><option value="six_news_1_2_3">{HISTORICAL_DYNAMIC_ZONE_LAYOUTS.six_news_1_2_3.label}</option></select></label>
+                <label><select aria-label="Layout da zona editorial" value={activeDynamicZone.visualFamily} onChange={(event) => updateDynamicZone(activeDynamicZone.clientId, { visualFamily: event.target.value as HistoricalDynamicZoneVisualFamily })}><option value="six_news">6 notícias</option><option value="five_news_balanced">5 notícias equilibradas</option><option value="five_news_secondary">5 notícias secundárias</option><option value="six_news_1_2_3">{HISTORICAL_DYNAMIC_ZONE_LAYOUTS.six_news_1_2_3.label}</option><option value="five_news_column">{HISTORICAL_DYNAMIC_ZONE_LAYOUTS.five_news_column.label}</option></select></label>
+                {activeDynamicZone.visualFamily === "five_news_column" ? <EditorialZoneTitleColorControl
+                  value={activeDynamicZone.publicTitleColor ?? null}
+                  onChange={(publicTitleColor) => updateDynamicZone(activeDynamicZone.clientId, { publicTitleColor })} /> : null}
                 {selectedBankItemIds.length > 0 ? <button className="hc-dynamic-zone-place" type="button" onClick={() => placeSelectedInDynamicZone(activeDynamicZone.clientId)}>Colocar {selectedBankItemIds.length} aqui</button> : null}
               </div>
               <section className="hc-desk-zone">

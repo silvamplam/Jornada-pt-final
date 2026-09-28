@@ -22,7 +22,7 @@ const fallback = readFileSync(
 test("Últimas tem autoridade independente das quatro", () => {
   assert.match(
     page,
-    /const showBodyLatestBlock =\s*latestZonePlacement === "four_news"\s*&& latestNewsItems\.length > 0/,
+    /const showBodyLatestBlock =\s*latestZonePlacement === "four_news"\s*&& physicalLatestDestination\?\.kind !== "ineligible_host"\s*&& latestNewsItems\.length > 0/,
   );
 
   assert.match(

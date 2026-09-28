@@ -77,7 +77,7 @@ test("apenas a Jornada genuinamente legacy conserva o renderer live antigo", () 
 });
 
 test("físico usa blocks ordenados e zonas UUID no renderer flexível", () => {
-  assert.match(pageSource, /renderPublicAdvertisingBoundary\(physicalSnapshot\.blocks/);
+  assert.match(pageSource, /renderPublicAdvertisingBoundary\(physicalVisualBlocks/);
   assert.match(pageSource, /physicalZoneById\.get\(block\.zoneId\)/);
   assert.match(pageSource, /key: zone\.zoneId/);
   assert.match(pageSource, /visualFamily: zone\.layoutId/);

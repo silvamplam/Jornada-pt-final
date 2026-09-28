@@ -3,7 +3,10 @@ import test from "node:test";
 
 import {
   bulkMovePhysicalDeskItemsToFaixa,
+  bulkMovePhysicalDeskItemsToBank,
+  bulkMovePhysicalDeskItemsToZone,
   changePhysicalDeskLatestPlacement,
+  changePhysicalDeskZone,
   changePhysicalDeskPresentation,
   createPhysicalDeskZone,
   createPhysicalDeskState,
@@ -11,6 +14,7 @@ import {
   movePhysicalDeskItemToDisplaced,
   movePhysicalDeskItemToSlot,
   movePhysicalDeskRailBlock,
+  movePhysicalDeskBlock,
 } from "./editorial-matchday-live-layout-desk-state";
 import {
   buildPhysicalDeskApplyPayload,
@@ -317,6 +321,7 @@ test("serializer representa create como topologia final completa", () => {
   const initial = createPhysicalDeskState(workspace(5));
   const created = createPhysicalDeskZone(initial, {
     publicTitle: "Zona criada no draft",
+    publicTitleColor: null,
     visualFamily: "five_news_secondary",
   });
   const createdZone = created.current.zones.find((zone) => (
@@ -332,6 +337,7 @@ test("serializer representa create como topologia final completa", () => {
   assert.deepEqual(payload.zones.find((zone) => zone.id === createdZone.id), {
     id: createdZone.id,
     publicTitle: "Zona criada no draft",
+    publicTitleColor: null,
     visualFamily: "five_news_secondary",
   });
   assert.deepEqual(payload.blocks.find((block) => block.id === createdBlock.id), {
@@ -636,6 +642,7 @@ test("parser físico recusa campos legacy e RPC faz apenas tradução de casing"
   assert.deepEqual(rpc.p_zones[0], {
     id: id(20, 1),
     public_title: "Zona física 1",
+    public_title_color: null,
     visual_family: "six_news",
   });
   assert.deepEqual(rpc.p_blocks[0], {
@@ -647,4 +654,78 @@ test("parser físico recusa campos legacy e RPC faz apenas tradução de casing"
   assert.equal("p_expected_revision" in rpc, false);
   assert.equal("p_expected_state_token" in rpc, false);
   assert.equal("p_vacant_zone_slots" in rpc, false);
+});
+
+test("five columns: independent titles/colours, partial positions, reset and Apply payload", () => {
+  let state = createPhysicalDeskState(workspace(0));
+  for (let i = 0; i < 5; i++) state = createPhysicalDeskZone(state, {
+    publicTitle: "Coluna " + i, visualFamily: "five_news_column",
+  });
+  const ids = state.current.zones.map((zone) => zone.id);
+  state = changePhysicalDeskZone(state, ids[0], { publicTitleColor: "#d71920" });
+  state = changePhysicalDeskZone(state, ids[1], { publicTitleColor: "#008a44" });
+  state = changePhysicalDeskZone(state, ids[0], { publicTitleColor: "#aabbcc", publicTitle: "Título manual" });
+  state = movePhysicalDeskItemToSlot(state, id(40, 1), { placementType: "zone", zoneId: ids[0], slotPosition: 3 });
+  let payload = buildPhysicalDeskApplyPayload("liga_portugal_v1", state);
+  assert.deepEqual(payload.zones.map((zone) => zone.publicTitleColor), ["#AABBCC", "#008A44", null, null, null]);
+  assert.deepEqual(payload.zones.map((zone) => zone.publicTitle), ["Título manual", "Coluna 1", "Coluna 2", "Coluna 3", "Coluna 4"]);
+  assert.equal(payload.placements[0].slotPosition, 3);
+  assert.equal(physicalDeskApplyRpcArguments(MATCHDAY_ID, payload).p_zones[1].public_title_color, "#008A44");
+  assert.throws(() => changePhysicalDeskZone(state, ids[0], { publicTitleColor: "red" }), /color-invalid/);
+  assert.throws(() => parsePhysicalDeskApplyPayload({ ...payload, zones: payload.zones.map((zone, i) => i ? zone : { ...zone, publicTitleColor: "#ABC" }) }), /color-invalid/);
+  state = changePhysicalDeskZone(state, ids[0], { publicTitleColor: null });
+  payload = buildPhysicalDeskApplyPayload("liga_portugal_v1", state);
+  assert.equal(payload.zones[0].publicTitleColor, null);
+  state = movePhysicalDeskItemToDisplaced(state, id(40, 1));
+  state = deletePhysicalDeskZone(state, ids[0]);
+  assert.equal(state.current.zones.length, 4);
+  assert.ok(state.current.displacedBankItemIds.includes(id(40, 1)));
+});
+
+test("column host: direct association, manipulated payload and current host conversion rejected; final-state relocation allowed", () => {
+  let state = createPhysicalDeskState(workspace(2));
+  const first = state.current.zones[0].id;
+  const second = state.current.zones[1].id;
+  state = changePhysicalDeskLatestPlacement(state, { kind: "zone", zoneId: first });
+  assert.throws(() => changePhysicalDeskZone(state, first, { visualFamily: "five_news_column" }), /host-ineligible/);
+  const payload = buildPhysicalDeskApplyPayload("liga_portugal_v1", state);
+  const converted = payload.zones.map((zone) => zone.id === first ? { ...zone, visualFamily: "five_news_column" } : zone);
+  assert.throws(() => parsePhysicalDeskApplyPayload({ ...payload, zones: converted }), /host-ineligible/);
+  const relocated = parsePhysicalDeskApplyPayload({ ...payload, zones: converted, latestCompanionZoneId: second });
+  assert.equal(relocated.zones[0].visualFamily, "five_news_column");
+  for (const latest_zone_placement of ["top", "hidden"]) {
+    assert.equal(parsePhysicalDeskApplyPayload({ ...payload, zones: converted, latestCompanionZoneId: null,
+      presentation: { ...payload.presentation, latest_zone_placement } }).latestCompanionZoneId, null);
+  }
+  state = changePhysicalDeskLatestPlacement(state, { kind: "zone", zoneId: second });
+  state = changePhysicalDeskZone(state, first, { visualFamily: "five_news_column" });
+  assert.throws(() => changePhysicalDeskLatestPlacement(state, { kind: "zone", zoneId: first }), /host-ineligible/);
+});
+
+test("five-slot zone keeps normal Bank, full placement, reorder, displacement and deletion behavior", () => {
+  let state = createPhysicalDeskZone(createPhysicalDeskState(workspace(0)), {
+    publicTitle: "Coluna", visualFamily: "five_news_column", publicTitleColor: "#D71920",
+  });
+  const zoneId = state.current.zones[0].id;
+  const itemIds = [1, 2, 3, 4, 5].map((i) => id(40, i));
+  state = bulkMovePhysicalDeskItemsToBank(state, itemIds);
+  assert.ok(itemIds.every((item) => state.current.explicitBankItemIds.includes(item)));
+  state = bulkMovePhysicalDeskItemsToZone(state, itemIds, zoneId, 1);
+  assert.deepEqual(state.current.placements.map((item) => item.slotPosition), [1, 2, 3, 4, 5]);
+  assert.ok(itemIds.every((item) => !state.current.explicitBankItemIds.includes(item)));
+  const block = state.current.blocks.find((candidate) => candidate.kind === "zone")!;
+  const initialOrder = state.current.blocks.map((candidate) => candidate.id);
+  state = movePhysicalDeskBlock(state, block, "up");
+  assert.notDeepEqual(state.current.blocks.map((candidate) => candidate.id), initialOrder);
+  state = movePhysicalDeskBlock(state, block, "down");
+  assert.deepEqual(state.current.blocks.map((candidate) => candidate.id), initialOrder);
+  assert.equal(parsePhysicalDeskApplyPayload(buildPhysicalDeskApplyPayload("liga_portugal_v1", state)).placements.length, 5);
+  assert.throws(() => movePhysicalDeskItemToSlot(state, id(40, 6), {
+    placementType: "zone", zoneId, slotPosition: 6,
+  }), /target-zone-slot-invalid/);
+  state = deletePhysicalDeskZone(state, zoneId);
+  assert.equal(state.current.placements.length, 0);
+  assert.ok(itemIds.every((item) => state.current.displacedBankItemIds.includes(item)));
+  state = bulkMovePhysicalDeskItemsToBank(state, itemIds);
+  assert.ok(itemIds.every((item) => state.current.explicitBankItemIds.includes(item)));
 });

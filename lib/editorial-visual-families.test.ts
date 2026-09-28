@@ -33,6 +33,7 @@ const expectedCapacity: Readonly<
   five_news_secondary: 5,
   four_news: 4,
   six_news_1_2_3: 6,
+  five_news_column: 5,
 };
 
 function publicItem(
@@ -259,6 +260,7 @@ test("renderer desconhecido falha de forma explícita", () => {
     secondary_news: "secondary",
     four_news_grid: "four-news",
     six_news_tiered: "six-news-tiered",
+    five_news_column: "five-news-column",
   };
 
   assert.throws(
@@ -280,6 +282,7 @@ test("a nova família acrescenta um renderer e preserva os quatro layouts anteri
       "five_news_secondary",
       "four_news",
       "six_news_1_2_3",
+      "five_news_column",
     ],
   );
 
@@ -310,6 +313,7 @@ test("a nova família acrescenta um renderer e preserva os quatro layouts anteri
         id: "six_news_1_2_3",
         rendererKey: "six_news_tiered",
       },
+      { id: "five_news_column", rendererKey: "five_news_column" },
     ],
   );
 
