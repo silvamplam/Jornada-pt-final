@@ -20,7 +20,7 @@ test("published dynamic composition uses dynamic renderer and keeps legacy fallb
   assert.ok(dynamicDecision > card);
 
   const dynamicZones = source.indexOf(
-    "historicalDynamicPreviewZones.map((zone) => (",
+    "historicalDynamicPreviewVisualBlocks.map((block) =>",
     dynamicDecision,
   );
   assert.ok(dynamicZones > dynamicDecision);

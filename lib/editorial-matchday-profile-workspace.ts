@@ -113,9 +113,9 @@ function isProfileEditorialVisualFamily(
   value: unknown,
 ): value is (
   typeof LEGACY_EDITORIAL_VISUAL_FAMILIES
-)[number] | "six_news_1_2_3" {
+)[number] | "six_news_1_2_3" | "five_news_column" {
   return (
-    value === "six_news_1_2_3"
+    value === "six_news_1_2_3" || value === "five_news_column"
     || (
       typeof value === "string"
       && LEGACY_EDITORIAL_VISUAL_FAMILIES.includes(

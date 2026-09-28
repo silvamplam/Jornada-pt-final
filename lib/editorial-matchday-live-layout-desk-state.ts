@@ -1,3 +1,4 @@
+import { normalizeEditorialZoneTitleColor } from "@/lib/editorial-zone-title-color";
 import {
   editorialVisualFamilyCapacity,
   type EditorialVisualFamily,
@@ -27,12 +28,14 @@ import type {
 } from "@/lib/editorial-matchday-profile-workspace";
 import {
   storeMatchdayLatestPlacement,
+  isMatchdayLatestHostEligible,
   type MatchdayLatestPlacement,
 } from "@/lib/editorial-matchday-latest-placement";
 
 export type PhysicalDeskZone = Readonly<{
   id: LiveLayoutZoneId;
   publicTitle: string;
+  publicTitleColor?: string | null;
   visualFamily: EditorialVisualFamily;
   capacity: number;
 }>;
@@ -373,6 +376,7 @@ export function createPhysicalDeskState(
     zones: workspace.zones.map((zone) => ({
       id: zone.id,
       publicTitle: zone.publicTitle,
+      publicTitleColor: zone.publicTitleColor ?? null,
       visualFamily: zone.visualFamily,
       capacity: zone.capacity,
     })),
@@ -861,6 +865,7 @@ export function changePhysicalDeskZone(
   zoneId: LiveLayoutZoneId,
   change: Readonly<{
     publicTitle?: string;
+    publicTitleColor?: string | null;
     visualFamily?: EditorialVisualFamily;
   }>,
 ): PhysicalDeskState {
@@ -873,6 +878,13 @@ export function changePhysicalDeskZone(
 
   if (publicTitle.length > 120) return stateError("zone-public-title-too-long");
   const visualFamily = change.visualFamily ?? zone.visualFamily;
+  const publicTitleColor = change.publicTitleColor === undefined
+    ? zone.publicTitleColor ?? null
+    : normalizeEditorialZoneTitleColor(change.publicTitleColor);
+  if (visualFamily !== zone.visualFamily && current.latestCompanionZoneId === zoneId
+    && !isMatchdayLatestHostEligible(visualFamily)) {
+    return stateError("latest-companion-host-ineligible");
+  }
   const capacity = editorialVisualFamilyCapacity(visualFamily);
   const overflowPlacements = current.placements
     .filter((placement) => (
@@ -905,6 +917,7 @@ export function changePhysicalDeskZone(
 
   if (
     publicTitle === zone.publicTitle
+    && publicTitleColor === (zone.publicTitleColor ?? null)
     && visualFamily === zone.visualFamily
     && overflowBankItemIds.length === 0
   ) {
@@ -914,7 +927,7 @@ export function changePhysicalDeskZone(
   return commitSnapshot(state, {
     ...current,
     zones: current.zones.map((candidate) => candidate.id === zoneId
-      ? { ...candidate, publicTitle, visualFamily, capacity }
+      ? { ...candidate, publicTitle, publicTitleColor, visualFamily, capacity }
       : candidate),
     placements: current.placements.filter(
       (placement) => !overflowBankItems.has(placement.bankItemId),
@@ -944,6 +957,7 @@ export function createPhysicalDeskZone(
   state: PhysicalDeskState,
   zone: Readonly<{
     publicTitle: string;
+    publicTitleColor?: string | null;
     visualFamily: EditorialVisualFamily;
   }>,
 ): PhysicalDeskState {
@@ -964,6 +978,7 @@ export function createPhysicalDeskZone(
     zones: [...current.zones, {
       id: zoneId,
       publicTitle,
+      publicTitleColor: normalizeEditorialZoneTitleColor(zone.publicTitleColor),
       visualFamily: zone.visualFamily,
       capacity: editorialVisualFamilyCapacity(zone.visualFamily),
     }],
@@ -1119,6 +1134,10 @@ export function changePhysicalDeskLatestPlacement(
   ) {
     return stateError("latest-companion-host-invalid");
   }
+
+  if (zoneId !== null && !isMatchdayLatestHostEligible(
+    state.current.zones.find((zone) => zone.id === zoneId)?.visualFamily,
+  )) return stateError("latest-companion-host-ineligible");
 
   if (state.current.latestCompanionZoneId === zoneId) {
     if (

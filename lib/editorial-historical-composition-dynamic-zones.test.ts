@@ -18,6 +18,7 @@ test("as zonas históricas reutilizam as famílias visuais suportadas", () => {
       "five_news_secondary",
       "four_news",
       "six_news_1_2_3",
+      "five_news_column",
     ],
   );
 

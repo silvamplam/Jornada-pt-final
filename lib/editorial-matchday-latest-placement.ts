@@ -1,3 +1,9 @@
+import { editorialVisualFamilyDefinition } from "./editorial-visual-families";
+
+export function isMatchdayLatestHostEligible(visualFamily: unknown): boolean {
+  return editorialVisualFamilyDefinition(visualFamily)?.canHostLatest === true;
+}
+
 export type MatchdayLatestPlacement =
   | Readonly<{ kind: "headline" }>
   | Readonly<{ kind: "hidden" }>
@@ -11,6 +17,13 @@ export type MatchdayLatestPlacementStorage =
 export type MatchdayLatestPlacementResolution =
   | MatchdayLatestPlacement
   | Readonly<{
+      kind: "ineligible_host";
+      storagePlacement: MatchdayLatestPlacementStorage;
+      companionZoneId: string;
+      visualFamily: string;
+      diagnostic: "latest-companion-host-ineligible";
+    }>
+  | Readonly<{
       kind: "legacy_incomplete";
       storagePlacement: MatchdayLatestPlacementStorage;
       companionZoneId: string | null;
@@ -19,7 +32,15 @@ export type MatchdayLatestPlacementResolution =
 export function resolveMatchdayLatestPlacement(
   storagePlacement: MatchdayLatestPlacementStorage,
   companionZoneId: string | null,
+  hostVisualFamily?: string,
 ): MatchdayLatestPlacementResolution {
+  if (companionZoneId !== null && hostVisualFamily !== undefined
+    && !isMatchdayLatestHostEligible(hostVisualFamily)) {
+    return {
+      kind: "ineligible_host", storagePlacement, companionZoneId,
+      visualFamily: hostVisualFamily, diagnostic: "latest-companion-host-ineligible",
+    };
+  }
   if (storagePlacement === "top" && companionZoneId === null) {
     return { kind: "headline" };
   }

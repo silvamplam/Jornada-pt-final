@@ -1,5 +1,6 @@
 "use client";
 
+import EditorialZoneTitleColorControl from "@/components/admin/EditorialZoneTitleColorControl";
 import Image, { type ImageLoaderProps } from "next/image";
 import { useRouter } from "next/navigation";
 import {
@@ -76,6 +77,7 @@ import {
 } from "@/lib/editorial-matchday-live-layout-desk-state";
 import {
   resolveMatchdayLatestPlacement,
+  isMatchdayLatestHostEligible,
 } from "@/lib/editorial-matchday-latest-placement";
 import {
   buildPhysicalDeskApplyPayload,
@@ -864,12 +866,13 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
   const latestDestination = resolveMatchdayLatestPlacement(
     current.presentation.latestZonePlacement,
     current.latestCompanionZoneId,
+    current.zones.find((zone) => zone.id === current.latestCompanionZoneId)?.visualFamily,
   );
   const latestDestinationSelectValue = latestDestination.kind === "zone"
     ? `zone:${latestDestination.zoneId}`
     : latestDestination.kind === "headline" || latestDestination.kind === "hidden"
       ? latestDestination.kind
-      : "legacy_incomplete";
+      : latestDestination.kind;
   const activeZone =
     zoneById.get(activeWorkspaceKey as LiveLayoutZoneId) ?? null;
   const activeWorkspaceLabel = activeZone?.publicTitle || (
@@ -993,6 +996,8 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
           ? "Este layout não comporta as posições atualmente ocupadas. Mova primeiro os artigos dessas posições."
           : errorMessage.includes("latest-companion-zone-associated")
             ? "Escolha Manchete, Ocultas ou outra zona para A acontecer agora antes de apagar esta zona."
+            : errorMessage.includes("latest-companion-host-ineligible")
+              ? "Esta apresentação não pode alojar A acontecer agora. Escolhe primeiro um destino válido."
             : errorMessage.includes("latest-companion-host-invalid")
               ? "A zona escolhida para A acontecer agora já não existe."
               : errorMessage,
@@ -1347,6 +1352,12 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
               ))}
             </select>
           </label>
+          {zone.visualFamily === "five_news_column" ? <EditorialZoneTitleColorControl
+            value={zone.publicTitleColor ?? null} disabled={mutationBlocked}
+            onChange={(publicTitleColor) => runPhysicalOperation(
+              (state) => changePhysicalDeskZone(state, zone.id, { publicTitleColor }),
+              "Cor do título da coluna alterada.",
+            )} /> : null}
           <strong className="thematic-zone-editor-count">
             {slots.filter((slot) => slot.placement !== null).length}/{zone.capacity}
           </strong>
@@ -1365,6 +1376,7 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
                   setDraggingBankItemId(null);
                 }}
               >
+                {zone.visualFamily === "five_news_column" ? <small className="thematic-slot-label">{slot.slotPosition} · {EDITORIAL_VISUAL_FAMILY_DEFINITIONS[zone.visualFamily].slots[slot.slotPosition - 1].role}</small> : null}
                 {slot.placement
                   ? cardFor(slot.placement.bankItemId, { kind: "zone", zoneId: zone.id })
                   : <p className="thematic-empty">Posição livre</p>}
@@ -2287,6 +2299,9 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
 
             <details className="thematic-global-tool thematic-latest-tool">
               <summary>A acontecer agora</summary>
+              {latestDestination.kind === "ineligible_host" ? <p role="alert" className="thematic-message">
+                A associação guardada aponta para uma coluna incompatível. Está preservada, mas não será publicada. Escolhe uma posição válida para a corrigir.
+              </p> : null}
               <div className="thematic-global-tool-body">
                 <label className="thematic-page-zone-field">
                   <span>Título público</span>
@@ -2356,6 +2371,7 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
                     }}
                     value={latestDestinationSelectValue}
                   >
+                    {latestDestination.kind === "ineligible_host" ? <option disabled value="ineligible_host">Associação incompatível — escolha uma posição</option> : null}
                     {latestDestination.kind === "legacy_incomplete" ? (
                       <option disabled value="legacy_incomplete">
                         Sem associação válida — escolha uma posição
@@ -2365,7 +2381,7 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
                     <option value="hidden">Ocultas</option>
 
                     <optgroup label="Zona física">
-                      {orderedZones.map((zone) => (
+                      {orderedZones.filter((zone) => isMatchdayLatestHostEligible(zone.visualFamily)).map((zone) => (
                         <option key={zone.id} value={`zone:${zone.id}`}>
                           {zone.publicTitle || "Zona sem título"}
                         </option>

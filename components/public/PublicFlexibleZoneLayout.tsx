@@ -1,3 +1,5 @@
+import PublicEditorialColumnRunLayout from "./PublicEditorialColumnRunLayout";
+import { editorialVisualFamilyDefinition } from "@/lib/editorial-visual-families";
 import PublicMatchdayEditorialSectionFrame from "./PublicMatchdayEditorialSectionFrame";
 import {
   PublicFlexibleZoneContent,
@@ -21,6 +23,9 @@ export default function PublicFlexibleZoneLayout({
   zone: PublicFlexibleZone;
   matchdayNumber: number;
 }) {
+  if (editorialVisualFamilyDefinition(zone.visualFamily)?.columnRun) {
+    return <PublicEditorialColumnRunLayout zones={[zone]} matchdayNumber={matchdayNumber} />;
+  }
   return (
     <PublicMatchdayEditorialSectionFrame kind="zone">
       <PublicFlexibleZoneContent

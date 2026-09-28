@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { resolveMatchdayLatestPlacement } from "./editorial-matchday-latest-placement";
 
 import {
   changePhysicalDeskLatestPlacement,
@@ -26,7 +27,7 @@ const NOW =
 
 function readerRow(
   options: Readonly<{
-    visualFamily?: "four_news" | "six_news";
+    visualFamily?: "four_news" | "six_news" | "five_news_column";
     companion?: boolean;
   }> = {},
 ): MatchdayLiveLayoutWorkspaceReaderRowV22 {
@@ -349,4 +350,21 @@ test("Ocultas limpa companion atomicamente", () => {
 
   assert.equal(hidden.current.presentation.latestZonePlacement, "hidden");
   assert.equal(hidden.current.latestCompanionZoneId, null);
+});
+
+test("Mesa loads an impossible column host without rewriting it; explicit correction clears the diagnostic", () => {
+  const initial = createPhysicalDeskState(
+    buildLiveLayoutWorkspaceStateV22(MATCHDAY_ID, readerRow({ visualFamily: "five_news_column" })),
+    presentation,
+  );
+  assert.equal(physicalDeskHasChanges(initial), false);
+  assert.equal(initial.current.latestCompanionZoneId, ZONE_ID);
+  assert.equal(initial.current.zones[0].visualFamily, "five_news_column");
+  assert.equal(resolveMatchdayLatestPlacement("four_news", ZONE_ID, "five_news_column").kind, "ineligible_host");
+  const corrected = changePhysicalDeskLatestPlacement(initial, { kind: "headline" });
+  assert.equal(resolveMatchdayLatestPlacement(corrected.current.presentation.latestZonePlacement,
+    corrected.current.latestCompanionZoneId).kind, "headline");
+  assert.deepEqual(corrected.current.zones, initial.current.zones);
+  assert.deepEqual(corrected.current.placements, initial.current.placements);
+  assert.deepEqual(corrected.current.bankItems, initial.current.bankItems);
 });

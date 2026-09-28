@@ -1,3 +1,4 @@
+import { normalizeEditorialZoneTitleColor } from "@/lib/editorial-zone-title-color";
 import {
   EDITORIAL_VISUAL_FAMILIES,
   editorialVisualFamilyCapacity,
@@ -13,6 +14,7 @@ import {
 } from "@/lib/editorial-matchday-live-layout-workspace";
 import {
   resolveMatchdayLatestPlacement,
+  isMatchdayLatestHostEligible,
 } from "@/lib/editorial-matchday-latest-placement";
 
 export type PhysicalDeskApplyPayload = Readonly<{
@@ -22,6 +24,7 @@ export type PhysicalDeskApplyPayload = Readonly<{
   zones: readonly Readonly<{
     id: string;
     publicTitle: string;
+    publicTitleColor?: string | null;
     visualFamily: EditorialVisualFamily;
   }>[];
   blocks: readonly Readonly<{
@@ -61,6 +64,7 @@ export type PhysicalDeskApplyRpcArguments = Readonly<{
   p_zones: readonly Readonly<{
     id: string;
     public_title: string;
+    public_title_color?: string | null;
     visual_family: EditorialVisualFamily;
   }>[];
   p_blocks: readonly Readonly<{
@@ -240,6 +244,7 @@ export function buildPhysicalDeskApplyPayload(
     zones: physicalDesk.current.zones.map((zone) => ({
       id: zone.id,
       publicTitle: zone.publicTitle,
+      publicTitleColor: zone.publicTitleColor ?? null,
       visualFamily: zone.visualFamily,
     })),
     blocks: physicalDesk.current.blocks.map((block) => ({
@@ -306,7 +311,9 @@ export function parsePhysicalDeskApplyPayload(
 
   const zones = arrayValue(input.zones, "zones-invalid").map((value) => {
     const zone = recordValue(value, "zone-invalid");
-    exactKeys(zone, ["id", "publicTitle", "visualFamily"], "zone-shape-invalid");
+    exactKeys(zone, ["id", "publicTitle", "visualFamily",
+      ...(Object.hasOwn(zone, "publicTitleColor") ? ["publicTitleColor"] : []),
+    ], "zone-shape-invalid");
     const publicTitle = trimmedText(zone.publicTitle, "zone-title-invalid");
     if (publicTitle.length > 120) return applyError("zone-title-invalid");
     const visualFamily = requiredText(
@@ -319,6 +326,7 @@ export function parsePhysicalDeskApplyPayload(
     return {
       id: uuidText(zone.id, "zone-id-invalid"),
       publicTitle,
+      publicTitleColor: normalizeEditorialZoneTitleColor(zone.publicTitleColor),
       visualFamily: visualFamily as EditorialVisualFamily,
     };
   });
@@ -339,6 +347,10 @@ export function parsePhysicalDeskApplyPayload(
   ) {
     return applyError("latest-companion-host-invalid");
   }
+
+  if (latestCompanionZoneId !== null && !isMatchdayLatestHostEligible(
+    zones.find((zone) => zone.id === latestCompanionZoneId)?.visualFamily,
+  )) return applyError("latest-companion-host-ineligible");
 
   const blocks = arrayValue(input.blocks, "blocks-invalid").map((value) => {
     const block = recordValue(value, "block-invalid");
@@ -596,6 +608,7 @@ export function physicalDeskApplyRpcArguments(
     p_zones: payload.zones.map((zone) => ({
       id: zone.id,
       public_title: zone.publicTitle,
+      public_title_color: zone.publicTitleColor ?? null,
       visual_family: zone.visualFamily,
     })),
     p_blocks: payload.blocks.map((block) => ({

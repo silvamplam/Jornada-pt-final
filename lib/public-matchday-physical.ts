@@ -58,6 +58,7 @@ export type PublicMatchdayPhysicalZoneSlot =
 export type PublicMatchdayPhysicalZone = Readonly<{
   zoneId: string;
   publicTitle: string;
+  publicTitleColor?: string | null;
   layoutId: EditorialVisualFamily;
   slots: readonly PublicMatchdayPhysicalZoneSlot[];
 }>;
@@ -353,6 +354,7 @@ export function buildPublicMatchdayPhysicalSnapshot(
     return {
       zoneId: zone.id,
       publicTitle: zone.publicTitle,
+      publicTitleColor: zone.publicTitleColor ?? null,
       layoutId: zone.visualFamily,
       slots: slotResult.slots,
     } satisfies PublicMatchdayPhysicalZone;
@@ -401,6 +403,7 @@ export function buildPublicMatchdayPhysicalSnapshot(
       destination: resolveMatchdayLatestPlacement(
         settings.latestZonePlacement,
         workspace.latestCompanion?.zoneId ?? null,
+        workspace.zones.find((zone) => zone.id === workspace.latestCompanion?.zoneId)?.visualFamily,
       ),
       title: settings.latestZoneTitle,
       titleColor: settings.latestZoneTitleColor,
