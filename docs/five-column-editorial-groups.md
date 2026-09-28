@@ -19,7 +19,7 @@ fora do Git. Nenhum agrupamento foi gravado nessa Jornada.
 
 ## Modelo e integridade
 
-Migration nova: `20260928211616_editorial_five_column_groups.sql`.
+Migration nova: `20260928230533_editorial_five_column_groups.sql`.
 Não altera migrations antigas e não contém backfill de dados.
 
 - `matchday_live_layout_column_groups` e `matchday_historical_column_groups`:

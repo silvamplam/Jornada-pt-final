@@ -89,6 +89,6 @@ if (process.argv.includes("--tests-only")) {
   `;
   console.log(sql(fixture + publication + guardsBefore
     + fs.readFileSync("supabase/migrations/20260928190224_editorial_five_news_column.sql", "utf8")
-    + (columnGroups ? fs.readFileSync("supabase/migrations/20260928211616_editorial_five_column_groups.sql", "utf8") : "")
+    + (columnGroups ? fs.readFileSync("supabase/migrations/20260928230533_editorial_five_column_groups.sql", "utf8") : "")
     + guardsAfter + tests));
 }
