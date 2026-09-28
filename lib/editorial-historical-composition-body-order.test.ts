@@ -119,7 +119,9 @@ test("a rail seleciona um único bloco e move apenas para o vizinho", () => {
   assert.match(rail, /moveBodyBlock\(selectedReorderBlockKey, "up"\)/);
   assert.match(rail, /moveBodyBlock\(selectedReorderBlockKey, "down"\)/);
   assert.match(reorder, /const targetIndex = direction === "up" \? index - 1 : index \+ 1;/);
-  assert.match(reorder, /\[keys\[index\], keys\[targetIndex\]\] =/);
+  assert.match(reorder, /const units = bodyGroupUnits\(\)/);
+  assert.match(reorder, /\[units\[index\], units\[targetIndex\]\] =/);
+  assert.match(reorder, /const keys = units\.flat\(\)/);
   assert.match(client, /videoPosition/);
   assert.match(client, /móvel no corpo editorial/);
 });

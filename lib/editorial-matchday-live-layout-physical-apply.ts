@@ -1,3 +1,4 @@
+import { assertEditorialColumnGroups, parseEditorialColumnGroups, type EditorialColumnGroup } from "@/lib/editorial-column-groups";
 import { normalizeEditorialZoneTitleColor } from "@/lib/editorial-zone-title-color";
 import {
   EDITORIAL_VISUAL_FAMILIES,
@@ -18,6 +19,7 @@ import {
 } from "@/lib/editorial-matchday-latest-placement";
 
 export type PhysicalDeskApplyPayload = Readonly<{
+  columnGroups?: readonly EditorialColumnGroup[];
   profileKey: string;
   expectedPhysicalStateToken: string;
   latestCompanionZoneId: string | null;
@@ -57,6 +59,7 @@ export type PhysicalDeskApplyPayload = Readonly<{
 }>;
 
 export type PhysicalDeskApplyRpcArguments = Readonly<{
+  p_column_groups?: readonly EditorialColumnGroup[];
   p_matchday_id: string;
   p_profile_key: string;
   p_expected_physical_state_token: string;
@@ -237,6 +240,8 @@ export function buildPhysicalDeskApplyPayload(
   }
 
   return parsePhysicalDeskApplyPayload({
+    ...((physicalDesk.current.columnGroups?.length || physicalDesk.baseline.columnGroups?.length)
+      ? { columnGroups: physicalDesk.current.columnGroups ?? [] } : {}),
     profileKey: cleanProfileKey,
     expectedPhysicalStateToken,
     latestCompanionZoneId:
@@ -289,6 +294,7 @@ export function parsePhysicalDeskApplyPayload(
 ): PhysicalDeskApplyPayload {
   const input = recordValue(value, "payload-invalid");
   exactKeys(input, [
+    ...(Object.hasOwn(input, "columnGroups") ? ["columnGroups"] : []),
     "profileKey",
     "expectedPhysicalStateToken",
     "latestCompanionZoneId",
@@ -570,7 +576,13 @@ export function parsePhysicalDeskApplyPayload(
     return applyError("video-highlight-inactive");
   }
 
+  const columnGroups = Object.hasOwn(input, "columnGroups") ? parseEditorialColumnGroups(input.columnGroups) : undefined;
+  if (columnGroups) assertEditorialColumnGroups(columnGroups, zones,
+    [...blocks].sort((a, b) => a.sortOrder - b.sortOrder).map((block) => block.zoneId),
+    (id) => placements.filter((placement) => placement.placementType === "zone" && placement.zoneId === id).length);
+
   return {
+    ...(columnGroups ? { columnGroups } : {}),
     profileKey,
     expectedPhysicalStateToken,
     latestCompanionZoneId,
@@ -602,6 +614,7 @@ export function physicalDeskApplyRpcArguments(
   const cleanMatchdayId = uuidText(matchdayId, "matchday-id-invalid");
   return {
     p_matchday_id: cleanMatchdayId,
+    ...(payload.columnGroups ? { p_column_groups: payload.columnGroups } : {}),
     p_profile_key: payload.profileKey,
     p_expected_physical_state_token: payload.expectedPhysicalStateToken,
     p_latest_companion_zone_id: payload.latestCompanionZoneId,

@@ -41,14 +41,16 @@ export const publicEditorialColumnRunStyles = `
   }
 `;
 
-export default function PublicEditorialColumnRunLayout({ zones, matchdayNumber }: Readonly<{
+export default function PublicEditorialColumnRunLayout({ zones, matchdayNumber, publicTitle }: Readonly<{
   zones: readonly PublicFlexibleZone[];
   matchdayNumber: number;
+  publicTitle?: string;
 }>) {
   const visibleZones = zones.filter((zone) => zone.slots.some((slot) => slot.item));
   if (!visibleZones.length) return null;
   return <PublicMatchdayEditorialSectionFrame kind="zone">
     <style>{publicEditorialColumnRunStyles}</style>
+    {publicTitle ? <h2 className="public-column-group-heading" style={{ margin: "0 0 28px", color: "#526174", font: "850 18px/1.25 'Segoe UI', Arial, sans-serif", textTransform: "uppercase", overflowWrap: "anywhere" }}>{publicTitle}</h2> : null}
     <div className="public-editorial-column-run" data-public-column-run={visibleZones[0].key}>
       {visibleZones.map((zone) => <PublicFlexibleZoneContent key={zone.key} zone={zone} matchdayNumber={matchdayNumber} />)}
     </div>

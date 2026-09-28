@@ -1,3 +1,4 @@
+import { columnGroupMember, type EditorialColumnGroupMember } from "@/lib/editorial-column-groups";
 import {
   materializeEditorialVisualFamilySlots,
   type EditorialVisualFamily,
@@ -56,6 +57,7 @@ export type PublicMatchdayPhysicalZoneSlot =
   EditorialVisualFamilySlot<PublicMatchdayPhysicalItem>;
 
 export type PublicMatchdayPhysicalZone = Readonly<{
+  columnGroup?: EditorialColumnGroupMember;
   zoneId: string;
   publicTitle: string;
   publicTitleColor?: string | null;
@@ -355,6 +357,7 @@ export function buildPublicMatchdayPhysicalSnapshot(
       zoneId: zone.id,
       publicTitle: zone.publicTitle,
       publicTitleColor: zone.publicTitleColor ?? null,
+      ...(columnGroupMember(workspace.columnGroups, zone.id) ? { columnGroup: columnGroupMember(workspace.columnGroups, zone.id) } : {}),
       layoutId: zone.visualFamily,
       slots: slotResult.slots,
     } satisfies PublicMatchdayPhysicalZone;

@@ -1,3 +1,4 @@
+import { assertEditorialColumnGroups, parseEditorialColumnGroups, type EditorialColumnGroup } from "@/lib/editorial-column-groups";
 import {
   parseLiveLayoutZoneId,
   type LiveLayoutZoneId,
@@ -25,6 +26,7 @@ export type LiveLayoutWorkspaceStateV22 =
   LiveLayoutWorkspaceState
   & Readonly<{
     latestCompanion: LiveLayoutLatestCompanion | null;
+    columnGroups?: readonly EditorialColumnGroup[];
   }>;
 
 function v22Error(code: string): never {
@@ -151,6 +153,11 @@ export function buildLiveLayoutWorkspaceStateV22(
     workspace.matchdayId,
   );
 
+  const settings = raw.workspace_settings as Record<string, unknown> | null;
+  const columnGroups = parseEditorialColumnGroups(settings?.column_groups ?? []);
+  assertEditorialColumnGroups(columnGroups, workspace.zones,
+    [...workspace.blocks].sort((a, b) => a.sortOrder - b.sortOrder).map((block) => block.kind === "zone" ? block.zoneId : null));
+
   if (
     latestCompanion !== null
     && !workspace.zones.some(
@@ -165,5 +172,6 @@ export function buildLiveLayoutWorkspaceStateV22(
   return {
     ...workspace,
     latestCompanion,
+    columnGroups,
   };
 }

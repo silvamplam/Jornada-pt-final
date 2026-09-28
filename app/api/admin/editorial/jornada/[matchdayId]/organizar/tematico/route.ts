@@ -68,6 +68,14 @@ async function isManagedMatchdayEditorialDesk(matchdayId: string) {
 
 function mutationErrorResponse(error: unknown) {
   const message = databaseMessage(error);
+  if (message.includes("PGRST202") && message.includes("physical_v31")) {
+    return apiError("column-groups-migration-pending", "A migration dos grupos ainda não está disponível. O trabalho permanece no draft local.", 503);
+  }
+  if (message.includes("editorial-column-group-") || message.includes("column-group-")) {
+    return apiError("column-group-invalid", message.includes("incomplete")
+      ? "O grupo precisa de pelo menos uma história em cada coluna para ficar ligado."
+      : "O grupo foi recusado integralmente. Confirma o título, as cinco colunas e a ordem dos membros.", 400);
+  }
   if (
     message.includes("matchday-live-layout-physical-v20-concurrent-write")
     || message.includes(
@@ -297,7 +305,7 @@ export async function POST(
 
   try {
     const rows = await writeSupabaseAdminReturning<ApplyResultRow>(
-      "rpc/apply_matchday_live_layout_physical_v29",
+      payload.columnGroups ? "rpc/apply_matchday_live_layout_physical_v31" : "rpc/apply_matchday_live_layout_physical_v29",
       {
         method: "POST",
         body: JSON.stringify(physicalDeskApplyRpcArguments(matchdayId, payload)),

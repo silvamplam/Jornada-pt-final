@@ -1,3 +1,5 @@
+import { columnGroupMember } from "@/lib/editorial-column-groups";
+import { readHistoricalColumnGroups } from "@/lib/editorial-column-groups-reader";
 import { editorialVisualFamilyPublicationPositionsAreValid } from "@/lib/editorial-visual-families";
 import { composePublicEditorialColumnRuns } from "@/lib/public-editorial-column-runs";
 import PublicEditorialColumnRunLayout from "@/components/public/PublicEditorialColumnRunLayout";
@@ -126,7 +128,7 @@ type HistoricalDynamicPublicZoneState = {
 async function readPublicHistoricalDynamicZones(
   compositionId: string,
 ): Promise<HistoricalDynamicPublicZoneState[]> {
-  const [zoneRows, itemRows] = await Promise.all([
+  const [zoneRows, itemRows, columnGroups] = await Promise.all([
     fetchSupabaseAdminTable<HistoricalDynamicZoneRow>(
       `matchday_historical_composition_zones?select=id,composition_id,sort_order,public_title,public_title_color,visual_family&composition_id=eq.${encodeURIComponent(
         compositionId,
@@ -137,6 +139,7 @@ async function readPublicHistoricalDynamicZones(
         compositionId,
       )}&order=position.asc`,
     ).catch(() => []),
+    readHistoricalColumnGroups(compositionId),
   ]);
 
   return zoneRows.map((row, zoneIndex) => {
@@ -149,6 +152,7 @@ async function readPublicHistoricalDynamicZones(
       visualFamily: row.visual_family,
       publicTitle: row.public_title.trim(),
       publicTitleColor: row.public_title_color,
+      columnGroup: columnGroupMember(columnGroups, row.id),
       items: sourceItems.map((item) => ({
         id: item.id,
         sourceId:
@@ -3919,7 +3923,7 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
     physicalSnapshot?.blocks ?? [], (block) => {
       const zone = block.kind === "zone" ? physicalZoneById.get(block.zoneId) : undefined;
       return zone ? { key: zone.zoneId, visualFamily: zone.layoutId,
-        publicTitle: zone.publicTitle, publicTitleColor: zone.publicTitleColor, slots: zone.slots } : undefined;
+        publicTitle: zone.publicTitle, publicTitleColor: zone.publicTitleColor, columnGroup: zone.columnGroup, slots: zone.slots } : undefined;
     },
   );
   const thematicVisualBlocks = composePublicEditorialColumnRuns(
@@ -4211,7 +4215,7 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
             {useHistoricalDynamicZones
               ? historicalDynamicVisualBlocks.map((block) => {
                   if (block.kind === "column_run") return <PublicEditorialColumnRunLayout
-                    key={block.key} zones={block.zones} matchdayNumber={context.matchday.number} />;
+                    key={block.key} zones={block.zones} publicTitle={block.publicTitle} matchdayNumber={context.matchday.number} />;
                   if (block.kind === "video") {
                     if (effectiveRoundupItems.length === 0) return null;
 
@@ -4320,7 +4324,7 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
       {!usePublishedReferenceComposition && physicalSnapshot
         ? renderPublicAdvertisingBoundary(physicalVisualBlocks, (block) => {
             if (block.kind === "column_run") return <PublicEditorialColumnRunLayout
-              key={block.key} zones={block.zones} matchdayNumber={context.matchday.number} />;
+              key={block.key} zones={block.zones} publicTitle={block.publicTitle} matchdayNumber={context.matchday.number} />;
             if (block.kind === "video") {
               if (
                 !physicalSnapshot.video.active
@@ -4396,7 +4400,7 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
         : !usePublishedReferenceComposition && thematicSnapshot
           ? renderPublicAdvertisingBoundary(thematicVisualBlocks, (block) => {
             if (block.kind === "column_run") return <PublicEditorialColumnRunLayout
-              key={block.key} zones={block.zones} matchdayNumber={context.matchday.number} />;
+              key={block.key} zones={block.zones} publicTitle={block.publicTitle} matchdayNumber={context.matchday.number} />;
             if (block.kind === "video") {
               if (
                 complementaryMode !== "roundup_video"

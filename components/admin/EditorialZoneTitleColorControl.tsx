@@ -11,7 +11,14 @@ export default function EditorialZoneTitleColorControl({ value, onChange, disabl
   const id = useId();
   const [invalid, setInvalid] = useState(false);
   const hexInput = useRef<HTMLInputElement>(null);
-  return <fieldset disabled={disabled} style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}>
+  return <fieldset className="editorial-column-color-control" disabled={disabled} style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}>
+    <style>{`
+      .editorial-column-color-control { grid-column: 1 / -1; }
+      .editorial-column-color-control legend { padding: 0; margin-bottom: 4px; font-size: 11px; line-height: 1.2; }
+      .editorial-column-color-control input[type=color] { flex: 0 0 32px; width: 32px !important; height: 28px; min-height: 28px !important; padding: 2px !important; }
+      .editorial-column-color-control input:not([type=color]) { flex: 0 0 96px; width: 96px !important; min-height: 28px !important; font-size: 12px; }
+      .editorial-column-color-control button { min-height: 28px; padding: 3px 7px; border: 1px solid #cbd5df; border-radius: 4px; background: #fff; color: #263647; font: inherit; font-size: 11px; }
+    `}</style>
     <legend>Cor do título da coluna</legend>
     <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
       <input type="color" aria-label="Escolher cor do título da coluna" value={value ?? "#526174"}

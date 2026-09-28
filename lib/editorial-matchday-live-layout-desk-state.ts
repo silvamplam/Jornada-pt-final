@@ -1,3 +1,4 @@
+import { assertEditorialColumnGroups, collapseColumnGroupUnits, columnGroupForZone, columnGroupEmptyMembers, type EditorialColumnGroup } from "@/lib/editorial-column-groups";
 import { normalizeEditorialZoneTitleColor } from "@/lib/editorial-zone-title-color";
 import {
   editorialVisualFamilyCapacity,
@@ -64,6 +65,7 @@ export type PhysicalDeskMemory = Readonly<{
 }>;
 
 export type PhysicalDeskSnapshot = Readonly<{
+  columnGroups?: readonly EditorialColumnGroup[];
   zones: readonly PhysicalDeskZone[];
   blocks: readonly MatchdayLiveLayoutBlock[];
   placements: readonly PhysicalDeskPlacement[];
@@ -336,6 +338,8 @@ function validateSnapshot(snapshot: PhysicalDeskSnapshot): PhysicalDeskSnapshot 
     }
   }
   if (blockZoneIds.size !== zoneIds.size) stateError("block-zone-missing");
+  assertEditorialColumnGroups(snapshot.columnGroups ?? [], snapshot.zones,
+    sortBlocks(snapshot.blocks).map((block) => block.kind === "zone" ? block.zoneId : null));
 
   return {
     ...snapshot,
@@ -373,6 +377,7 @@ export function createPhysicalDeskState(
       }
     : legacyBootstrapPresentation ?? stateError("legacy-bootstrap-presentation-missing");
   const snapshot = validateSnapshot({
+    columnGroups: "columnGroups" in workspace ? workspace.columnGroups : [],
     zones: workspace.zones.map((zone) => ({
       id: zone.id,
       publicTitle: zone.publicTitle,
@@ -878,6 +883,9 @@ export function changePhysicalDeskZone(
 
   if (publicTitle.length > 120) return stateError("zone-public-title-too-long");
   const visualFamily = change.visualFamily ?? zone.visualFamily;
+  if (visualFamily !== "five_news_column" && columnGroupForZone(current.columnGroups, zoneId)) {
+    return stateError("column-group-member-locked");
+  }
   const publicTitleColor = change.publicTitleColor === undefined
     ? zone.publicTitleColor ?? null
     : normalizeEditorialZoneTitleColor(change.publicTitleColor);
@@ -996,6 +1004,7 @@ export function deletePhysicalDeskZone(
   zoneId: LiveLayoutZoneId,
 ): PhysicalDeskState {
   const current = state.current;
+  if (columnGroupForZone(current.columnGroups, zoneId)) return stateError("column-group-member-locked");
   if (!current.zones.some((zone) => zone.id === zoneId)) {
     return stateError("zone-unknown");
   }
@@ -1050,11 +1059,71 @@ export function deletePhysicalDeskZone(
   }, removedBankItemIds);
 }
 
+export function createPhysicalDeskColumnGroup(
+  state: PhysicalDeskState, publicTitle: string, zoneIds: readonly string[],
+): PhysicalDeskState {
+  const current = state.current;
+  if (zoneIds.length !== 5 || new Set(zoneIds).size !== 5
+    || zoneIds.some((id) => columnGroupForZone(current.columnGroups, id)
+      || current.zones.find((zone) => zone.id === id)?.visualFamily !== "five_news_column")) {
+    return stateError("column-group-members-invalid");
+  }
+  const ordered = sortBlocks(current.blocks);
+  const first = ordered.findIndex((block) => block.kind === "zone" && zoneIds.includes(block.zoneId));
+  const members = zoneIds.map((id) => ordered.find((block) => block.kind === "zone" && block.zoneId === id)!);
+  const blocks = ordered.flatMap((block, index) => [
+    ...(index === first ? members : []),
+    ...(block.kind === "zone" && zoneIds.includes(block.zoneId) ? [] : [block]),
+  ]).map((block, index) => ({ ...block, sortOrder: index + 1 }));
+  return commitSnapshot(state, { ...current, blocks,
+    columnGroups: [...current.columnGroups ?? [], {
+      id: crypto.randomUUID(), publicTitle: publicTitle.trim(), enabled: false, zoneIds: [...zoneIds],
+    }],
+  });
+}
+
+export function changePhysicalDeskColumnGroup(
+  state: PhysicalDeskState, groupId: string, change: Partial<Pick<EditorialColumnGroup, "publicTitle" | "enabled">>,
+): PhysicalDeskState {
+  const group = state.current.columnGroups?.find((candidate) => candidate.id === groupId);
+  if (!group) return stateError("column-group-unknown");
+  if (change.enabled && columnGroupEmptyMembers(group, (id) => state.current.placements.filter(
+    (placement) => placement.placementType === "zone" && placement.zoneId === id).length).length) {
+    return stateError("column-group-incomplete");
+  }
+  return commitSnapshot(state, { ...state.current, columnGroups: state.current.columnGroups!.map(
+    (candidate) => candidate.id === groupId ? { ...candidate, ...change,
+      publicTitle: change.publicTitle?.trim() ?? candidate.publicTitle } : candidate),
+  });
+}
+
+export function ungroupPhysicalDeskColumns(state: PhysicalDeskState, groupId: string): PhysicalDeskState {
+  return commitSnapshot(state, { ...state.current,
+    columnGroups: state.current.columnGroups?.filter((group) => group.id !== groupId) ?? [],
+  });
+}
+
+function moveColumnGroupUnit(state: PhysicalDeskState, blockId: string, direction: "up" | "down", scope: "all" | "rail" | "zones") {
+  const units = collapseColumnGroupUnits(sortBlocks(state.current.blocks), state.current.columnGroups ?? [],
+    (block) => block.kind === "zone" ? block.zoneId : null);
+  const visible = units.filter(([block]) => scope === "all" || block.kind === "zone" || (scope === "rail" && block.kind === "video"));
+  const index = visible.findIndex((unit) => unit.some((block) => block.id === blockId));
+  const target = index + (direction === "up" ? -1 : 1);
+  if (index < 0 || target < 0 || target >= visible.length) return state;
+  const sourceIndex = units.indexOf(visible[index]);
+  const targetIndex = units.indexOf(visible[target]);
+  [units[sourceIndex], units[targetIndex]] = [units[targetIndex], units[sourceIndex]];
+  return commitSnapshot(state, { ...state.current,
+    blocks: units.flat().map((block, position) => ({ ...block, sortOrder: position + 1 })),
+  });
+}
+
 export function movePhysicalDeskBlock(
   state: PhysicalDeskState,
   block: MatchdayLiveLayoutBlock,
   direction: "up" | "down",
 ): PhysicalDeskState {
+  if (state.current.columnGroups?.length) return moveColumnGroupUnit(state, block.id, direction, "all");
   const blocks = sortBlocks(state.current.blocks);
   const index = blocks.findIndex((candidate) => candidate.id === block.id);
   const targetIndex = direction === "up" ? index - 1 : index + 1;
@@ -1073,6 +1142,7 @@ export function movePhysicalDeskRailBlock(
   blockId: MatchdayLiveLayoutBlock["id"],
   direction: "up" | "down",
 ): PhysicalDeskState {
+  if (state.current.columnGroups?.length) return moveColumnGroupUnit(state, blockId, direction, "rail");
   const blocks = sortBlocks(state.current.blocks);
   const railBlocks = blocks.filter((block) => (
     block.kind === "zone" || block.kind === "video"
@@ -1099,6 +1169,10 @@ export function movePhysicalDeskZone(
   zoneId: LiveLayoutZoneId,
   direction: "up" | "down",
 ): PhysicalDeskState {
+  if (state.current.columnGroups?.length) {
+    const block = state.current.blocks.find((candidate) => candidate.kind === "zone" && candidate.zoneId === zoneId);
+    return block ? moveColumnGroupUnit(state, block.id, direction, "zones") : state;
+  }
   const blocks = sortBlocks(state.current.blocks);
   const zoneBlocks = blocks.filter((block) => block.kind === "zone");
   const index = zoneBlocks.findIndex((block) => block.zoneId === zoneId);

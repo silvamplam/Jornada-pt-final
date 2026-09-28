@@ -36,6 +36,7 @@ async function main() {
       const zones = Array.from({length:count}, (_, i) => createPublicFlexibleZone({
         key:"column-" + i, publicTitle:titles[i % 5] + (i > 4 ? " · " + (Math.floor(i/5)+1) : ""),
         publicTitleColor:i === 0 ? color : colors[i % 5], visualFamily:family,
+        ...(params.has("group") ? { columnGroup: { id:"group-"+Math.floor(i/5), publicTitle:"Mercado internacional", enabled:true, position:i%5+1 } } : {}),
         items:Array.from({length:editorialVisualFamilyDefinition(family).slots.length}, (_, p) => p + 1)
           .filter(p => !params.has("sparse") || (i % 2 ? [2,5] : [1,3,5]).includes(p))
           .map(p => ({id:i+"-"+p,sourceId:i+"-"+p,sortOrder:p,label:"JORNADA",
@@ -49,7 +50,7 @@ async function main() {
       return <>
         {params.has("editor") ? <div className="preview-control"><EditorialZoneTitleColorControl value={color} onChange={setColor} /></div> : null}
         {renderPublicAdvertisingBoundary(grouped, block => block.kind === "column_run"
-          ? <PublicEditorialColumnRunLayout key={block.key} zones={block.zones} matchdayNumber={7} />
+          ? <PublicEditorialColumnRunLayout key={block.key} zones={block.zones} publicTitle={block.publicTitle} matchdayNumber={7} />
           : block.kind === "zone" ? <PublicFlexibleZoneLayout key={block.zone.key} zone={block.zone} matchdayNumber={7} />
           : params.has("hidden") ? null : <section className="preview-break" key={block.kind}>{block.kind === "video" ? "Vídeo" : "Últimas"}</section>,
           params.has("ads") ? <aside className="preview-ad" aria-label="Publicidade">Publicidade · fixture local</aside> : null,

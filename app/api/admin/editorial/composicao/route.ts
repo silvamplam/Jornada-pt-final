@@ -1,3 +1,4 @@
+import { editorialColumnGroupsFromMembers, assertEditorialColumnGroups, parseEditorialColumnGroups, type EditorialColumnGroupMember } from "@/lib/editorial-column-groups";
 import { editorialVisualFamilyPublicationPositionsAreValid } from "@/lib/editorial-visual-families";
 import { normalizeEditorialZoneTitleColor } from "@/lib/editorial-zone-title-color";
 import { cookies } from "next/headers";
@@ -2782,6 +2783,8 @@ type HierarchicalDeskPlanOperation =
     };
 
 type HistoricalDynamicZonePlan = {
+  id?: string;
+  columnGroup?: EditorialColumnGroupMember | null;
   publicTitle: string;
   publicTitleColor: string | null;
   visualFamily: "six_news" | "five_news_balanced" | "five_news_secondary" | "six_news_1_2_3" | "five_news_column";
@@ -2944,7 +2947,7 @@ function parseHistoricalDynamicZones(
 
   const usedBankItems = new Set<string>();
 
-  return parsed.map((value) => {
+  const result: HistoricalDynamicZonePlan[] = parsed.map((value) => {
     if (!value || typeof value !== "object" || Array.isArray(value)) {
       throw new CompositionPublicationError("Uma das zonas editoriais não é válida.");
     }
@@ -3031,7 +3034,11 @@ function parseHistoricalDynamicZones(
       };
     });
 
+    const id = typeof record.id === 'string' ? record.id.toLowerCase() : undefined;
+    if (id && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(id)) throw new CompositionPublicationError("ID da zona inválido.");
     return {
+      ...(id ? { id } : {}),
+      ...(Object.hasOwn(record, "columnGroup") ? { columnGroup: record.columnGroup as EditorialColumnGroupMember | null } : {}),
       publicTitle,
       publicTitleColor,
       visualFamily:
@@ -3039,6 +3046,12 @@ function parseHistoricalDynamicZones(
       items,
     };
   });
+  try {
+    const zones = result.map((zone, index) => ({ ...zone, id: zone.id ?? String(index) }));
+    const groups = editorialColumnGroupsFromMembers(zones);
+    assertEditorialColumnGroups(groups, zones, zones.map((zone) => zone.id), (id) => zones.find((zone) => zone.id === id)?.items.length ?? 0);
+  } catch { throw new CompositionPublicationError("Revê o grupo: cinco colunas ordenadas, título e pelo menos uma história por coluna quando ligado."); }
+  return result;
 }
 
 function parseHierarchicalDeskSettings(raw: string | null): HierarchicalDeskSettings | null {
@@ -3469,16 +3482,38 @@ async function applyHierarchicalDeskPlan(
     }
   }
 
-  await writeSupabaseAdmin("rpc/apply_historical_composition_workspace_plan_v3", {
-    method: "POST",
-    body: JSON.stringify({
-      p_matchday_id: matchdayId,
-      p_composition_id: compositionId,
-      p_operations: operations,
-      p_settings: settings,
-      p_dynamic_zones: dynamicZones,
-    }),
-  });
+  let expectedColumnGroups: ReturnType<typeof parseEditorialColumnGroups> | undefined;
+  const rawGroups = cleanText(formData.get("expected_column_groups_json"));
+  if (rawGroups) {
+    try { expectedColumnGroups = parseEditorialColumnGroups(JSON.parse(rawGroups)); }
+    catch { throw new CompositionPublicationError("O estado inicial dos grupos é inválido. Recarrega a Mesa."); }
+  }
+  const useGroupApply = expectedColumnGroups !== undefined || Boolean(dynamicZones?.some((zone) => zone.columnGroup));
+  const argumentsV3 = {
+    p_matchday_id: matchdayId,
+    p_composition_id: compositionId,
+    p_operations: operations,
+    p_settings: settings,
+    p_dynamic_zones: dynamicZones,
+  };
+  try {
+    await writeSupabaseAdmin(useGroupApply ? "rpc/apply_historical_composition_workspace_plan_v4" : "rpc/apply_historical_composition_workspace_plan_v3", {
+      method: "POST",
+      body: JSON.stringify({
+        ...argumentsV3,
+        ...(useGroupApply ? { p_expected_column_groups: expectedColumnGroups ?? [] } : {}),
+      }),
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "";
+    // Before the migration, keep existing ungrouped editing available. Never
+    // fall back on an OCC/validation failure or when any group is involved.
+    if (!useGroupApply || expectedColumnGroups?.length || dynamicZones?.some((zone) => zone.columnGroup)
+      || !message.includes("PGRST202") || !message.includes("apply_historical_composition_workspace_plan_v4")) throw error;
+    await writeSupabaseAdmin("rpc/apply_historical_composition_workspace_plan_v3", {
+      method: "POST", body: JSON.stringify(argumentsV3),
+    });
+  }
 
   return (
     operations.length
@@ -3839,6 +3874,24 @@ export async function POST(request: Request) {
     }
   }
 
+  if (actionType === "import_column_groups") {
+    if (!(await hasAuthenticatedAdminSession())) return Response.json({ ok: false, message: "É necessária uma sessão administrativa válida." }, { status: 401 });
+    try {
+      const compositionId = cleanText(formData.get("composition_id"));
+      if (!matchdayId || !compositionId || !UUID_PATTERN.test(matchdayId) || !UUID_PATTERN.test(compositionId)) throw new Error("invalid-context");
+      const expected = parseEditorialColumnGroups(JSON.parse(cleanText(formData.get("expected_column_groups_json")) ?? "[]"));
+      await writeSupabaseAdmin("rpc/import_historical_column_groups_v31", { method: "POST", body: JSON.stringify({
+        p_matchday_id: matchdayId, p_composition_id: compositionId, p_expected_column_groups: expected,
+      }) });
+      return Response.json({ ok: true });
+    } catch (error) {
+      const raw = error instanceof Error ? error.message : "";
+      return Response.json({ ok: false, message: raw.includes("concurrent-write") ? "Os grupos mudaram. Recarrega a Mesa."
+        : raw.includes("story-already-used") ? "Há notícias do grupo já usadas na Histórica. Retira essas colocações antes de importar."
+        : "Não foi possível importar os grupos. Confirma a migration e a capacidade da composição." }, { status: 409 });
+    }
+  }
+
   if (actionType === "apply_hierarchical_desk_plan") {
     try {
       if (!matchdayId) {
@@ -3862,7 +3915,9 @@ export async function POST(request: Request) {
           message:
             error instanceof CompositionPublicationError
               ? error.message
-              : "Não foi possível aplicar o plano da Mesa.",
+              : error instanceof Error && error.message.includes("editorial-column-group-concurrent-write")
+                ? "Os grupos mudaram noutra sessão. Recarrega a Mesa antes de guardar."
+                : "Não foi possível aplicar o plano da Mesa.",
         },
         {
           status: 400,

@@ -1,6 +1,9 @@
 "use client";
 
 import EditorialZoneTitleColorControl from "@/components/admin/EditorialZoneTitleColorControl";
+import EditorialColumnGroupControls from "@/components/admin/EditorialColumnGroupControls";
+import { columnGroupForZone, collapseColumnGroupUnits } from "@/lib/editorial-column-groups";
+import { createPhysicalDeskColumnGroup, changePhysicalDeskColumnGroup, ungroupPhysicalDeskColumns } from "@/lib/editorial-matchday-live-layout-desk-state";
 import Image, { type ImageLoaderProps } from "next/image";
 import { useRouter } from "next/navigation";
 import {
@@ -294,6 +297,11 @@ const styles = `
   .thematic-zone-editor label { display: grid; min-width: 0; }
   .thematic-zone-editor input, .thematic-zone-editor select { width: 100%; min-width: 0; min-height: 30px; padding: 0 7px; border: 1px solid #cbd5df; border-radius: 5px; background: #fff; color: #10151b; font: inherit; font-size: 12px; }
   .thematic-zone-editor-count { min-width: 34px; font-size: 11px; font-weight: 900; text-align: right; white-space: nowrap; }
+  .thematic-workspace-heading[hidden] { display: none; }
+  .thematic-group-create { display: grid; gap: 9px; padding: 12px; border: 1px solid #cbd5df; border-radius: 6px; font-size: 12px; }
+  .thematic-group-create > label { display: flex; align-items: center; gap: 7px; }
+  .thematic-group-create p { margin: 0; line-height: 1.4; }
+  .thematic-group-create input:not([type=checkbox]) { flex: 1; padding: 6px; min-width: 0; }
   .thematic-slots { display: grid; gap: 4px; }
   .thematic-slots-4, .thematic-slots-5, .thematic-slots-6 { grid-template-columns: repeat(2,minmax(0,1fr)); }
   .thematic-workspace-slot { display: flex; flex-direction: column; min-width: 0; min-height: 64px; padding: 4px; border: 1px dashed #b8c4d2; border-radius: 5px; background: #fff; }
@@ -787,6 +795,9 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
   const [selectedReorderBlockId, setSelectedReorderBlockId] =
     useState<RailOrderBlock["id"] | null>(null);
   const [newZoneFormOpen, setNewZoneFormOpen] = useState(false);
+  const [newGroupFormOpen, setNewGroupFormOpen] = useState(false);
+  const [newGroupTitle, setNewGroupTitle] = useState("5 colunas");
+  const [newGroupZoneIds, setNewGroupZoneIds] = useState<string[]>([]);
   const [newZoneTitle, setNewZoneTitle] = useState("");
   const [newZoneVisualFamily, setNewZoneVisualFamily] =
     useState<EditorialVisualFamily>(EDITORIAL_VISUAL_FAMILIES[0]);
@@ -848,12 +859,14 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
     [current.zones],
   );
   const orderedZoneBlocks = current.blocks.filter((block) => block.kind === "zone");
-  const railOrderBlocks = current.blocks.filter(
+  const groupUnits = collapseColumnGroupUnits(current.blocks, current.columnGroups ?? [],
+    (block) => block.kind === "zone" ? block.zoneId : null);
+  const railOrderBlocks = groupUnits.map((unit) => unit[0]).filter(
     (block): block is RailOrderBlock => (
       block.kind === "zone" || block.kind === "video"
     ),
   );
-  const pageStructureBlocks = current.blocks.filter(
+  const pageStructureBlocks = groupUnits.map((unit) => unit[0]).filter(
     (block): block is PageStructureBlock => block.kind === "zone",
   );
   const orderedZones = orderedZoneBlocks.flatMap((block) => {
@@ -875,6 +888,8 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
       : latestDestination.kind;
   const activeZone =
     zoneById.get(activeWorkspaceKey as LiveLayoutZoneId) ?? null;
+  const activeColumnGroup = columnGroupForZone(current.columnGroups, activeWorkspaceKey);
+  const columnStoryCount = (id: string) => current.placements.filter((placement) => placement.placementType === "zone" && placement.zoneId === id).length;
   const activeWorkspaceLabel = activeZone?.publicTitle || (
     activeWorkspaceKey === "faixa" ? "Faixa"
       : activeWorkspaceKey === "highlight" ? "Destaque" : "Zona sem título"
@@ -992,7 +1007,13 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
         ? error.message
         : "Não foi possível concluir a alteração.";
       setMessage(
-        errorMessage.includes("zone-layout-shrink-occupied")
+        errorMessage.includes("column-group-incomplete")
+          ? "O grupo precisa de pelo menos uma história em cada coluna para ficar ligado."
+          : errorMessage.includes("column-group-member-locked")
+          ? "Desagrupa as cinco colunas antes de apagar uma zona ou alterar a sua família."
+          : errorMessage.includes("editorial-column-group-")
+          ? "O grupo precisa de título e de exatamente cinco colunas válidas."
+          : errorMessage.includes("zone-layout-shrink-occupied")
           ? "Este layout não comporta as posições atualmente ocupadas. Mova primeiro os artigos dessas posições."
           : errorMessage.includes("latest-companion-zone-associated")
             ? "Escolha Manchete, Ocultas ou outra zona para A acontecer agora antes de apagar esta zona."
@@ -1315,7 +1336,7 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
     const dropEnabled = canDropInZone(zoneId);
     return (
       <article className="thematic-workspace-section" key={zone.id} data-zone-id={zone.id}>
-        <header className="thematic-workspace-heading">
+        <header className="thematic-workspace-heading" hidden={Boolean(activeColumnGroup)}>
           <strong>{zoneLabel}</strong>
           <span>Zona ativa</span>
         </header>
@@ -1338,7 +1359,7 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
           <label>
             <select
               aria-label={`Apresentação de ${zoneLabel}`}
-              disabled={mutationBlocked}
+              disabled={mutationBlocked || Boolean(activeColumnGroup)}
               onChange={(event) => runPhysicalOperation(
                 (state) => changePhysicalDeskZone(state, zone.id, {
                   visualFamily: event.target.value as EditorialVisualFamily,
@@ -1352,15 +1373,15 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
               ))}
             </select>
           </label>
+          <strong className="thematic-zone-editor-count">
+            {slots.filter((slot) => slot.placement !== null).length}/{zone.capacity}
+          </strong>
           {zone.visualFamily === "five_news_column" ? <EditorialZoneTitleColorControl
             value={zone.publicTitleColor ?? null} disabled={mutationBlocked}
             onChange={(publicTitleColor) => runPhysicalOperation(
               (state) => changePhysicalDeskZone(state, zone.id, { publicTitleColor }),
               "Cor do título da coluna alterada.",
             )} /> : null}
-          <strong className="thematic-zone-editor-count">
-            {slots.filter((slot) => slot.placement !== null).length}/{zone.capacity}
-          </strong>
           </div>
           <div className={`thematic-slots thematic-slots-${zone.capacity}`}>
             {slots.map((slot) => (
@@ -1754,6 +1775,8 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
 
   function blockLabel(block: RailOrderBlock) {
     if (block.kind === "video") return "Destaque";
+    const group = columnGroupForZone(current.columnGroups, block.zoneId);
+    if (group) return group.publicTitle;
     const zone = zoneById.get(block.zoneId);
     return zone
       ? zone.publicTitle || "Zona sem título"
@@ -1762,6 +1785,8 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
 
   function blockCount(block: RailOrderBlock) {
     if (block.kind === "video") return `${highlightPlacement ? 1 : 0}/1`;
+    const group = columnGroupForZone(current.columnGroups, block.zoneId);
+    if (group) return `5 colunas · ${group.zoneIds.reduce((total, id) => total + columnStoryCount(id), 0)}/25${group.enabled ? "" : " · desligado"}`;
     const zone = zoneById.get(block.zoneId);
     if (!zone) return "0/0";
     return `${physicalDeskZoneSlots(physicalDesk, zone.id).filter((slot) => slot.placement).length}/${zone.capacity}`;
@@ -1776,7 +1801,15 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
   function renderActiveWorkspace() {
     if (activeWorkspaceKey === "highlight") return renderHighlightWorkspace();
     if (activeWorkspaceKey === "faixa") return renderFaixaWorkspace();
-    if (isZoneWorkspaceKey(activeWorkspaceKey)) return renderZonePanel(activeWorkspaceKey);
+    if (isZoneWorkspaceKey(activeWorkspaceKey)) return activeColumnGroup
+      ? <section className="thematic-workspace-section" aria-label={`Grupo ${activeColumnGroup.publicTitle}`}>
+          <EditorialColumnGroupControls group={activeColumnGroup} selectedZoneId={activeWorkspaceKey} count={columnStoryCount}
+            disabled={mutationBlocked} onSelect={(id) => setActiveWorkspaceKey(id as LiveLayoutZoneId)}
+            onChange={(change) => runPhysicalOperation((state) => changePhysicalDeskColumnGroup(state, activeColumnGroup.id, change), "Grupo alterado em preview.")}
+            onUngroup={() => runPhysicalOperation((state) => ungroupPhysicalDeskColumns(state, activeColumnGroup.id), "Grupo desfeito. As cinco zonas e os artigos foram preservados.")} />
+          {renderZonePanel(activeWorkspaceKey)}
+        </section>
+      : renderZonePanel(activeWorkspaceKey);
     return null;
   }
 
@@ -1814,7 +1847,7 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
             if (block.kind === "zone" && !zoneById.has(block.zoneId)) return null;
             return (
               <div
-                className={`thematic-zone-row${activeWorkspaceKey === workspaceKey ? " active" : ""}`}
+                className={`thematic-zone-row${activeWorkspaceKey === workspaceKey || activeColumnGroup?.zoneIds[0] === workspaceKey ? " active" : ""}`}
                 key={block.id}
               >
                 <label className="thematic-zone-select">
@@ -2017,7 +2050,28 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
                 >
                   + Nova zona
                 </button>
+                <button className="thematic-button" disabled={mutationBlocked} type="button"
+                  onClick={() => setNewGroupFormOpen((open) => !open)}>Agrupar 5 colunas</button>
               </div>
+
+              {newGroupFormOpen ? <form className="thematic-group-create" onSubmit={(event) => {
+                event.preventDefault();
+                const next = runPhysicalOperation((state) => createPhysicalDeskColumnGroup(state, newGroupTitle, newGroupZoneIds), "Grupo criado desligado. As cinco zonas mantêm os artigos e cores.");
+                if (next) {
+                  setActiveWorkspaceKey(newGroupZoneIds[0] as LiveLayoutZoneId);
+                  setActiveWorkspaceVisible(true); setNewGroupFormOpen(false); setNewGroupZoneIds([]);
+                  pageStructureRef.current?.removeAttribute("open");
+                }
+              }}>
+                <label>Título do grupo <input aria-label="Nome do novo grupo" value={newGroupTitle} maxLength={120} required
+                  onChange={(event) => setNewGroupTitle(event.target.value)} disabled={mutationBlocked} /></label>
+                <p>Seleciona exatamente cinco colunas. A ordem de seleção define as posições 1–5; o grupo fica na posição da primeira zona na página.</p>
+                {orderedZones.filter((zone) => zone.visualFamily === "five_news_column" && !columnGroupForZone(current.columnGroups, zone.id)).map((zone) =>
+                  <label key={zone.id}><input type="checkbox" checked={newGroupZoneIds.includes(zone.id)} disabled={mutationBlocked || (newGroupZoneIds.length === 5 && !newGroupZoneIds.includes(zone.id))}
+                    onChange={(event) => setNewGroupZoneIds((ids) => event.target.checked ? [...ids, zone.id] : ids.filter((id) => id !== zone.id))} />
+                    {newGroupZoneIds.includes(zone.id) ? `${newGroupZoneIds.indexOf(zone.id) + 1}. ` : ""}{zone.publicTitle || "Coluna sem título"}</label>)}
+                <button className="thematic-button dark" type="submit" disabled={mutationBlocked || newGroupZoneIds.length !== 5 || !newGroupTitle.trim()}>Criar grupo · {newGroupZoneIds.length}/5</button>
+              </form> : null}
 
               {newZoneFormOpen ? (
                 <form className="thematic-new-zone-form" onSubmit={createZone}>

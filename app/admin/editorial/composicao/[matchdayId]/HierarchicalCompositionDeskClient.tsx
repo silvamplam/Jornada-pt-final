@@ -1,6 +1,8 @@
 "use client";
 
 import EditorialZoneTitleColorControl from "@/components/admin/EditorialZoneTitleColorControl";
+import EditorialColumnGroupControls from "@/components/admin/EditorialColumnGroupControls";
+import { editorialColumnGroupsFromMembers, columnGroupForZone, columnGroupDiagnostic, collapseColumnGroupUnits, type EditorialColumnGroupMember } from "@/lib/editorial-column-groups";
 import BackofficeImage from "@/components/admin/BackofficeImage";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, type DragEvent, type ReactNode } from "react";
@@ -64,6 +66,7 @@ type TargetCard = {
 };
 
 type DynamicZonePlan = {
+  columnGroup?: EditorialColumnGroupMember | null;
   clientId: string;
   persistedId: string | null;
   publicTitle: string;
@@ -119,6 +122,7 @@ export type HierarchicalCompositionDeskEditorial = {
 };
 
 export type HierarchicalCompositionDeskDynamicZone = {
+  columnGroup?: EditorialColumnGroupMember;
   id: string;
   sortOrder: number;
   publicTitle: string;
@@ -2493,12 +2497,14 @@ export function initialDynamicZonePlan(
         ? `Zona editorial ${index + 1}`
         : zone.publicTitle;
       return { clientId: zone.id, persistedId: zone.id, publicTitle,
+        columnGroup: zone.columnGroup,
         publicTitleColor: zone.publicTitleColor ?? null, visualFamily: zone.visualFamily, items };
     });
 }
 
 export function dynamicZonesFingerprint(zones: DynamicZonePlan[]) {
   return JSON.stringify(zones.map((zone) => ({
+    columnGroup: zone.columnGroup ?? null,
     publicTitle: zone.publicTitle.trim(),
     publicTitleColor: zone.publicTitleColor ?? null,
     visualFamily: zone.visualFamily,
@@ -2959,29 +2965,36 @@ export default function HierarchicalCompositionDeskClient({
     return keys;
   }
 
+  function columnGroupsForPlan(zones = plan.dynamicZones) {
+    return editorialColumnGroupsFromMembers(zones.map((zone) => ({ id: zone.clientId, columnGroup: zone.columnGroup })));
+  }
+
+  function bodyGroupUnits() {
+    return collapseColumnGroupUnits(bodyBlockKeys(plan.dynamicZones, plan.settings.videoPosition), columnGroupsForPlan(),
+      (key) => key.startsWith("dynamic:") ? key.slice(8) : null);
+  }
+
   function moveBodyBlock(
     blockKey: string,
     direction: "up" | "down",
   ) {
-    const keys = bodyBlockKeys(
-      plan.dynamicZones,
-      plan.settings.videoPosition,
-    );
-    const index = keys.indexOf(blockKey);
+    const units = bodyGroupUnits();
+    const index = units.findIndex((unit) => unit.includes(blockKey));
     const targetIndex = direction === "up" ? index - 1 : index + 1;
 
     if (
       index < 0
       || targetIndex < 0
-      || targetIndex >= keys.length
+      || targetIndex >= units.length
     ) {
       return;
     }
 
-    [keys[index], keys[targetIndex]] = [
-      keys[targetIndex],
-      keys[index],
+    [units[index], units[targetIndex]] = [
+      units[targetIndex],
+      units[index],
     ];
+    const keys = units.flat();
 
     const dynamicZones = renumberAutomaticDynamicZoneTitles(
       keys
@@ -3054,6 +3067,9 @@ export default function HierarchicalCompositionDeskClient({
   }
 
   function updateDynamicZone(clientId: string, patch: Partial<Pick<DynamicZonePlan, "publicTitle" | "publicTitleColor" | "visualFamily">>) {
+    if (patch.visualFamily && patch.visualFamily !== "five_news_column" && plan.dynamicZones.find((zone) => zone.clientId === clientId)?.columnGroup) {
+      setMessage("Desagrupa as colunas antes de alterar a família."); return;
+    }
     const dynamicZones = plan.dynamicZones.map((zone) => {
       if (zone.clientId !== clientId) return zone;
       if (patch.visualFamily && patch.visualFamily !== zone.visualFamily) {
@@ -3068,6 +3084,9 @@ export default function HierarchicalCompositionDeskClient({
   }
 
   function removeDynamicZone(clientId: string) {
+    if (plan.dynamicZones.find((zone) => zone.clientId === clientId)?.columnGroup) {
+      setMessage("Desagrupa as colunas antes de apagar uma zona."); return;
+    }
     const index = plan.dynamicZones.findIndex((zone) => zone.clientId === clientId);
     if (index < 0) return;
     const dynamicZones = renumberAutomaticDynamicZoneTitles(
@@ -3461,7 +3480,10 @@ export default function HierarchicalCompositionDeskClient({
         body.set("settings_json", JSON.stringify(plan.settings));
       }
       if (dynamicZonesChanged) {
+        body.set("expected_column_groups_json", JSON.stringify(columnGroupsForPlan(basePlan.dynamicZones)));
         body.set("dynamic_zones_json", JSON.stringify(plan.dynamicZones.map((zone) => ({
+          id: zone.clientId,
+          columnGroup: zone.columnGroup ?? null,
           publicTitle: zone.publicTitle.trim(),
           publicTitleColor: zone.publicTitleColor ?? null,
           visualFamily: zone.visualFamily,
@@ -3612,6 +3634,8 @@ export default function HierarchicalCompositionDeskClient({
   const activeDynamicZone = activeWorkspaceKey.startsWith("dynamic:")
     ? plan.dynamicZones.find((zone) => zone.clientId === activeWorkspaceKey.slice("dynamic:".length)) ?? null
     : null;
+  const activeColumnGroup = activeDynamicZone ? columnGroupForZone(columnGroupsForPlan(), activeDynamicZone.clientId) : undefined;
+  const columnStoryCount = (id: string) => Object.values(plan.dynamicZones.find((zone) => zone.clientId === id)?.items ?? {}).filter(Boolean).length;
   const activeWorkspaceLabel = activeWorkspaceKey === "opening"
     ? "Abertura"
     : activeWorkspaceKey === "editorial"
@@ -3621,10 +3645,7 @@ export default function HierarchicalCompositionDeskClient({
         : activeWorkspaceKey === "faixa"
           ? "Faixa de notícias"
           : activeDynamicZone?.publicTitle || "Zona editorial";
-  const orderedBodyBlockKeys = bodyBlockKeys(
-    plan.dynamicZones,
-    plan.settings.videoPosition,
-  );
+  const orderedBodyBlockKeys = bodyGroupUnits().map((unit) => unit[0]);
   const selectedReorderBlockIndex = selectedReorderBlockKey === null
     ? -1
     : orderedBodyBlockKeys.indexOf(selectedReorderBlockKey);
@@ -3752,6 +3773,19 @@ export default function HierarchicalCompositionDeskClient({
               <div className="hc-page-structure-head">
                 <strong>Estrutura da página</strong>
                 <button type="button" onClick={addDynamicZone}>+ Adicionar zona</button>
+                <button type="button" disabled={pendingCount > 0 || isApplying} onClick={async () => {
+                  setIsApplying(true);
+                  try {
+                    const body = new FormData();
+                    body.set("action_type", "import_column_groups"); body.set("matchday_id", matchdayId); body.set("composition_id", compositionId);
+                    body.set("expected_column_groups_json", JSON.stringify(columnGroupsForPlan(basePlan.dynamicZones)));
+                    const response = await fetch("/api/admin/editorial/composicao", { method: "POST", body });
+                    const result = await response.json();
+                    if (!response.ok || !result.ok) throw new Error(result.message ?? "Importação recusada.");
+                    window.location.reload();
+                  } catch (error) { setMessage(error instanceof Error ? error.message : "Importação recusada."); }
+                  finally { setIsApplying(false); }
+                }}>Importar grupos da Viva</button>
               </div>
 
               <div className="hc-page-structure-row fixed">
@@ -3888,19 +3922,21 @@ export default function HierarchicalCompositionDeskClient({
               const occupied = historicalDynamicZonePositions(zone.visualFamily).filter((position) => Boolean(zone.items[position.position])).length;
               const capacity = HISTORICAL_DYNAMIC_ZONE_LAYOUTS[zone.visualFamily].capacity;
               const workspaceKey = `dynamic:${zone.clientId}`;
+              const columnGroup = columnGroupForZone(columnGroupsForPlan(), zone.clientId);
+              const isActive = columnGroup ? activeColumnGroup?.id === columnGroup.id : activeWorkspaceKey === workspaceKey;
               return (
-                <div className={`hc-zone-row${activeWorkspaceKey === workspaceKey ? " active" : ""}${selectedReorderBlockKey === blockKey ? " reorder-selected" : ""}`} key={zone.clientId}>
+                <div className={`hc-zone-row${isActive ? " active" : ""}${selectedReorderBlockKey === blockKey ? " reorder-selected" : ""}`} key={zone.clientId}>
                   <label className="hc-zone-select">
                     <input
-                      aria-label={`Selecionar ${zone.publicTitle || "Zona editorial"} para mover`}
+                      aria-label={`Selecionar ${columnGroup?.publicTitle ?? (zone.publicTitle || "Zona editorial")} para mover`}
                       checked={selectedReorderBlockKey === blockKey}
                       onChange={(event) => setSelectedReorderBlockKey(event.target.checked ? blockKey : null)}
                       type="checkbox"
                     />
                   </label>
-                  <button className="hc-zone-focus" type="button" aria-pressed={activeWorkspaceKey === workspaceKey} onClick={() => setActiveWorkspaceKey(workspaceKey)}>
-                    <strong>{zone.publicTitle || "Zona editorial"}</strong>
-                    <small>{occupied}/{capacity}</small>
+                  <button className="hc-zone-focus" type="button" aria-pressed={isActive} onClick={() => setActiveWorkspaceKey(workspaceKey)}>
+                    <strong>{columnGroup?.publicTitle ?? (zone.publicTitle || "Zona editorial")}</strong>
+                    <small>{columnGroup ? `5 colunas · ${columnGroup.zoneIds.reduce((sum, id) => sum + columnStoryCount(id), 0)}/25` : `${occupied}/${capacity}`}</small>
                   </button>
                 </div>
               );
@@ -4140,6 +4176,16 @@ export default function HierarchicalCompositionDeskClient({
 
           {activeDynamicZone ? (
             <>
+              {activeColumnGroup ? <EditorialColumnGroupControls group={activeColumnGroup} selectedZoneId={activeDynamicZone.clientId} count={columnStoryCount}
+                onSelect={(id) => setActiveWorkspaceKey(`dynamic:${id}`)} disabled={isApplying}
+                onChange={(change) => {
+                  const diagnostic = columnGroupDiagnostic(activeColumnGroup, columnStoryCount);
+                  if (change.enabled && diagnostic) { setMessage(diagnostic); return; }
+                  if (change.publicTitle !== undefined && !change.publicTitle.trim()) { setMessage("O grupo precisa de título."); return; }
+                  commitDynamicZones(plan.dynamicZones.map((zone) => zone.columnGroup?.id === activeColumnGroup.id
+                    ? { ...zone, columnGroup: { ...zone.columnGroup, ...change } } : zone), "Grupo histórico alterado.");
+                }}
+                onUngroup={() => commitDynamicZones(plan.dynamicZones.map((zone) => zone.columnGroup?.id === activeColumnGroup.id ? { ...zone, columnGroup: null } : zone), "Grupo desfeito; zonas e artigos preservados.")} /> : null}
               <div className={selectedBankItemIds.length > 0 ? "hc-dynamic-zone-editor has-selection" : "hc-dynamic-zone-editor"}>
                 <label>
                   <DynamicZoneTitleInput
