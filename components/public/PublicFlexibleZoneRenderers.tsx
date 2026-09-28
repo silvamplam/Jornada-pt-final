@@ -1,3 +1,4 @@
+import type { EditorialColumnGroupMember } from "@/lib/editorial-column-groups";
 import { normalizeEditorialZoneTitleColor } from "@/lib/editorial-zone-title-color";
 import PublicFiveNewsColumn from "./PublicFiveNewsColumn";
 import {
@@ -39,6 +40,7 @@ export type PublicFlexibleZoneSlot =
   EditorialVisualFamilySlot<PublicFlexibleZoneItem>;
 
 export type PublicFlexibleZone = Readonly<{
+  columnGroup?: EditorialColumnGroupMember;
   key: string;
   visualFamily: EditorialVisualFamily;
   publicTitle: string;
@@ -47,6 +49,7 @@ export type PublicFlexibleZone = Readonly<{
 }>;
 
 export type PublicFlexibleZoneInput = Readonly<{
+  columnGroup?: EditorialColumnGroupMember;
   key: string;
   visualFamily: EditorialVisualFamily;
   publicTitle: string;
@@ -109,6 +112,7 @@ export function createPublicFlexibleZone(
 
   return {
     key: input.key,
+    ...(input.columnGroup ? { columnGroup: input.columnGroup } : {}),
     visualFamily: input.visualFamily,
     publicTitle: input.publicTitle,
     publicTitleColor: normalizeEditorialZoneTitleColor(input.publicTitleColor),

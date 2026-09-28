@@ -53,7 +53,12 @@ const fixture = fs.readFileSync("supabase/sql/test-matchday-live-layout-physical
   .replace("  'published',\r\n  'matchday',", "  'draft',\r\n  'matchday',");
 const publication = `update public.editorial_articles set status='published'
   where matchday_id='a0000000-0000-4000-8000-000000000001';\n`;
-const tests = fs.readFileSync("supabase/sql/test-editorial-five-news-column.sql", "utf8");
+const columnGroups = process.argv.includes("--column-groups");
+const columnTests = fs.readFileSync("supabase/sql/test-editorial-five-news-column.sql", "utf8");
+const tests = columnGroups
+  ? columnTests.split("create temp table column_historical_result")[0]
+    + fs.readFileSync("supabase/sql/test-editorial-five-column-groups.sql", "utf8")
+  : columnTests;
 if (process.argv.includes("--tests-only")) {
   console.log(sql(fixture + publication + tests));
 } else {
@@ -84,5 +89,6 @@ if (process.argv.includes("--tests-only")) {
   `;
   console.log(sql(fixture + publication + guardsBefore
     + fs.readFileSync("supabase/migrations/20260928190224_editorial_five_news_column.sql", "utf8")
+    + (columnGroups ? fs.readFileSync("supabase/migrations/20260928230533_editorial_five_column_groups.sql", "utf8") : "")
     + guardsAfter + tests));
 }

@@ -240,6 +240,7 @@ function parseWorkspaceSettings(
     "faixa_public_title",
     "roundup_video_heading",
     "video_highlight_section_title",
+    "column_groups",
   ], "workspace-settings-shape-invalid");
   const settingsMatchdayId = uuidText(
     row.matchday_id,

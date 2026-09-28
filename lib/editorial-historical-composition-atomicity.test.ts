@@ -22,7 +22,12 @@ test("Guardar montagem executa uma única escrita através da RPC transacional",
     applyPlan,
     /writeSupabaseAdmin\("rpc\/apply_historical_composition_workspace_plan_v3"/,
   );
-  assert.equal((applyPlan.match(/await writeSupabaseAdmin\(/g) ?? []).length, 1);
+  assert.equal((applyPlan.match(/await writeSupabaseAdmin\(/g) ?? []).length, 2);
+  // The second attempt is possible only when PostgREST has not executed a
+  // missing v4 function, and neither the baseline nor the draft has a group.
+  assert.match(applyPlan, /useGroupApply \? "rpc\/apply_historical_composition_workspace_plan_v4"/);
+  assert.match(applyPlan, /catch \(error\)[\s\S]*expectedColumnGroups\?\.length \|\| dynamicZones\?\.some\(\(zone\) => zone\.columnGroup\)/);
+  assert.match(applyPlan, /!message\.includes\("PGRST202"\) \|\| !message\.includes\("apply_historical_composition_workspace_plan_v4"\)\) throw error/);
   assert.doesNotMatch(applyPlan, /method:\s*"DELETE"/);
   assert.doesNotMatch(applyPlan, /method:\s*"PATCH"/);
   assert.doesNotMatch(applyPlan, /assignBankItemToHierarchicalSlot\(/);
