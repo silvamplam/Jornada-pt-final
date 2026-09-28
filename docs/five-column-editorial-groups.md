@@ -150,3 +150,64 @@ persistência e publicação foram exercitadas separadamente no PostgreSQL local
 Não houve Apply de produção, repair, SQL remoto, backfill da Jornada 08 ou merge.
 As alterações de funções SQL usam substituições delimitadas com deteção de
 drift: se o contrato remoto divergir, a migration aborta integralmente.
+
+## Retificações finais — cabeçalho compacto
+
+Base desta revisão: `cd9b92030d50dcde705a24575bd58e70aa2ff3ac`, na mesma
+branch `jornada-five-columns-editorial-group-20260928`.
+
+A cópia read-only da Jornada 08 contém 3 + 2 + 2 + 2 + 2 histórias. A divergência
+15/25 não se reproduziu nesta base. Para evitar fontes de contagem diferentes,
+`columnGroupStoryCount` passa a servir o cabeçalho e as rails Viva/Histórica,
+somando exclusivamente as posições ocupadas das zonas membro. O teste específico
+inclui mais quatro histórias numa zona exterior: há 15 placements, mas o grupo
+continua a mostrar 11/25. Slots vazios e posições reservadas não entram na soma.
+
+A ação passa a ser explícita: **Desligado · Ligar** ou **Ligado · Desligar**.
+Mantém-se a validação existente: grupo incompleto pode ficar desligado; tentar
+ligá-lo é rejeitado integralmente até existir pelo menos uma história por coluna.
+
+O cabeçalho tem três linhas: título/total/ação; cinco seletores; título e família
+da coluna/ocupação/picker/HEX/default. As legendas continuam acessíveis. O modo
+compacto do controlo de cor só é usado quando a coluna pertence ao grupo.
+
+### Medição real a 1440 × 1000
+
+| Medida | Antes (`cd9b920`) | Depois |
+|---|---:|---:|
+| Cabeçalho completo, do topo do grupo ao primeiro slot | 211,19 px | 114 px |
+| Controlos do grupo e seletores | 109 px | 67 px |
+| Cabeçalho da coluna, incluindo cor | 91,19 px | 36 px |
+| Primeiro slot: coordenada vertical | 398,19 px | 301 px |
+| Entrada do grupo na rail | 38 px | 38 px |
+| Rail / centro / direita: larguras | 163 / 635,34 / 602,66 px | iguais |
+
+Redução total: 97,19 px (46%). Os 45,19 px do controlo de cor anterior estavam
+incluídos nos 91,19 px da coluna; não devem ser somados uma segunda vez.
+As coordenadas x/y dos três painéis e as suas alturas são iguais. Os cards e
+slots mantêm dimensões e comportamento. A comparação da Mesa com a família
+`six_news_1_2_3` selecionada produziu PNGs byte-equivalentes (SHA-256
+`16b424564b7b78b604c38372c97f9061d8539b292e21d5716a7a2b9e964422dd`).
+
+### Verificação desta revisão
+
+- 24 testes do grupo: PASS, incluindo soma 11/25, drag/drop, remoção, undo,
+  serialização Apply/reconstrução do estado, campos/cor e contagem histórica.
+- Bateria focada: 550 testes; 541 PASS, oito falhas pré-existentes em main,
+  um skip. As oito falhas são exatamente as já documentadas acima.
+- TypeScript de app/components/lib/scripts e `git diff --check`: PASS.
+- `verify-five-column-groups-compact-browser.cjs`: Mesa real, mesma cópia J08,
+  baseline compilada de `cd9b920`; rail/total/tabs, drop/remover/undo, coluna
+  ativa, HEX inválido/normalizado, picker/default, ligar/desligar e rejeição
+  atómica quando a Coluna 5 está vazia. O picker recebe os eventos DOM nativos;
+  a caixa de seleção de cor do sistema operativo não é automatizada.
+- Capturas: Coluna 1, Coluna 4 desligada/ligada, medição vertical anotada e
+  comparação da família antiga. Nenhum overflow horizontal a 1440.
+
+Reprodução: arrancar `serve-five-column-groups-preview.tsx <cópia-J08.json>` com
+`GROUP_PREVIEW_BASE=cd9b92030d50dcde705a24575bd58e70aa2ff3ac`; executar
+`node scripts/verify-five-column-groups-compact-browser.cjs <agent-browser> <saída>`.
+O harness continua a recusar writes e não tem proxy para produção. O teste de
+reload passa pelo payload e pela reconstrução real do estado da Mesa; não faz
+Apply remoto. SQL, migrations, API, renderer e responsivo públicos não foram
+alterados nesta revisão. Sem merge, repair, migration remota ou writes remotos.

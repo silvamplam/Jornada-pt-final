@@ -69,6 +69,11 @@ export function columnGroupEmptyMembers(group: EditorialColumnGroup, count: (zon
   return group.zoneIds.flatMap((id, index) => count(id) > 0 ? [] : [index + 1]);
 }
 
+/** Share the occupied-story sum between the rail, controls and both desks. */
+export function columnGroupStoryCount(group: EditorialColumnGroup, count: (zoneId: string) => number) {
+  return group.zoneIds.reduce((total, id) => total + count(id), 0);
+}
+
 export function columnGroupDiagnostic(group: EditorialColumnGroup, count: (zoneId: string) => number) {
   const empty = columnGroupEmptyMembers(group, count);
   return empty.length ? `Colunas ${empty.join(", ")} sem histórias. É necessária pelo menos uma história em cada coluna para ligar o grupo.` : null;

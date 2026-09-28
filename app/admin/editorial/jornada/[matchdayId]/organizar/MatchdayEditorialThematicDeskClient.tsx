@@ -2,7 +2,7 @@
 
 import EditorialZoneTitleColorControl from "@/components/admin/EditorialZoneTitleColorControl";
 import EditorialColumnGroupControls from "@/components/admin/EditorialColumnGroupControls";
-import { columnGroupForZone, collapseColumnGroupUnits } from "@/lib/editorial-column-groups";
+import { columnGroupForZone, columnGroupStoryCount, collapseColumnGroupUnits } from "@/lib/editorial-column-groups";
 import { createPhysicalDeskColumnGroup, changePhysicalDeskColumnGroup, ungroupPhysicalDeskColumns } from "@/lib/editorial-matchday-live-layout-desk-state";
 import Image, { type ImageLoaderProps } from "next/image";
 import { useRouter } from "next/navigation";
@@ -297,6 +297,12 @@ const styles = `
   .thematic-zone-editor label { display: grid; min-width: 0; }
   .thematic-zone-editor input, .thematic-zone-editor select { width: 100%; min-width: 0; min-height: 30px; padding: 0 7px; border: 1px solid #cbd5df; border-radius: 5px; background: #fff; color: #10151b; font: inherit; font-size: 12px; }
   .thematic-zone-editor-count { min-width: 34px; font-size: 11px; font-weight: 900; text-align: right; white-space: nowrap; }
+  .thematic-zone-editor[data-compact-column=true] { grid-template-columns: minmax(90px,1fr) minmax(128px,.8fr) auto auto; gap: 5px; padding: 3px; }
+  .thematic-zone-editor[data-compact-column=true] input, .thematic-zone-editor[data-compact-column=true] select { min-height: 28px; height: 28px; font-size: 11px; }
+  @media (max-width: 760px) {
+    .thematic-zone-editor[data-compact-column=true] { grid-template-columns: minmax(0,1fr) minmax(0,1fr) auto; }
+    .thematic-zone-editor[data-compact-column=true] .editorial-column-color-control { grid-column: 1 / -1; }
+  }
   .thematic-workspace-heading[hidden] { display: none; }
   .thematic-group-create { display: grid; gap: 9px; padding: 12px; border: 1px solid #cbd5df; border-radius: 6px; font-size: 12px; }
   .thematic-group-create > label { display: flex; align-items: center; gap: 7px; }
@@ -889,7 +895,7 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
   const activeZone =
     zoneById.get(activeWorkspaceKey as LiveLayoutZoneId) ?? null;
   const activeColumnGroup = columnGroupForZone(current.columnGroups, activeWorkspaceKey);
-  const columnStoryCount = (id: string) => current.placements.filter((placement) => placement.placementType === "zone" && placement.zoneId === id).length;
+  const columnStoryCount = (id: string) => physicalDeskZoneSlots(physicalDesk, id as LiveLayoutZoneId).filter((slot) => slot.placement !== null).length;
   const activeWorkspaceLabel = activeZone?.publicTitle || (
     activeWorkspaceKey === "faixa" ? "Faixa"
       : activeWorkspaceKey === "highlight" ? "Destaque" : "Zona sem título"
@@ -1341,7 +1347,7 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
           <span>Zona ativa</span>
         </header>
         <div className="thematic-workspace-body">
-          <div className="thematic-zone-editor">
+          <div className="thematic-zone-editor" data-compact-column={Boolean(activeColumnGroup)}>
           <label>
             <input
               aria-label={`Título público de ${zoneLabel}`}
@@ -1377,7 +1383,7 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
             {slots.filter((slot) => slot.placement !== null).length}/{zone.capacity}
           </strong>
           {zone.visualFamily === "five_news_column" ? <EditorialZoneTitleColorControl
-            value={zone.publicTitleColor ?? null} disabled={mutationBlocked}
+            value={zone.publicTitleColor ?? null} disabled={mutationBlocked} compact={Boolean(activeColumnGroup)}
             onChange={(publicTitleColor) => runPhysicalOperation(
               (state) => changePhysicalDeskZone(state, zone.id, { publicTitleColor }),
               "Cor do título da coluna alterada.",
@@ -1786,7 +1792,7 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
   function blockCount(block: RailOrderBlock) {
     if (block.kind === "video") return `${highlightPlacement ? 1 : 0}/1`;
     const group = columnGroupForZone(current.columnGroups, block.zoneId);
-    if (group) return `5 colunas · ${group.zoneIds.reduce((total, id) => total + columnStoryCount(id), 0)}/25${group.enabled ? "" : " · desligado"}`;
+    if (group) return `5 colunas · ${columnGroupStoryCount(group, columnStoryCount)}/25${group.enabled ? "" : " · desligado"}`;
     const zone = zoneById.get(block.zoneId);
     if (!zone) return "0/0";
     return `${physicalDeskZoneSlots(physicalDesk, zone.id).filter((slot) => slot.placement).length}/${zone.capacity}`;

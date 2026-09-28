@@ -2,7 +2,7 @@
 
 import EditorialZoneTitleColorControl from "@/components/admin/EditorialZoneTitleColorControl";
 import EditorialColumnGroupControls from "@/components/admin/EditorialColumnGroupControls";
-import { editorialColumnGroupsFromMembers, columnGroupForZone, columnGroupDiagnostic, collapseColumnGroupUnits, type EditorialColumnGroupMember } from "@/lib/editorial-column-groups";
+import { editorialColumnGroupsFromMembers, columnGroupForZone, columnGroupDiagnostic, columnGroupStoryCount, collapseColumnGroupUnits, type EditorialColumnGroupMember } from "@/lib/editorial-column-groups";
 import BackofficeImage from "@/components/admin/BackofficeImage";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, type DragEvent, type ReactNode } from "react";
@@ -1311,6 +1311,15 @@ const styles = `
 
   .hc-dynamic-zone-editor label {
     gap: 0;
+  }
+  .hc-dynamic-zone-editor[data-compact-column=true] { grid-template-columns: minmax(90px,1fr) minmax(128px,.8fr) auto auto; gap: 5px; padding: 3px; }
+  .hc-dynamic-zone-editor[data-compact-column=true] label { min-width: 0; }
+  .hc-dynamic-zone-editor[data-compact-column=true] input, .hc-dynamic-zone-editor[data-compact-column=true] select { width: 100%; min-width: 0; min-height: 28px; height: 28px; font-size: 11px; }
+  .hc-dynamic-zone-editor[data-compact-column=true] > strong { font-size: 11px; white-space: nowrap; }
+  .hc-dynamic-zone-editor[data-compact-column=true] .hc-dynamic-zone-place { grid-column: 1 / -1; }
+  @media (max-width: 720px) {
+    .hc-dynamic-zone-editor[data-compact-column=true] { grid-template-columns: minmax(0,1fr) minmax(0,1fr) auto; }
+    .hc-dynamic-zone-editor[data-compact-column=true] .editorial-column-color-control { grid-column: 1 / -1; }
   }
   @media (max-width: 1180px) {
     .hc-page-structure-row {
@@ -3635,7 +3644,10 @@ export default function HierarchicalCompositionDeskClient({
     ? plan.dynamicZones.find((zone) => zone.clientId === activeWorkspaceKey.slice("dynamic:".length)) ?? null
     : null;
   const activeColumnGroup = activeDynamicZone ? columnGroupForZone(columnGroupsForPlan(), activeDynamicZone.clientId) : undefined;
-  const columnStoryCount = (id: string) => Object.values(plan.dynamicZones.find((zone) => zone.clientId === id)?.items ?? {}).filter(Boolean).length;
+  const columnStoryCount = (id: string) => {
+    const zone = plan.dynamicZones.find((candidate) => candidate.clientId === id);
+    return zone ? historicalDynamicZonePositions(zone.visualFamily).filter(({ position }) => Boolean(zone.items[position])).length : 0;
+  };
   const activeWorkspaceLabel = activeWorkspaceKey === "opening"
     ? "Abertura"
     : activeWorkspaceKey === "editorial"
@@ -3936,7 +3948,7 @@ export default function HierarchicalCompositionDeskClient({
                   </label>
                   <button className="hc-zone-focus" type="button" aria-pressed={isActive} onClick={() => setActiveWorkspaceKey(workspaceKey)}>
                     <strong>{columnGroup?.publicTitle ?? (zone.publicTitle || "Zona editorial")}</strong>
-                    <small>{columnGroup ? `5 colunas · ${columnGroup.zoneIds.reduce((sum, id) => sum + columnStoryCount(id), 0)}/25` : `${occupied}/${capacity}`}</small>
+                    <small>{columnGroup ? `5 colunas · ${columnGroupStoryCount(columnGroup, columnStoryCount)}/25` : `${occupied}/${capacity}`}</small>
                   </button>
                 </div>
               );
@@ -4186,7 +4198,7 @@ export default function HierarchicalCompositionDeskClient({
                     ? { ...zone, columnGroup: { ...zone.columnGroup, ...change } } : zone), "Grupo histórico alterado.");
                 }}
                 onUngroup={() => commitDynamicZones(plan.dynamicZones.map((zone) => zone.columnGroup?.id === activeColumnGroup.id ? { ...zone, columnGroup: null } : zone), "Grupo desfeito; zonas e artigos preservados.")} /> : null}
-              <div className={selectedBankItemIds.length > 0 ? "hc-dynamic-zone-editor has-selection" : "hc-dynamic-zone-editor"}>
+              <div className={selectedBankItemIds.length > 0 ? "hc-dynamic-zone-editor has-selection" : "hc-dynamic-zone-editor"} data-compact-column={Boolean(activeColumnGroup)}>
                 <label>
                   <DynamicZoneTitleInput
                     key={activeDynamicZone.clientId}
@@ -4196,8 +4208,9 @@ export default function HierarchicalCompositionDeskClient({
                   />
                 </label>
                 <label><select aria-label="Layout da zona editorial" value={activeDynamicZone.visualFamily} onChange={(event) => updateDynamicZone(activeDynamicZone.clientId, { visualFamily: event.target.value as HistoricalDynamicZoneVisualFamily })}><option value="six_news">6 notícias</option><option value="five_news_balanced">5 notícias equilibradas</option><option value="five_news_secondary">5 notícias secundárias</option><option value="six_news_1_2_3">{HISTORICAL_DYNAMIC_ZONE_LAYOUTS.six_news_1_2_3.label}</option><option value="five_news_column">{HISTORICAL_DYNAMIC_ZONE_LAYOUTS.five_news_column.label}</option></select></label>
+                {activeColumnGroup ? <strong>{columnStoryCount(activeDynamicZone.clientId)}/5</strong> : null}
                 {activeDynamicZone.visualFamily === "five_news_column" ? <EditorialZoneTitleColorControl
-                  value={activeDynamicZone.publicTitleColor ?? null}
+                  value={activeDynamicZone.publicTitleColor ?? null} compact={Boolean(activeColumnGroup)}
                   onChange={(publicTitleColor) => updateDynamicZone(activeDynamicZone.clientId, { publicTitleColor })} /> : null}
                 {selectedBankItemIds.length > 0 ? <button className="hc-dynamic-zone-place" type="button" onClick={() => placeSelectedInDynamicZone(activeDynamicZone.clientId)}>Colocar {selectedBankItemIds.length} aqui</button> : null}
               </div>

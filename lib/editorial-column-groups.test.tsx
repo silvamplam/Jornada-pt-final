@@ -3,8 +3,8 @@ import test from "node:test";
 import * as React from "react";
 import { createRequire } from "node:module";
 import { renderToStaticMarkup } from "react-dom/server";
-import { assertEditorialColumnGroups, collapseColumnGroupUnits, columnGroupDiagnostic, columnGroupMember, editorialColumnGroupsFromMembers, parseEditorialColumnGroups } from "./editorial-column-groups";
-import { changePhysicalDeskColumnGroup, changePhysicalDeskZone, createPhysicalDeskColumnGroup, createPhysicalDeskState, deletePhysicalDeskZone, movePhysicalDeskItemToSlot, movePhysicalDeskRailBlock, physicalDeskHasChanges, undoPhysicalDeskState, ungroupPhysicalDeskColumns } from "./editorial-matchday-live-layout-desk-state";
+import { assertEditorialColumnGroups, collapseColumnGroupUnits, columnGroupDiagnostic, columnGroupMember, columnGroupStoryCount, editorialColumnGroupsFromMembers, parseEditorialColumnGroups } from "./editorial-column-groups";
+import { changePhysicalDeskColumnGroup, changePhysicalDeskZone, createPhysicalDeskColumnGroup, createPhysicalDeskState, deletePhysicalDeskZone, movePhysicalDeskItemToSlot, movePhysicalDeskItemToDisplaced, movePhysicalDeskRailBlock, physicalDeskHasChanges, physicalDeskZoneSlots, undoPhysicalDeskState, ungroupPhysicalDeskColumns } from "./editorial-matchday-live-layout-desk-state";
 import { buildPhysicalDeskApplyPayload, parsePhysicalDeskApplyPayload, physicalDeskApplyRpcArguments } from "./editorial-matchday-live-layout-physical-apply";
 import { parseLiveLayoutBlockId, parseLiveLayoutZoneId } from "./editorial-matchday-live-layout-physical";
 import { composePublicEditorialColumnRuns } from "./public-editorial-column-runs";
@@ -12,6 +12,7 @@ import { createPublicFlexibleZone } from "@/components/public/PublicFlexibleZone
 import { renderPublicAdvertisingBoundary } from "@/components/public/renderPublicAdvertisingBoundary";
 import { initialDynamicZonePlan, dynamicZonesFingerprint } from "@/app/admin/editorial/composicao/[matchdayId]/HierarchicalCompositionDeskClient";
 import EditorialColumnGroupControls from "@/components/admin/EditorialColumnGroupControls";
+import { historicalDynamicZonePositions } from "./editorial-historical-composition-workspace";
 
 (globalThis as typeof globalThis & { React: typeof React }).React = React;
 const require = createRequire(`${process.cwd()}/column-groups-test.cjs`);
@@ -22,14 +23,14 @@ const zoneId = (n: number) => parseLiveLayoutZoneId(id(n));
 const memberIds = [1, 2, 3, 4, 5].map(zoneId);
 const group = { id: id(90), publicTitle: "Mercado internacional", enabled: false, zoneIds: memberIds };
 const colors = [null, "#0033A0", "#00FF00", "#FF00CC", "#ABCDEF"];
-function state() {
+function state(bankItemCount = 10) {
   return createPhysicalDeskState({ matchdayId: id(100), stateToken: "a".repeat(32), physicalCutover: null, workspaceSettings: null,
     zones: [...memberIds, zoneId(6)].map((value, i) => ({ id: value, publicTitle: `Coluna ${i + 1}`, publicTitleColor: colors[i] ?? null,
       visualFamily: i === 5 ? "six_news" : "five_news_column", capacity: i === 5 ? 6 : 5, sortOrder: i + 1, items: [] })),
     blocks: [...[...memberIds, zoneId(6)].map((value, i) => ({ id: parseLiveLayoutBlockId(id(20 + i)), kind: "zone" as const, zoneId: value, sortOrder: i + 1 })),
       { id: parseLiveLayoutBlockId(id(26)), kind: "latest", sortOrder: 7 }, { id: parseLiveLayoutBlockId(id(27)), kind: "video", sortOrder: 8 }],
     placements: [], memory: [], explicitBankItemIds: [], displacedBankItemIds: [], workedBankItemIds: [],
-    bankItems: Array.from({ length: 10 }, (_, i) => ({ id: id(40 + i), sourceType: "editorial_article", sourceId: id(60 + i), status: "active",
+    bankItems: Array.from({ length: bankItemCount }, (_, i) => ({ id: id(40 + i), sourceType: "editorial_article", sourceId: id(60 + i), status: "active",
       label: "JORNADA", title: `Notícia ${i}`, subtitle: null, imageUrl: "/image.jpg", linkUrl: `/noticias/${i}`,
       automaticEligible: true, editoriallyWorkedAt: null, classification: { key: "benfica", source: "test", classifiedAt: "2026-09-28T12:00:00Z" },
       continuitySourceMatchdayId: null, continuitySourceCompositionId: null, isExplicitBank: false })),
@@ -114,7 +115,7 @@ for (let selected = 0; selected < 5; selected++) test(`column ${selected + 1} is
   const next = populated(); const g = next.current.columnGroups![0];
   const output = renderToStaticMarkup(<EditorialColumnGroupControls group={g} selectedZoneId={memberIds[selected]} count={() => 1} onSelect={() => {}} onChange={() => {}} onUngroup={() => {}} />);
   assert.equal((output.match(/aria-pressed="true"/g) ?? []).length, 1);
-  assert.match(output, new RegExp(`aria-pressed="true">Coluna ${selected + 1} · 1/5`));
+  assert.match(output, new RegExp(`aria-pressed="true" aria-label="Coluna ${selected + 1} · 1/5">${selected + 1} · 1/5`));
   const dropped = movePhysicalDeskItemToSlot(next, id(49), { placementType: "zone", zoneId: memberIds[selected], slotPosition: 5 });
   assert.deepEqual(dropped.current.placements.find(p => p.bankItemId === id(49)), { bankItemId: id(49), placementType: "zone", zoneId: memberIds[selected], slotPosition: 5 });
   assert.deepEqual(dropped.current.placements.filter(p => p.bankItemId !== id(49)), next.current.placements);
@@ -125,6 +126,93 @@ function publicZones(g = { ...group, enabled: true }) {
     visualFamily: "five_news_column", columnGroup: columnGroupMember([g], value),
     items: [{ id: id(40 + i), sourceId: id(40 + i), sortOrder: i === 0 ? 3 : 1, title: `História ${i + 1}`, subtitle: "Resumo", imageUrl: "/image.jpg", linkUrl: `/noticias/${i}`, label: "JORNADA", publishedAt: null }] }));
 }
+
+function elevenStories() {
+  let next = createPhysicalDeskColumnGroup(state(20), group.publicTitle, memberIds);
+  let item = 40;
+  for (const [index, count] of [3, 2, 2, 2, 2].entries()) {
+    for (let slot = 1; slot <= count; slot++) next = movePhysicalDeskItemToSlot(next, id(item++), {
+      placementType: "zone", zoneId: memberIds[index], slotPosition: slot === count ? 5 : slot,
+    });
+  }
+  // Four occupied stories outside the five members must never turn 11 into 15.
+  for (let slot = 1; slot <= 4; slot++) next = movePhysicalDeskItemToSlot(next, id(item++), {
+    placementType: "zone", zoneId: zoneId(6), slotPosition: slot,
+  });
+  return next;
+}
+const occupiedCount = (value: ReturnType<typeof state>) => (zone: string) =>
+  physicalDeskZoneSlots(value, parseLiveLayoutZoneId(zone)).filter(slot => slot.placement !== null).length;
+const groupTotal = (value: ReturnType<typeof state>) => columnGroupStoryCount(value.current.columnGroups![0], occupiedCount(value));
+
+test("3 + 2 + 2 + 2 + 2 = 11, excluding empty slots and all four stories outside the group", () => {
+  const next = elevenStories();
+  assert.equal(next.current.placements.length, 15);
+  assert.deepEqual(memberIds.map(occupiedCount(next)), [3, 2, 2, 2, 2]);
+  assert.equal(groupTotal(next), 11);
+  const output = renderToStaticMarkup(<EditorialColumnGroupControls group={next.current.columnGroups![0]}
+    selectedZoneId={memberIds[3]} count={occupiedCount(next)} onSelect={() => {}} onChange={() => {}} onUngroup={() => {}} />);
+  assert.match(output, /aria-label="Total de histórias no grupo">11\/25/);
+  for (let i = 0; i < 5; i++) assert.match(output, new RegExp(`aria-label="Coluna ${i + 1} · ${i ? 2 : 3}/5"`));
+});
+
+test("group total updates immediately after drop, removal, each undo and enable/disable", () => {
+  const original = elevenStories(), gid = original.current.columnGroups![0].id;
+  const dropped = movePhysicalDeskItemToSlot(original, id(55), { placementType: "zone", zoneId: memberIds[3], slotPosition: 3 });
+  assert.equal(groupTotal(dropped), 12);
+  const removed = movePhysicalDeskItemToDisplaced(dropped, id(55));
+  assert.equal(groupTotal(removed), 11);
+  assert.equal(groupTotal(undoPhysicalDeskState(removed)), 12);
+  assert.equal(groupTotal(undoPhysicalDeskState(undoPhysicalDeskState(removed))), 11);
+  const enabled = changePhysicalDeskColumnGroup(original, gid, { enabled: true });
+  assert.equal(groupTotal(enabled), 11);
+  assert.equal(groupTotal(changePhysicalDeskColumnGroup(enabled, gid, { enabled: false })), 11);
+});
+
+test("Apply serialization and reload rebuild 11 occupied stories with the enabled state and column colours", () => {
+  let original = elevenStories();
+  original = changePhysicalDeskColumnGroup(original, original.current.columnGroups![0].id, { enabled: true });
+  const saved = parsePhysicalDeskApplyPayload(JSON.parse(JSON.stringify(payload(original))));
+  const now = "2026-09-28T12:00:00Z";
+  const reloaded = createPhysicalDeskState({ matchdayId: original.matchdayId, stateToken: "b".repeat(32),
+    physicalCutover: null, workspaceSettings: null, latestCompanion: null, columnGroups: saved.columnGroups,
+    zones: saved.zones.map((zone, i) => ({ ...zone, id: parseLiveLayoutZoneId(zone.id), capacity: i === 5 ? 6 : 5, sortOrder: i + 1, items: [] })),
+    blocks: original.current.blocks, placements: saved.placements.map((p, i) => {
+      assert.equal(p.placementType, "zone");
+      return { ...p, placementType: "zone" as const, zoneId: parseLiveLayoutZoneId(p.zoneId!), id: id(200 + i), createdAt: now, updatedAt: now };
+    }),
+    bankItems: original.current.bankItems, memory: [], explicitBankItemIds: [], displacedBankItemIds: [], workedBankItemIds: [],
+  }, original.current.presentation);
+  assert.equal(groupTotal(reloaded), 11);
+  assert.deepEqual(memberIds.map(occupiedCount(reloaded)), [3, 2, 2, 2, 2]);
+  assert.deepEqual(reloaded.current.columnGroups, original.current.columnGroups);
+  assert.deepEqual(reloaded.current.zones.map(z => z.publicTitleColor), original.current.zones.map(z => z.publicTitleColor));
+  assert.equal(physicalDeskHasChanges(reloaded), false);
+});
+
+for (const enabled of [false, true]) test(`enabled=${enabled} exposes the next action and the actual state`, () => {
+  const output = renderToStaticMarkup(<EditorialColumnGroupControls group={{ ...group, enabled }}
+    selectedZoneId={memberIds[3]} count={() => 2} onSelect={() => {}} onChange={() => {}} onUngroup={() => {}} />);
+  assert.match(output, enabled ? /aria-label="Desligar grupo"/ : /aria-label="Ligar grupo"/);
+  assert.match(output, enabled ? /<span>Ligado<\/span>Desligar/ : /<span>Desligado<\/span>Ligar/);
+  assert.match(output, /aria-pressed="true" aria-label="Coluna 4 · 2\/5"/);
+});
+
+test("historical reload counts the same 11 occupied member positions and ignores non-member zones", () => {
+  const plan = initialDynamicZonePlan([...memberIds, zoneId(6)].map((value, i) => ({ id: value, sortOrder: i + 1,
+    publicTitle: `Coluna ${i + 1}`, publicTitleColor: colors[i] ?? null, visualFamily: "five_news_column",
+    columnGroup: columnGroupMember([group], value), items: Array.from({ length: [3, 2, 2, 2, 2, 4][i] }, (_, j) => ({
+      id: id(200 + i * 5 + j), bankItemId: id(200 + i * 5 + j), position: j + 1,
+      title: "História", label: "JORNADA", subtitle: null, imageUrl: "/image.jpg", linkUrl: "/noticias/1",
+    })) })));
+  const restored = editorialColumnGroupsFromMembers(plan.map(zone => ({ id: zone.clientId, columnGroup: zone.columnGroup })))[0];
+  const count = (zoneId: string) => {
+    const zone = plan.find(z => z.clientId === zoneId)!;
+    return historicalDynamicZonePositions(zone.visualFamily).filter(({ position }) => Boolean(zone.items[position])).length;
+  };
+  assert.equal(columnGroupStoryCount(restored, count), 11);
+  assert.deepEqual(restored.zoneIds.map(count), [3, 2, 2, 2, 2]);
+});
 type PublicBlock = { kind: "zone"; zone: ReturnType<typeof publicZones>[number] } | { kind: "video" };
 const compose = (zones: ReturnType<typeof publicZones>) => composePublicEditorialColumnRuns<PublicBlock, ReturnType<typeof publicZones>[number]>(zones.map(zone => ({ kind: "zone", zone })), block => block.kind === "zone" ? block.zone : undefined);
 
