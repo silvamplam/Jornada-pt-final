@@ -83,6 +83,6 @@ if (process.argv.includes("--tests-only")) {
     begin;
   `;
   console.log(sql(fixture + publication + guardsBefore
-    + fs.readFileSync("supabase/migrations/20260928172215_editorial_five_news_column.sql", "utf8")
+    + fs.readFileSync("supabase/migrations/20260928190224_editorial_five_news_column.sql", "utf8")
     + guardsAfter + tests));
 }

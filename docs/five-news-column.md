@@ -54,7 +54,7 @@ move automaticamente. Só uma escolha editorial explícita corrige o destino.
 
 ## Histórica e migration
 
-Migration única: `supabase/migrations/20260928172215_editorial_five_news_column.sql`.
+Migration única: `supabase/migrations/20260928190224_editorial_five_news_column.sql`.
 
 A publicação parcial é exclusiva desta família: 0–5 posições únicas entre 1 e
 5, mantendo a validação existente dos artigos/snapshots. As famílias anteriores
