@@ -1,4 +1,5 @@
 import PublicEditorialImage from "./PublicEditorialImage";
+import { publicLiveOpeningStyles } from "./publicLiveOpeningStyles";
 import type { ReactNode } from "react";
 import { editorialImageFramingProps } from "@/lib/editorial-image-framing";
 import PublicContextPostTitle from "./PublicContextPostTitle";
@@ -898,7 +899,7 @@ export function PublicHeadlineBlock({ data }: { data: PublicHeadlineData }) {
   );
 }
 
-function PublicHighlightCard({ item }: { item: PublicEditorialHighlight }) {
+function PublicHighlightCard({ item, imageTitleOnly = false }: { item: PublicEditorialHighlight; imageTitleOnly?: boolean }) {
   const body = (
     <>
       <div className="public-highlight-image">
@@ -910,9 +911,9 @@ function PublicHighlightCard({ item }: { item: PublicEditorialHighlight }) {
           />
         ) : null}
       </div>
-      {item.label ? <span style={item.labelColor ? { color: item.labelColor } : undefined}>{item.label}</span> : null}
+      {!imageTitleOnly && item.label ? <span style={item.labelColor ? { color: item.labelColor } : undefined}>{item.label}</span> : null}
       <strong>{item.title}</strong>
-      {item.subtitle ? <small>{item.subtitle}</small> : null}
+      {!imageTitleOnly && item.subtitle ? <small>{item.subtitle}</small> : null}
     </>
   );
 
@@ -925,11 +926,11 @@ function PublicHighlightCard({ item }: { item: PublicEditorialHighlight }) {
   );
 }
 
-export function PublicHighlightsBlock({ highlights }: { highlights: PublicEditorialHighlight[] }) {
+export function PublicHighlightsBlock({ highlights, imageTitleOnly = false }: { highlights: PublicEditorialHighlight[]; imageTitleOnly?: boolean }) {
   return (
     <div className="public-cover-story-strip">
       {highlights.map((item) => (
-        <PublicHighlightCard item={item} key={item.id} />
+        <PublicHighlightCard item={item} key={item.id} imageTitleOnly={imageTitleOnly} />
       ))}
     </div>
   );
@@ -1005,7 +1006,7 @@ export function PublicComplementaryBlock({
   );
 }
 
-function PublicHighlightsSection({ data }: { data: PublicBelowHeadlineData }) {
+function PublicHighlightsSection({ data, imageTitleOnly = false }: { data: PublicBelowHeadlineData; imageTitleOnly?: boolean }) {
   if (data.highlights.length === 0) {
     return null;
   }
@@ -1027,7 +1028,7 @@ function PublicHighlightsSection({ data }: { data: PublicBelowHeadlineData }) {
           </span>
         </div>
       ) : null}
-      <PublicHighlightsBlock highlights={data.highlights} />
+      <PublicHighlightsBlock highlights={data.highlights} imageTitleOnly={imageTitleOnly} />
     </section>
   );
 }
@@ -1095,10 +1096,12 @@ export function PublicEditorialLayout({
       aria-label={ariaLabel}
     >
       <style>{publicEditorialLayoutPolishStyles}</style>
+      {scope === "matchday" ? <style>{publicLiveOpeningStyles}</style> : null}
       <div className="public-matchday-cover">
         {topColumnCount > 0 ? (
           <div
             className="public-matchday-lead-grid"
+            data-live-opening={scope === "matchday" ? "true" : undefined}
             data-top-columns={topColumnCount}
             data-has-latest={hasLatestNews ? "true" : "false"}
             data-has-context={hasSideBlock ? "true" : "false"}
@@ -1106,7 +1109,7 @@ export function PublicEditorialLayout({
             {hasMainColumn ? (
               <div className="public-matchday-main-column">
                 {showHeadline ? <PublicHeadlineBlock data={headline} /> : null}
-                <PublicHighlightsSection data={belowHeadline} />
+                <PublicHighlightsSection data={belowHeadline} imageTitleOnly={scope === "matchday"} />
               </div>
             ) : null}
             {hasLatestNews ? (
