@@ -16,11 +16,11 @@ export const publicEditorialColumnRunStyles = `
     margin: 0 0 22px; color: #526174; font-size: 18px;
     font-weight: 800; line-height: 1.2; overflow-wrap: anywhere;
   }
-  .public-five-news-column-stories { display: grid; gap: 22px; }
-  .public-five-news-column-stories article + article { padding-top: 20px; border-top: 1px solid #edf0f2; }
+  .public-five-news-column-stories { display: grid; gap: 16px; }
+  .public-five-news-column-stories article + article { padding-top: 14px; border-top: 1px solid #edf0f2; }
   .public-five-news-column h3 {
-    margin: 0; color: #10151b; font-size: 17px; line-height: 1.35;
-    font-weight: 750; overflow-wrap: anywhere;
+    margin: 0; color: #10151b; font-size: 15px; line-height: 1.35;
+    font-weight: 400; overflow-wrap: anywhere;
   }
   .public-five-news-column a { color: inherit; text-decoration: none; }
   .public-five-news-column h3 a:hover { text-decoration: underline; text-underline-offset: 3px; }

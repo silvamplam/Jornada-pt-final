@@ -156,10 +156,13 @@ export default function PublicLatestNewsBlock({
       const rootTop = root.getBoundingClientRect().top;
       const editorialBottom =
         editorialBoundary.getBoundingClientRect().bottom;
+      const sharedHeaderReserve = parseFloat(
+        getComputedStyle(root).getPropertyValue("--public-latest-header-reserve"),
+      ) || 0;
 
       const availableHeight = Math.max(
         0,
-        Math.floor(editorialBottom - rootTop),
+        Math.floor(editorialBottom - rootTop) + sharedHeaderReserve,
       );
 
       root.style.height = `${availableHeight}px`;
@@ -169,7 +172,7 @@ export default function PublicLatestNewsBlock({
 
       frameId = window.requestAnimationFrame(() => {
         const limit =
-          editorialBoundary.getBoundingClientRect().bottom + 0.5;
+          editorialBoundary.getBoundingClientRect().bottom + sharedHeaderReserve + 0.5;
 
         let hideFollowing = false;
 
