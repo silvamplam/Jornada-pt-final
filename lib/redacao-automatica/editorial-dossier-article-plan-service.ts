@@ -19,6 +19,7 @@ import {
 import type { EditorialDossierArticlePlanStatus } from "@/lib/redacao-automatica/editorial-dossier-article-plan-repository";
 import type { EditorialSourcePackageArticlePlan } from "@/lib/redacao-automatica/editorial-source-package-internal";
 import type { ArticleClassificationKey } from "@/lib/editorial-classifications";
+import { findJornadaStructuralMarkerInArticle } from "./editorial-structural-markers";
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -495,6 +496,14 @@ export async function publishEditorialMesaOutput(input: Readonly<{
     classificationKey: ArticleClassificationKey;
   }>;
 }>): Promise<PublishEditorialMesaOutputResult> {
+  const technicalMarker = findJornadaStructuralMarkerInArticle(input.article);
+  if (technicalMarker) {
+    return {
+      ok: false,
+      code: "mesa-publication-article-invalid",
+      detail: `O campo ${technicalMarker.field} contém o marcador técnico ${technicalMarker.marker}. Corrija o texto antes de publicar.`,
+    };
+  }
   try {
     if (input.productionIntents !== undefined) {
       if (input.productionIntents.dossierId !== input.dossierId) return {ok:false,code:"mesa-publication-workspace-invalid"};

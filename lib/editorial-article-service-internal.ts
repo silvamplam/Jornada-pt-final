@@ -7,6 +7,7 @@ import {
   EDITORIAL_CONTEXT_POST_TITLE_MAX_CHARS,
 } from "@/lib/editorial-context-post-title";
 import type { EditorialInitialPlacement } from "@/lib/editorial-matchday-news-flow";
+import { findJornadaStructuralMarkerInArticle } from "@/lib/redacao-automatica/editorial-structural-markers";
 
 export type EditorialArticleStatus = "draft" | "published";
 export type EditorialArticleScope = "home" | "competition" | "matchday" | "general";
@@ -276,6 +277,13 @@ async function buildPayload(
   targetStatus: EditorialArticleStatus,
   transport: EditorialArticleServiceTransport,
 ): Promise<EditorialArticlePayload> {
+  const technicalMarker = findJornadaStructuralMarkerInArticle(input);
+  if (technicalMarker) {
+    throw new EditorialArticleServiceError(
+      "technical-marker-in-article",
+      `O campo ${technicalMarker.field} contém o marcador técnico ${technicalMarker.marker}. Corrija o texto antes de guardar.`,
+    );
+  }
   const title = cleanText(input.title);
   if (!title) {
     throw new EditorialArticleServiceError("missing-title");

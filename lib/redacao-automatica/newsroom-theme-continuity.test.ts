@@ -104,6 +104,46 @@ test("parser resolve mistura UPDATE, SEM_ALTERAÇÃO e exactly N NEW", () => {
   ]);
 });
 
+test("fecho colado ao último parágrafo mais fecho estrutural válido nunca fica pronto", () => {
+  const frozen = contract(1, 0);
+  const contaminated = block("EXISTING_01", "UPDATE").replace(
+    "CORPO\nCorpo integral.\n",
+    "CORPO\nCorpo integral. [/JORNADA_CONTINUIDADE_V1]\n",
+  );
+  const result = preflightEditorialThemeContinuityBatch(contaminated, frozen, sourcesByOutput(frozen));
+  assert.equal(result.ready, false);
+  assert.equal(result.articles.length, 0);
+  assert.ok(result.issues.some((issue) => (
+    issue.code === "technical_marker_in_field" && issue.field === "body"
+  )));
+});
+
+test("fechos em linha própria com CRLF e espaçamento Unicode são determinísticos", () => {
+  const frozen = contract(1, 0);
+  const standard = block("EXISTING_01", "UPDATE");
+  const variants = [
+    standard,
+    standard.replaceAll("\n", "\r\n"),
+    standard.replace("[/JORNADA_CONTINUIDADE_V1]", "\u00a0[/JORNADA_CONTINUIDADE_V1]\u200b"),
+    standard.replace("[/JORNADA_CONTINUIDADE_V1]", "[/JORNADA_\u200bCONTINUIDADE_V1]"),
+  ];
+  for (const input of variants) {
+    const first = preflightEditorialThemeContinuityBatch(input, frozen, sourcesByOutput(frozen));
+    assert.equal(first.ready, true);
+    assert.equal(first.articles[0].body, "Corpo integral.");
+    assert.deepEqual(preflightEditorialThemeContinuityBatch(input, frozen, sourcesByOutput(frozen)), first);
+  }
+});
+
+test("whitespace Unicode no corpo jornalístico é preservado sem normalização ampla", () => {
+  const frozen = contract(1, 0);
+  const body = "Corpo\u00a0integral.\u200b\nOutro parágrafo com espaços  internos.";
+  const input = block("EXISTING_01", "UPDATE").replace("Corpo integral.", body);
+  const result = preflightEditorialThemeContinuityBatch(input, frozen, sourcesByOutput(frozen));
+  assert.equal(result.ready, true);
+  assert.equal(result.articles[0].body, body);
+});
+
 test("todos SEM_ALTERAÇÃO com N=0 ficam prontos e não materializam artigos", () => {
   const frozen = contract(3, 0);
   const result = preflightEditorialThemeContinuityBatch(
