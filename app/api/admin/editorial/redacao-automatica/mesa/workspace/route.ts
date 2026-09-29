@@ -1,5 +1,6 @@
 import { parseMesaProductionIntents, mesaProductionIntentSlots } from "@/lib/redacao-automatica/newsroom-mesa-production-intents-contract";
 import { NextResponse } from "next/server";
+import { editorialImageOriginalPath } from "@/lib/editorial-image-authority";
 
 import type {
   EditorialDossierArticleKind,
@@ -394,6 +395,7 @@ function packageExternalImage(
 ): EditorialSourcePackageExternalImage | null {
   if (!image || typeof image !== "object" || !("frozenUrl" in image)) return null;
   const frozenUrl = String(image.frozenUrl);
+  if (!editorialImageOriginalPath(frozenUrl)) return null;
   try {
     const parsed = new URL(frozenUrl);
     const decodedPath = decodeURIComponent(parsed.pathname);
@@ -402,7 +404,7 @@ function packageExternalImage(
     const fileName = "fileName" in image && typeof image.fileName === "string"
       ? image.fileName
       : pathName;
-    return /\.(?:jpe?g|png|webp)$/i.test(fileName) ? { url: frozenUrl, fileName } : null;
+    return /\.(?:jpe?g|png|webp|avif)$/i.test(fileName) ? { url: frozenUrl, fileName } : null;
   } catch {
     return null;
   }
@@ -536,14 +538,12 @@ async function prepareWorkspaceSourcePackage(dossierId: string) {
     const selectedImage = plan.imageChoice.mode === "dossier_image"
       ? imageById.get(plan.imageChoice.dossierImageId) ?? null
       : null;
-    const selectedSourceImage = selectedImage?.origin === "newsroom"
-      && workspaceSources.some((source) => source.newsroomArticleId === selectedImage.newsroomArticleId)
-      ? selectedImage.newsroomArticleId
-      : null;
-    const externalImage = selectedImage && !selectedSourceImage
+    // The source reference remains in dossier/decision provenance. Rebuilding
+    // the visual URL from newsroom_articles would discard the frozen bytes.
+    const externalImage = selectedImage
       ? packageExternalImage(selectedImage)
       : null;
-    if (selectedImage && !selectedSourceImage && !externalImage) {
+    if (selectedImage && !externalImage) {
       return { ok: false as const, status: 409, message: `A imagem do artigo ${index + 1} não pode ser incluída no pacote. Escolhe uma imagem do banco editorial.` };
     }
 
@@ -579,7 +579,7 @@ async function prepareWorkspaceSourcePackage(dossierId: string) {
         : {}),
       sourceArticlePosition: 1,
       focus: (plan.editorialInstructions || outputWorkingTitle).slice(0, 240),
-      imageNewsroomArticleId: selectedSourceImage,
+      imageNewsroomArticleId: null,
       ...(externalImage ? { externalImage } : {}),
       ...(target ? {
         publishedArticleId: target.editorialArticleId,

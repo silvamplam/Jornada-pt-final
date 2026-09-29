@@ -74,7 +74,9 @@ test("cada artigo prioriza imagens das fontes congeladas e conserva o banco glob
   assert.match(clientSource, /continuitySlots\.find\(\(slot\) => slot\.outputId === outputId\)/);
   assert.match(clientSource, /"focusSourceIds" in continuitySlot/);
   assert.match(clientSource, /editorialMesaContextualImages\([\s\S]*?focusSourceIds,[\s\S]*?selectedImageChoice/);
-  assert.match(clientSource, /images=\{displayedDossierImages\}/);
+  assert.match(clientSource, /images=\{displayedDossierImages\.map/);
+  assert.match(clientSource, /freezeDossierImageId: sourcePackage\?\.dossierImages\?\.some/);
+  assert.match(clientSource, /dossierImageId === image\.id\)\?\.dossierImageId \?\? null/);
   assert.match(clientSource, /Não há imagens diretamente ligadas ao ponto de partida deste artigo\./);
   assert.match(clientSource, /"Ver todas as imagens"/);
   assert.match(clientSource, /allowPreservePublished=\{existingOutput\}/);

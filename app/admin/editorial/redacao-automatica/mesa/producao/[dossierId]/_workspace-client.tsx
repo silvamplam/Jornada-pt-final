@@ -472,6 +472,7 @@ function PlanEditor({
     ? null
     : visualSeed?.image?.id ?? null;
   const initialExplicitImage = explicitImageSelectValue(plan);
+  const [confirmedImages, setConfirmedImages] = useState<Record<string, string>>({});
   const [imageChoices, setImageChoices] = useState<Readonly<Record<"new" | "update", string | null>>>({
     new: initialExplicitImage === "preserve_published" ? "unselected" : initialExplicitImage,
     update: initialExplicitImage,
@@ -499,7 +500,7 @@ function PlanEditor({
       }
     : null;
   const selectedImageUrl = selectedImage.startsWith("dossier_image:")
-    ? images.find((image) => image.id === selectedImage.slice("dossier_image:".length))?.frozenUrl ?? null
+    ? confirmedImages[selectedImage] ?? images.find((image) => image.id === selectedImage.slice("dossier_image:".length))?.frozenUrl ?? null
     : selectedImage === "preserve_published"
       ? selectedTarget?.currentImageUrl ?? null
       : null;
@@ -697,10 +698,10 @@ function PlanEditor({
           allowNoImage
           allowPreservePublished={destination === "update"}
           preservePublishedImageUrl={selectedTarget?.currentImageUrl}
-          onChange={(value) => setImageChoices((current) => ({
-            ...current,
-            [destination]: value,
-          }))}
+          onChange={(value, url) => {
+            if (url) setConfirmedImages(current => ({ ...current, [value]: url }));
+            setImageChoices(current => ({ ...current, [destination]: value }));
+          }}
           onAddImage={() => openDossierImageBank("workspace-image-bank")}
           addImageControls="workspace-image-bank"
         />

@@ -8,6 +8,7 @@ import {
 } from "@/lib/editorial-context-post-title";
 import type { EditorialInitialPlacement } from "@/lib/editorial-matchday-news-flow";
 import { findJornadaStructuralMarkerInArticle } from "@/lib/redacao-automatica/editorial-structural-markers";
+import { assertEditorialImageAuthority } from "./editorial-image-authority";
 
 export type EditorialArticleStatus = "draft" | "published";
 export type EditorialArticleScope = "home" | "competition" | "matchday" | "general";
@@ -116,6 +117,7 @@ type ArticleStatusRow = Readonly<{
   status: string | null;
   matchday_id: string | null;
   slug: string | null;
+  image_url?: string | null;
 }>;
 
 type CreatedArticleRow = Readonly<{
@@ -138,6 +140,7 @@ type MatchdayContextRow = Readonly<{
 }>;
 
 export interface EditorialArticleServiceTransport {
+  requireImage?(imageUrl: string | null, currentArticleId?: string): Promise<void>;
   findArticlesBySlug(slug: string): Promise<readonly ArticleIdRow[]>;
   readArticleStatus(articleId: string): Promise<ArticleStatusRow | null>;
   readCompetition(competitionId: string): Promise<CompetitionContextRow | null>;
@@ -422,6 +425,10 @@ export function createEditorialArticleService(
     ): Promise<EditorialArticleWriteResult> {
       const targetStatus = options.action === "publish" ? "published" : "draft";
       const payload = await buildPayload(input, null, targetStatus, transport);
+      if (targetStatus === "published") {
+        assertEditorialImageAuthority(payload.image_url);
+        await transport.requireImage?.(payload.image_url);
+      }
       const rows = await transport.insertArticle(createInsertPayload(payload, transport));
       const created = rows[0];
 
@@ -469,6 +476,10 @@ export function createEditorialArticleService(
           ? { ...input, slug: currentArticle.slug }
           : input;
       const payload = await buildPayload(stableInput, articleId, targetStatus, transport);
+      if (targetStatus === "published") {
+        assertEditorialImageAuthority(payload.image_url, currentArticle);
+        await transport.requireImage?.(payload.image_url, articleId);
+      }
       const updatePayload = {
         ...payload,
         updated_at: transport.now(),

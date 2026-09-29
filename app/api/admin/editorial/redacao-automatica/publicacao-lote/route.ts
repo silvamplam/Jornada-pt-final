@@ -1,6 +1,7 @@
 import { mesaProductionIntentSlots, sameMesaIntentJson } from "@/lib/redacao-automatica/newsroom-mesa-production-intents-contract";
 import { mesaIntentService } from "@/lib/redacao-automatica/newsroom-mesa-production-intents-service";
 import { NextResponse } from "next/server";
+import { requirePublishableEditorialImage } from "@/lib/editorial-image-publication.server";
 
 import {
   createEditorialArticle,
@@ -1935,6 +1936,11 @@ async function publishThemeContinuityBatch(payload: BatchPublicationPayload) {
   let continuity: Awaited<ReturnType<typeof prepareThemeContinuityPublication>>;
   try {
     continuity = await prepareThemeContinuityPublication(payload, true);
+    // Validate every image before the first article transaction. Storage work
+    // can be retried independently; an invalid later image publishes nothing.
+    for (const item of continuity.prepared) {
+      await requirePublishableEditorialImage(item.imageUrl, item.articleId);
+    }
   } catch (error) {
     return jsonError(
       "theme-continuity-publication-invalid",

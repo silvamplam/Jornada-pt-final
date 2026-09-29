@@ -6,6 +6,7 @@ import {
 } from "@/lib/editorial-context-post-title";
 
 import ExternalArticleImport from "./_externalArticleImport";
+import FreezeArticleImage from "./_freezeArticleImage";
 
 export type EditorialArticle = {
   id: string;
@@ -463,6 +464,7 @@ export function ArticleEditorForm({
             <span>Imagem principal</span>
             <input name="image_url" defaultValue={article?.image_url ?? ""} placeholder="https://..." required />
           </label>
+          <FreezeArticleImage />
 
           <div className="article-admin-upload article-admin-full" data-article-image-upload>
             <label>

@@ -378,10 +378,12 @@ test("upload pipelines all request completion after success and continue persist
     assert.match(text, /"x-upsert": "false"/);
   }
   const importer = source("app/api/admin/editorial/artigos/import-source-image/route.ts");
-  assert.match(importer, /try \{\s+await ensureEditorialImagePreviews\([^;]+;\s+\} catch \{\s+console.warn\([^;]+;\s+\}\s+return NextResponse.json/);
-  assert.match(importer, /ensureEditorialImagePreviews\(path, createEditorialPreviewStorage\(config\), downloaded.bytes, PUBLIC_EDITORIAL_PREVIEW_WIDTHS\)/);
-  assert.match(importer, /publicUrl: publicStorageUrl\(config.url, path\)/);
-  assert.ok(importer.indexOf("ensureEditorialImagePreviews(path") > importer.indexOf("if (uploadError)"));
+  assert.match(importer, /createImageFreezeStorage\(config\)/);
+  assert.match(importer, /storage\.freeze/);
+  assert.match(importer, /publicUrl: image.publicUrl/);
+  const freezer = source("lib/editorial-image-freeze.server.ts");
+  assert.match(freezer, /writeOriginal\(image, bytes\)/);
+  assert.match(freezer, /ensureEditorialImagePreviews\(image.path, storage, bytes, PUBLIC_EDITORIAL_PREVIEW_WIDTHS\)/);
   const endpoint = source("app/api/admin/editorial/image-previews/complete/route.ts");
   assert.match(endpoint, /verifyAdminSession/);
   assert.match(endpoint, /verifyEditorialPreviewTicket/);

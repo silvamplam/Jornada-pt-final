@@ -20,6 +20,30 @@ const SEASON_ID = "55555555-5555-5555-5555-555555555555";
 const OTHER_SEASON_ID = "66666666-6666-6666-6666-666666666666";
 const MATCHDAY_ID = "77777777-7777-7777-7777-777777777777";
 const DEFAULT_NOW = "2026-08-13T12:00:00.000Z";
+process.env.NEXT_PUBLIC_SUPABASE_URL = "https://images-test.supabase.co";
+const LOCAL_IMAGE = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/editorial-images/editorial/sha256/${"a".repeat(64)}.jpg`;
+
+test("NEW external rejects before persistence; materialized NEW persists local URL", async () => {
+  const { service, state } = fixture();
+  await assert.rejects(service.createArticle(completeInput({ image_url: "https://source.example/A.jpg" }), { action: "publish", initialPlacement: "none" }), /materialization-required/);
+  assert.equal(state.inserted.length, 0);
+  await service.createArticle(completeInput(), { action: "publish", initialPlacement: "none" });
+  assert.equal(state.inserted[0].image_url, LOCAL_IMAGE);
+});
+
+test("legacy UPDATE preserve succeeds; new external fails; materialized replacement succeeds without changing identity", async () => {
+  const { service, state } = fixture();
+  const image_url = "https://legacy.example/A.jpg";
+  state.currentArticle = { id: ARTICLE_ID, status: "published", matchday_id: null, slug: "fixed", image_url };
+  await service.updateArticle(ARTICLE_ID, completeInput({ image_url }), { action: "save", initialPlacement: "none" });
+  assert.equal(state.updated[0].payload.image_url, image_url);
+  await assert.rejects(service.updateArticle(ARTICLE_ID, completeInput({ image_url: "https://legacy.example/B.jpg" }), { action: "publish", initialPlacement: "none" }), /materialization-required/);
+  assert.equal(state.updated.length, 1);
+  await service.updateArticle(ARTICLE_ID, completeInput(), { action: "publish", initialPlacement: "none" });
+  assert.equal(state.updated[1].payload.image_url, LOCAL_IMAGE);
+  assert.equal(state.updated[1].articleId, ARTICLE_ID);
+  assert.equal(state.updated[1].payload.slug, "fixed");
+});
 
 function completeInput(
   overrides: Partial<EditorialArticleInput> = {},
@@ -30,7 +54,7 @@ function completeInput(
     subtitle: "Pós-título completo",
     body: "Corpo completo do artigo.",
     slug: "titulo-canonico",
-    image_url: "https://example.test/image.jpg",
+    image_url: LOCAL_IMAGE,
     image_caption: "Legenda",
     author: "Jornalista",
     published_at: "2026-08-13T10:30:00.000Z",
@@ -50,6 +74,7 @@ function fixture() {
       status: string | null;
       matchday_id: string | null;
       slug?: string | null;
+      image_url?: string | null;
     } | null,
     competitions: new Map<string, { id: string }>(),
     seasons: new Map<string, { id: string; competition_id: string | null }>(),
@@ -268,7 +293,7 @@ test("criação published grava o contrato canónico completo", async () => {
       title: "Título canónico",
       subtitle: "Pós-título completo",
       body: "Corpo completo do artigo.",
-      image_url: "https://example.test/image.jpg",
+      image_url: LOCAL_IMAGE,
       image_caption: "Legenda",
       author: "Jornalista",
       status: "published",
