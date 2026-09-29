@@ -1,6 +1,8 @@
 .frame {
   --public-editorial-section-transition: clamp(32px, 3.2vw, 44px);
   --public-editorial-section-entry: clamp(24px, 2.6vw, 34px);
+  --public-editorial-section-title-rule-gap: 12px;
+  --public-editorial-section-rule-content-gap: 24px;
 
   position: relative;
   width: min(100%, 1200px);
@@ -13,7 +15,7 @@
 
 .frame::before {
   position: absolute;
-  top: 5px;
+  top: var(--public-editorial-section-rule-top, 5px);
   right: 0;
   left: 0;
   height: 1px;

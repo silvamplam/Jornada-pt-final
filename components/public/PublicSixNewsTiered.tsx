@@ -109,13 +109,14 @@ const styles = `
     line-clamp: 1;
   }
   @media (min-width: 681px) {
-    /* Mirror the first two tiers without changing media/copy widths or mobile. */
+    /* Widen the lead image leftward, preserving its height and the mobile layout. */
     .public-six-news-tiered-row[data-editorial-tier="lead"] .public-six-news-tiered-card {
-      grid-template-columns: minmax(0, 1.2fr) minmax(0, .8fr);
+      grid-template-columns: minmax(0, 1.04fr) minmax(0, .96fr);
       grid-template-areas: "copy media";
     }
     .public-six-news-tiered-row[data-editorial-tier="lead"] .public-six-news-tiered-media {
       grid-area: media;
+      aspect-ratio: 2.64 / 1;
     }
     .public-six-news-tiered-row[data-editorial-tier="lead"] .public-six-news-tiered-copy {
       grid-area: copy;
