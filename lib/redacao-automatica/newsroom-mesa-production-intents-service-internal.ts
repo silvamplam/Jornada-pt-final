@@ -10,6 +10,7 @@ import {
   isArticleClassificationKey,
   type ArticleClassificationKey,
 } from "@/lib/editorial-classifications";
+import { findJornadaStructuralMarkerInArticle } from "./editorial-structural-markers";
 
 export type MesaIntentRpcTransport = Readonly<{
   post: (name: string, args: Readonly<Record<string, unknown>>) => Promise<readonly unknown[]>;
@@ -68,6 +69,10 @@ export function mesaProductionIntentsService(transport: MesaIntentRpcTransport) 
       plan: MesaProductionIntentsFrozen; packageId: string; outputId: string;
       dossierSourceIds: readonly string[]; article: MesaIntentPublicationArticle;
     }>) {
+      const technicalMarker = findJornadaStructuralMarkerInArticle(input.article);
+      if (technicalMarker) {
+        throw new Error(`mesa-publication-article-invalid: O campo ${technicalMarker.field} contém o marcador técnico ${technicalMarker.marker}. Corrija o texto antes de publicar.`);
+      }
       const p=frozen(input.plan), a=input.article, o=p.outputs.find((o) => o.outputId === input.outputId);
       if (!o || !id(input.packageId) || !id(a.id) || !input.dossierSourceIds.length || input.dossierSourceIds.length>20
         || !input.dossierSourceIds.every(id) || new Set(input.dossierSourceIds).size !== input.dossierSourceIds.length

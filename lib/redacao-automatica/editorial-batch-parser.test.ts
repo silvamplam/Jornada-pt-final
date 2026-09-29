@@ -446,10 +446,16 @@ test("o core puro não depende de server-only, Supabase, rede, IA ou persistênc
     "lib/redacao-automatica/editorial-batch-parser.ts",
     "utf8",
   );
+  const markerSource = readFileSync(
+    "lib/redacao-automatica/editorial-structural-markers.ts",
+    "utf8",
+  );
 
   assert.doesNotMatch(source, /server-only|supabase|fetch\s*\(|openai|createEditorialArticle|updateEditorialArticle/i);
   assert.doesNotMatch(source, /placePublishedArticleInitially|writeSupabase|localStorage|FileList/i);
-  assert.doesNotMatch(source, /^import\s/m);
+  assert.match(source, /from "\.\/editorial-structural-markers";/);
+  assert.equal((source.match(/^import\s/gm) ?? []).length, 1);
+  assert.doesNotMatch(markerSource, /server-only|supabase|fetch\s*\(|openai|createEditorialArticle|updateEditorialArticle|^import\s/im);
 });
 
 test("o mesmo input produz resultado determinístico", () => {
@@ -503,6 +509,19 @@ test("marcador de fecho literal dentro do corpo é reportado sem recuperação s
 
   assert.equal(issueFor(result, "nested_article_marker")?.key, "01");
   assert.equal(result.ready, false);
+});
+
+test("contrato antigo recusa marcadores Jornada equivalentes em campos publicáveis", () => {
+  for (const field of ["label", "title", "subtitle", "body"] as const) {
+    const result = preflightEditorialArticleBatch(articleBlock({
+      [field]: `Texto jornalístico. [JORNADA_CONTINUIDADE_V2]`,
+    }));
+    assert.equal(result.ready, false, field);
+    assert.ok(result.issues.some((item) => (
+      item.field === field && item.code === "technical_marker_in_field"
+        || item.code === "nested_article_marker"
+    )), field);
+  }
 });
 
 test("texto depois do último bloco também é rejeitado", () => {

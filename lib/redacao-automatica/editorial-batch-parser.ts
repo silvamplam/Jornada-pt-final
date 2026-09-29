@@ -1,3 +1,8 @@
+import {
+  findJornadaStructuralMarker,
+  normalizeJornadaStructuralLine,
+} from "./editorial-structural-markers";
+
 export const EDITORIAL_BATCH_ARTICLE_START_MARKER = "[JORNADA_ARTIGO_V1]";
 export const EDITORIAL_BATCH_ARTICLE_END_MARKER = "[/JORNADA_ARTIGO_V1]";
 export const EDITORIAL_BATCH_MAX_ARTICLES = 30;
@@ -31,6 +36,7 @@ export type EditorialBatchIssueCode =
   | "duplicate_field_heading"
   | "wrong_field_order"
   | "unexpected_block_text"
+  | "technical_marker_in_field"
   | "empty_label"
   | "empty_title"
   | "empty_subtitle"
@@ -448,7 +454,7 @@ function parseEditorialArticleBatchWithContract(
   }
 
   for (const line of normalizedInput.split("\n")) {
-    const structuralLine = line.trim();
+    const structuralLine = normalizeJornadaStructuralLine(line);
 
     if (!currentBlock) {
       if (structuralLine === "") {
@@ -491,10 +497,7 @@ function parseEditorialArticleBatchWithContract(
       continue;
     }
 
-    if (
-      line.includes(EDITORIAL_BATCH_ARTICLE_START_MARKER)
-      || line.includes(EDITORIAL_BATCH_ARTICLE_END_MARKER)
-    ) {
+    if (findJornadaStructuralMarker(line)) {
       addIssueOnce(indexedIssue(
         currentBlock,
         "nested_article_marker",
@@ -562,6 +565,15 @@ function preflightEditorialArticleBatchResult(
           article,
           EMPTY_CODE_BY_FIELD[field],
           `O campo ${HEADING_BY_FIELD[field]} do artigo ${article.key} está vazio.`,
+          field,
+        ));
+      }
+      const marker = findJornadaStructuralMarker(article[field]);
+      if (marker) {
+        issues.push(indexedIssue(
+          article,
+          "technical_marker_in_field",
+          `O campo ${HEADING_BY_FIELD[field]} do artigo ${article.key} contém o marcador técnico ${marker}. Corrija o texto antes de publicar.`,
           field,
         ));
       }
@@ -717,7 +729,7 @@ function captureContinuityBlocks(input: string) {
   const issues: EditorialBatchIssue[] = [];
   let current: { index: number; lines: string[] } | null = null;
   for (const line of normalizeLineEndings(input).split("\n")) {
-    const structural = line.trim();
+    const structural = normalizeJornadaStructuralLine(line);
     if (!current) {
       if (!structural) continue;
       if (structural === THEME_CONTINUITY_START_MARKER) {
@@ -835,6 +847,21 @@ export function preflightEditorialThemeContinuityBatch(
     const title = withoutStructuralBoundaryLines(values.get("TÍTULO") ?? []);
     const subtitle = withoutStructuralBoundaryLines(values.get("PÓS-TÍTULO") ?? []);
     const body = withoutStructuralBoundaryLines(values.get("CORPO") ?? []);
+    const publicFields = { label, title, subtitle, body };
+    let contaminated = false;
+    for (const field of FIELD_ORDER) {
+      const marker = findJornadaStructuralMarker(publicFields[field]);
+      if (marker) {
+        issues.push(indexedIssue(
+          blockContext,
+          "technical_marker_in_field",
+          `O campo ${HEADING_BY_FIELD[field]} de ${slotName} contém o marcador técnico ${marker}. Corrija o texto antes de publicar.`,
+          field,
+        ));
+        contaminated = true;
+      }
+    }
+    if (contaminated) continue;
     if (
       sourceIds.length < 1
       || sourceIds.some((id) => !UUID_PATTERN.test(id) || !authorized.has(id))
@@ -849,10 +876,7 @@ export function preflightEditorialThemeContinuityBatch(
       key: batchKey(block.index),
       outputId: expected.outputId,
       sourceIds,
-      label,
-      title,
-      subtitle,
-      body,
+      ...publicFields,
     };
     decisions.push({ slot: slotName, decision, outputId: expected.outputId, article });
   }

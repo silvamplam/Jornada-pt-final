@@ -67,6 +67,7 @@ function fixture() {
       placement: "none" | "headline" | "editorial_line_item" | "highlight" | "complement" | "important_item";
     }>,
     nowValues: [] as string[],
+    persistedArticle: null as Record<string, unknown> | null,
     placementFailure: null as unknown,
   };
 
@@ -92,6 +93,7 @@ function fixture() {
       return [{ id: ARTICLE_ID, slug: payload.slug ?? null }];
     },
     async updateArticle(articleId, payload) {
+      if (state.persistedArticle) state.persistedArticle = { ...state.persistedArticle, ...payload };
       state.updated.push({ articleId, payload });
       state.updateEvents.push("article-updated");
     },
@@ -139,6 +141,83 @@ async function expectServiceError(
     error instanceof EditorialArticleServiceError && error.code === code
   ));
 }
+
+test("CREATE recusa marcador técnico antes de inserir artigo draft ou publicado", async () => {
+  for (const action of ["save", "publish"] as const) {
+    const { service, state } = fixture();
+    await expectServiceError(() => service.createArticle(
+      completeInput({ body: "Corpo integral. [/JORNADA_CONTINUIDADE_V1]" }),
+      { action, initialPlacement: "none" },
+    ), "technical-marker-in-article");
+    assert.equal(state.inserted.length, 0);
+    assert.equal(state.placements.length, 0);
+  }
+});
+
+test("UPDATE contaminado mantém o artigo publicado e os snapshots intactos", async () => {
+  const { service, state } = fixture();
+  state.currentArticle = {
+    id: ARTICLE_ID,
+    status: "published",
+    matchday_id: MATCHDAY_ID,
+    slug: "titulo-canonico",
+  };
+  state.persistedArticle = {
+    status: "published",
+    scope: "matchday",
+    title: "Título original",
+    subtitle: "Pós-título original",
+    body: "Corpo original",
+    image_url: "https://example.test/original.jpg",
+    published_at: "2026-09-20T12:00:00.000Z",
+    label: "Liga",
+    author: "Autor original",
+    slug: "titulo-canonico",
+    image_caption: "Legenda original",
+    competition_id: COMPETITION_ID,
+    season_id: SEASON_ID,
+    matchday_id: MATCHDAY_ID,
+  };
+  const before = structuredClone(state.currentArticle);
+  const persistedBefore = structuredClone(state.persistedArticle);
+  await expectServiceError(() => service.updateArticle(
+    ARTICLE_ID,
+    completeInput({ subtitle: "Pós-título [/JORNADA_ARTIGO_V1]" }),
+    { action: "publish", initialPlacement: "none" },
+  ), "technical-marker-in-article");
+  assert.deepEqual(state.currentArticle, before);
+  assert.deepEqual(state.persistedArticle, persistedBefore);
+  assert.deepEqual(state.updated, []);
+  assert.deepEqual(state.snapshotSyncs, []);
+  assert.deepEqual(state.placements, []);
+});
+
+test("CREATE e UPDATE limpos funcionam na tentativa seguinte à rejeição", async () => {
+  const created = fixture();
+  await expectServiceError(() => created.service.createArticle(
+    completeInput({ body: "Corpo [/JORNADA_ARTIGO_V1]" }),
+    { action: "publish", initialPlacement: "none" },
+  ), "technical-marker-in-article");
+  await created.service.createArticle(completeInput(), { action: "publish", initialPlacement: "none" });
+  assert.equal(created.state.inserted.length, 1);
+  assert.equal(created.state.inserted[0].body, "Corpo completo do artigo.");
+
+  const updated = fixture();
+  updated.state.currentArticle = {
+    id: ARTICLE_ID, status: "published", matchday_id: MATCHDAY_ID, slug: "titulo-canonico",
+  };
+  await expectServiceError(() => updated.service.updateArticle(
+    ARTICLE_ID,
+    completeInput({ body: "Corpo [/JORNADA_CONTINUIDADE_V1]" }),
+    { action: "publish", initialPlacement: "none" },
+  ), "technical-marker-in-article");
+  await updated.service.updateArticle(ARTICLE_ID, completeInput(), {
+    action: "publish", initialPlacement: "none",
+  });
+  assert.equal(updated.state.updated.length, 1);
+  assert.equal(updated.state.updated[0].payload.body, "Corpo completo do artigo.");
+  assert.equal(updated.state.snapshotSyncs.length, 1);
+});
 
 test("criação draft preserva campos vazios e não exige o contrato de publicação", async () => {
   const { service, state } = fixture();

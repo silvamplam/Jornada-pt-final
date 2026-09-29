@@ -53,6 +53,40 @@ test("publicar sem classificação é recusado antes da RPC, em NEW e UPDATE", a
   assert.equal(calls, 0);
 });
 
+test("NEW e UPDATE de Mesa intents recusam marcador técnico sem chamar a RPC", async () => {
+  let calls = 0;
+  const service = mesaProductionIntentsService({
+    get: async () => [],
+    post: async () => { calls++; return []; },
+  });
+  for (const kind of ["new", "existing"] as const) {
+    const input = publication(kind);
+    await assert.rejects(service.publish({
+      ...input,
+      article: { ...input.article, body: "Corpo. [/JORNADA_CONTINUIDADE_V1]" },
+    }), /mesa-publication-article-invalid.*body/);
+  }
+  assert.equal(calls, 0);
+});
+
+test("uma rejeição não altera a retentativa limpa da mesma publicação", async () => {
+  const input = publication("existing");
+  const calls: Readonly<Record<string, unknown>>[] = [];
+  const service = mesaProductionIntentsService({ get: async () => [], post: async (_name, args) => {
+    calls.push(args);
+    return [{ editorial_article_id: input.article.id, article_slug: input.article.slug,
+      publication_action: "reused", consolidated: true }];
+  } });
+  await assert.rejects(service.publish({
+    ...input,
+    article: { ...input.article, body: "Corpo [/JORNADA_CONTINUIDADE_V1]" },
+  }), /mesa-publication-article-invalid/);
+  assert.equal(calls.length, 0);
+  assert.equal((await service.publish(input)).action, "reused");
+  assert.equal(calls.length, 1);
+  assert.deepEqual(calls[0].p_article, input.article);
+});
+
 test("retry conserva o payload final e propaga conflito da autoridade SQL sem fallback", async () => {
   const input = publication("existing");
   const calls: Readonly<Record<string, unknown>>[] = [];

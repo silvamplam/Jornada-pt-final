@@ -61,6 +61,9 @@ import {
   isArticleClassificationKey,
   type ArticleClassificationKey,
 } from "@/lib/editorial-classifications";
+import {
+  findJornadaStructuralMarkerInPublicationBatch,
+} from "@/lib/redacao-automatica/editorial-structural-markers";
 
 const MAX_BATCH_ARTICLES = 30;
 const OFFICIAL_BATCH_KEY = /^\d{2}$/;
@@ -2229,6 +2232,19 @@ export async function POST(request: Request) {
   }
 
   const action = cleanText(payload.action);
+  if (action === "preflight" || action === "publish_item" || action === "publish_theme_continuity") {
+    const articles = action === "publish_item"
+      ? [payload.article]
+      : Array.isArray(payload.articles) ? payload.articles : [];
+    const technicalMarker = findJornadaStructuralMarkerInPublicationBatch(payload.author, articles);
+    if (technicalMarker) {
+      const location = technicalMarker.articleIndex === null
+        ? "O campo author"
+        : `O artigo ${technicalMarker.articleIndex}, campo ${technicalMarker.field},`;
+      return jsonError("technical-marker-in-article", 409,
+        `${location} contém o marcador técnico ${technicalMarker.marker}. Corrija o texto antes de publicar.`);
+    }
+  }
   if (payload.sourcePackage && typeof payload.sourcePackage === "object" && Object.hasOwn(payload.sourcePackage, "productionIntents")) {
     const transfer = parseTransferSourcePackage(payload.sourcePackage);
     if (!transfer?.productionIntents || !["preflight", "publish_theme_continuity"].includes(action)) {
