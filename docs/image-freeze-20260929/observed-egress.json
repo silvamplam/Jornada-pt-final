@@ -1,0 +1,210 @@
+{
+  "source": "Supabase query_logs edge_logs; GET /editorial-images/; response Content-Length, not billed usage; UTC windows",
+  "windows": [
+    {
+      "start": "2026-09-22T00:00:00Z",
+      "end": "2026-09-23T00:00:00Z",
+      "rows": [
+        {
+          "bytes": 50329907,
+          "cache": "HIT",
+          "kind": "original",
+          "requests": 402,
+          "status": "200"
+        },
+        {
+          "bytes": 10219425,
+          "cache": "MISS",
+          "kind": "original",
+          "requests": 86,
+          "status": "200"
+        },
+        {
+          "bytes": 0,
+          "cache": "HIT",
+          "kind": "original",
+          "requests": 18,
+          "status": "304"
+        }
+      ]
+    },
+    {
+      "start": "2026-09-23T00:00:00Z",
+      "end": "2026-09-24T00:00:00Z",
+      "rows": [
+        {
+          "bytes": 42291121,
+          "cache": "HIT",
+          "kind": "original",
+          "requests": 336,
+          "status": "200"
+        },
+        {
+          "bytes": 2751333,
+          "cache": "MISS",
+          "kind": "original",
+          "requests": 28,
+          "status": "200"
+        },
+        {
+          "bytes": 0,
+          "cache": "HIT",
+          "kind": "original",
+          "requests": 2,
+          "status": "304"
+        }
+      ]
+    },
+    {
+      "start": "2026-09-26T00:00:00Z",
+      "end": "2026-09-27T00:00:00Z",
+      "rows": [
+        {
+          "bytes": 22610424,
+          "cache": "MISS",
+          "kind": "preview",
+          "requests": 419,
+          "status": "200"
+        },
+        {
+          "bytes": 10569530,
+          "cache": "HIT",
+          "kind": "preview",
+          "requests": 248,
+          "status": "200"
+        },
+        {
+          "bytes": 16983319,
+          "cache": "MISS",
+          "kind": "original",
+          "requests": 153,
+          "status": "200"
+        },
+        {
+          "bytes": 10855404,
+          "cache": "HIT",
+          "kind": "original",
+          "requests": 108,
+          "status": "200"
+        },
+        {
+          "bytes": 7500,
+          "cache": "BYPASS",
+          "kind": "preview",
+          "requests": 60,
+          "status": "429"
+        },
+        {
+          "bytes": 5500,
+          "cache": "BYPASS",
+          "kind": "original",
+          "requests": 44,
+          "status": "429"
+        },
+        {
+          "bytes": 1056,
+          "cache": "BYPASS",
+          "kind": "preview",
+          "requests": 12,
+          "status": "400"
+        },
+        {
+          "bytes": 0,
+          "cache": "HIT",
+          "kind": "original",
+          "requests": 1,
+          "status": "304"
+        }
+      ]
+    },
+    {
+      "start": "2026-09-27T00:00:00Z",
+      "end": "2026-09-28T00:00:00Z",
+      "rows": [
+        {
+          "bytes": 9070030,
+          "cache": "MISS",
+          "kind": "preview",
+          "requests": 144,
+          "status": "200"
+        },
+        {
+          "bytes": 5603436,
+          "cache": "HIT",
+          "kind": "preview",
+          "requests": 117,
+          "status": "200"
+        },
+        {
+          "bytes": 17847323,
+          "cache": "HIT",
+          "kind": "original",
+          "requests": 21,
+          "status": "200"
+        },
+        {
+          "bytes": 10125201,
+          "cache": "MISS",
+          "kind": "original",
+          "requests": 17,
+          "status": "200"
+        },
+        {
+          "bytes": 0,
+          "cache": "HIT",
+          "kind": "original",
+          "requests": 6,
+          "status": "304"
+        },
+        {
+          "bytes": 528,
+          "cache": "BYPASS",
+          "kind": "preview",
+          "requests": 6,
+          "status": "400"
+        }
+      ]
+    },
+    {
+      "start": "2026-09-28T00:00:00Z",
+      "end": "2026-09-29T00:00:00Z",
+      "rows": [
+        {
+          "bytes": 6163388,
+          "cache": "MISS",
+          "kind": "preview",
+          "requests": 165,
+          "status": "200"
+        },
+        {
+          "bytes": 7273089,
+          "cache": "MISS",
+          "kind": "original",
+          "requests": 28,
+          "status": "200"
+        },
+        {
+          "bytes": 26454624,
+          "cache": "HIT",
+          "kind": "original",
+          "requests": 26,
+          "status": "200"
+        },
+        {
+          "bytes": 904084,
+          "cache": "HIT",
+          "kind": "preview",
+          "requests": 24,
+          "status": "200"
+        },
+        {
+          "bytes": 0,
+          "cache": "HIT",
+          "kind": "original",
+          "requests": 9,
+          "status": "304"
+        }
+      ]
+    }
+  ]
+}

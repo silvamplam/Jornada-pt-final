@@ -1,0 +1,107 @@
+<!doctype html><meta charset="utf-8"><title>A3 main-to-branch</title><style>body{font:13px monospace;margin:24px}.line{white-space:pre-wrap;overflow-wrap:anywhere;min-height:1em}.add{background:#e5f6e5}.del{background:#ffeaea}.hunk{background:#e7eefb}h1{font:22px system-ui}</style><h1>A3 main-to-branch</h1><p>Baseline 2d6628f432d659fa7c4c0314730cd5ed0f183348; main ccfebdc9c85ec8f6167dcc0768c11496112ecc1a. Baseline do teste inalterado.</p><div class="line ">diff --git a/app/admin/editorial/artigos/_articleForm.tsx b/app/admin/editorial/artigos/_articleForm.tsx</div>
+<div class="line ">index 3471cbbb..67258dae 100644</div>
+<div class="line del">--- a/app/admin/editorial/artigos/_articleForm.tsx</div>
+<div class="line add">+++ b/app/admin/editorial/artigos/_articleForm.tsx</div>
+<div class="line hunk">@@ -6,6 +6,7 @@ import {</div>
+<div class="line "> } from &quot;@/lib/editorial-context-post-title&quot;;</div>
+<div class="line "> </div>
+<div class="line "> import ExternalArticleImport from &quot;./_externalArticleImport&quot;;</div>
+<div class="line add">+import FreezeArticleImage from &quot;./_freezeArticleImage&quot;;</div>
+<div class="line "> </div>
+<div class="line "> export type EditorialArticle = {</div>
+<div class="line ">   id: string;</div>
+<div class="line hunk">@@ -463,6 +464,7 @@ export function ArticleEditorForm({</div>
+<div class="line ">             &lt;span&gt;Imagem principal&lt;/span&gt;</div>
+<div class="line ">             &lt;input name=&quot;image_url&quot; defaultValue={article?.image_url ?? &quot;&quot;} placeholder=&quot;https://...&quot; required /&gt;</div>
+<div class="line ">           &lt;/label&gt;</div>
+<div class="line add">+          &lt;FreezeArticleImage /&gt;</div>
+<div class="line "> </div>
+<div class="line ">           &lt;div className=&quot;article-admin-upload article-admin-full&quot; data-article-image-upload&gt;</div>
+<div class="line ">             &lt;label&gt;</div>
+<div class="line ">diff --git a/app/admin/editorial/redacao-automatica/mesa/producao/[dossierId]/_workspace-client.tsx b/app/admin/editorial/redacao-automatica/mesa/producao/[dossierId]/_workspace-client.tsx</div>
+<div class="line ">index db6ffa72..b32ce839 100644</div>
+<div class="line del">--- a/app/admin/editorial/redacao-automatica/mesa/producao/[dossierId]/_workspace-client.tsx</div>
+<div class="line add">+++ b/app/admin/editorial/redacao-automatica/mesa/producao/[dossierId]/_workspace-client.tsx</div>
+<div class="line hunk">@@ -472,6 +472,7 @@ function PlanEditor({</div>
+<div class="line ">     ? null</div>
+<div class="line ">     : visualSeed?.image?.id ?? null;</div>
+<div class="line ">   const initialExplicitImage = explicitImageSelectValue(plan);</div>
+<div class="line add">+  const [confirmedImages, setConfirmedImages] = useState&lt;Record&lt;string, string&gt;&gt;({});</div>
+<div class="line ">   const [imageChoices, setImageChoices] = useState&lt;Readonly&lt;Record&lt;&quot;new&quot; | &quot;update&quot;, string | null&gt;&gt;&gt;({</div>
+<div class="line ">     new: initialExplicitImage === &quot;preserve_published&quot; ? &quot;unselected&quot; : initialExplicitImage,</div>
+<div class="line ">     update: initialExplicitImage,</div>
+<div class="line hunk">@@ -499,7 +500,7 @@ function PlanEditor({</div>
+<div class="line ">       }</div>
+<div class="line ">     : null;</div>
+<div class="line ">   const selectedImageUrl = selectedImage.startsWith(&quot;dossier_image:&quot;)</div>
+<div class="line del">-    ? images.find((image) =&gt; image.id === selectedImage.slice(&quot;dossier_image:&quot;.length))?.frozenUrl ?? null</div>
+<div class="line add">+    ? confirmedImages[selectedImage] ?? images.find((image) =&gt; image.id === selectedImage.slice(&quot;dossier_image:&quot;.length))?.frozenUrl ?? null</div>
+<div class="line ">     : selectedImage === &quot;preserve_published&quot;</div>
+<div class="line ">       ? selectedTarget?.currentImageUrl ?? null</div>
+<div class="line ">       : null;</div>
+<div class="line hunk">@@ -697,10 +698,10 @@ function PlanEditor({</div>
+<div class="line ">           allowNoImage</div>
+<div class="line ">           allowPreservePublished={destination === &quot;update&quot;}</div>
+<div class="line ">           preservePublishedImageUrl={selectedTarget?.currentImageUrl}</div>
+<div class="line del">-          onChange={(value) =&gt; setImageChoices((current) =&gt; ({</div>
+<div class="line del">-            ...current,</div>
+<div class="line del">-            [destination]: value,</div>
+<div class="line del">-          }))}</div>
+<div class="line add">+          onChange={(value, url) =&gt; {</div>
+<div class="line add">+            if (url) setConfirmedImages(current =&gt; ({ ...current, [value]: url }));</div>
+<div class="line add">+            setImageChoices(current =&gt; ({ ...current, [destination]: value }));</div>
+<div class="line add">+          }}</div>
+<div class="line ">           onAddImage={() =&gt; openDossierImageBank(&quot;workspace-image-bank&quot;)}</div>
+<div class="line ">           addImageControls=&quot;workspace-image-bank&quot;</div>
+<div class="line ">         /&gt;</div>
+<div class="line ">diff --git a/app/admin/editorial/redacao-automatica/publicacao-lote/_batchPreflightClient.tsx b/app/admin/editorial/redacao-automatica/publicacao-lote/_batchPreflightClient.tsx</div>
+<div class="line ">index 873d8c61..4bb32419 100644</div>
+<div class="line del">--- a/app/admin/editorial/redacao-automatica/publicacao-lote/_batchPreflightClient.tsx</div>
+<div class="line add">+++ b/app/admin/editorial/redacao-automatica/publicacao-lote/_batchPreflightClient.tsx</div>
+<div class="line hunk">@@ -513,7 +513,7 @@ function ResultSummary({</div>
+<div class="line ">   }&gt;&gt;;</div>
+<div class="line ">   noChangeCount: number;</div>
+<div class="line ">   sourcePackage: EditorialBatchTransferSourcePackage | null;</div>
+<div class="line del">-  onImageChoice: (outputId: string, value: string) =&gt; void;</div>
+<div class="line add">+  onImageChoice: (outputId: string, value: string, frozenUrl?: string) =&gt; void;</div>
+<div class="line ">   onRegisteredImage: (outputId: string, image: RegisteredDossierUploadImage) =&gt; void;</div>
+<div class="line ">   imageChoiceDisabled: boolean;</div>
+<div class="line ">   historicalChoices: EditorialBatchHistoricalChoices;</div>
+<div class="line hunk">@@ -839,12 +839,15 @@ function ResultSummary({</div>
+<div class="line ">                         &lt;DossierImageChoiceGrid</div>
+<div class="line ">                           name={`batch_output_image_${outputId}`}</div>
+<div class="line ">                           value={selectedImageChoice}</div>
+<div class="line del">-                          images={displayedDossierImages}</div>
+<div class="line add">+                          images={displayedDossierImages.map(image =&gt; ({ ...image,</div>
+<div class="line add">+                            freezeDossierImageId: sourcePackage?.dossierImages?.some(row =&gt; row.id === image.id)</div>
+<div class="line add">+                              ? image.id : sourcePackage?.outputImages?.find(row =&gt; row.dossierImageId === image.id)?.dossierImageId ?? null,</div>
+<div class="line add">+                          }))}</div>
+<div class="line ">                           legend=&quot;Imagens deste artigo&quot;</div>
+<div class="line ">                           disabled={imageChoiceDisabled}</div>
+<div class="line ">                           allowNoImage</div>
+<div class="line ">                           allowPreservePublished={existingOutput}</div>
+<div class="line del">-                          onChange={(value) =&gt; onImageChoice(outputId, value)}</div>
+<div class="line add">+                          onChange={(value, url) =&gt; onImageChoice(outputId, value, url)}</div>
+<div class="line ">                           onAddImage={sourcePackage?.dossierId</div>
+<div class="line ">                             ? () =&gt; openDossierImageBank(`batch-image-bank-${outputId}`)</div>
+<div class="line ">                             : undefined}</div>
+<div class="line hunk">@@ -2336,7 +2339,7 @@ export default function BatchPreflightClient({</div>
+<div class="line ">     });</div>
+<div class="line ">   }</div>
+<div class="line "> </div>
+<div class="line del">-  function handleDossierImageChoice(outputId: string, value: string) {</div>
+<div class="line add">+  function handleDossierImageChoice(outputId: string, value: string, frozenUrl?: string) {</div>
+<div class="line ">     resetPublicationRun();</div>
+<div class="line ">     setSourcePackage((current) =&gt; {</div>
+<div class="line ">       const position = (current?.batchContract?.outputIds.indexOf(outputId) ?? -1) + 1;</div>
+<div class="line hunk">@@ -2345,7 +2348,8 @@ export default function BatchPreflightClient({</div>
+<div class="line ">         ? value.slice(&quot;dossier_image:&quot;.length)</div>
+<div class="line ">         : &quot;&quot;;</div>
+<div class="line ">       const next = withEditorialBatchOutputImageChoice(</div>
+<div class="line del">-        current,</div>
+<div class="line add">+        frozenUrl ? { ...current, dossierImages: editorialBatchDossierImages(current).map(image =&gt;</div>
+<div class="line add">+          image.id === dossierImageId ? { ...image, imageUrl: frozenUrl } : image) } : current,</div>
+<div class="line ">         outputId,</div>
+<div class="line ">         dossierImageId || null,</div>
+<div class="line ">       );</div>
+<div class="line "></div>
