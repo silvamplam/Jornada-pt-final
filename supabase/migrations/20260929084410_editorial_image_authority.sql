@@ -1,5 +1,7 @@
 begin;
 
+-- FOUNDATION only: safe to install while the previous application is live.
+-- Deploy the compatible application before applying the separate ACTIVATION.
 -- These receipts are service-owned. The URL is registered by the server using
 -- its configured Storage origin, never inferred from a client hostname.
 create table public.editorial_image_assets (
@@ -53,21 +55,6 @@ begin
 end $$;
 create trigger editorial_image_decision_immutable before update on public.editorial_image_decisions
   for each row execute function public.editorial_image_decision_immutable_v1();
-
-create function public.editorial_require_local_image_v1() returns trigger language plpgsql security definer set search_path='' as $$
-begin
-  if new.status <> 'published' then return new; end if;
-  -- Identity-bound grandfathering, including ordinary text edits and preserve.
-  -- Draft -> published, NEW and changed references never enter this exception.
-  if tg_op='UPDATE' and old.status='published' and new.image_url is not distinct from old.image_url then return new; end if;
-  if not exists(select 1 from public.editorial_image_assets a
-    join storage.objects o on o.bucket_id='editorial-images' and o.name=a.storage_path
-    where a.public_url=new.image_url) then raise exception 'image-materialization-required'; end if;
-  return new;
-end $$;
-revoke all on function public.editorial_require_local_image_v1() from public,anon,authenticated,service_role;
-create trigger editorial_require_local_image before insert or update on public.editorial_articles
-  for each row execute function public.editorial_require_local_image_v1();
 
 create function public.editorial_confirm_dossier_image_v1(p_image_id uuid,p_decision_key text)
 returns void language plpgsql security invoker set search_path='' as $$

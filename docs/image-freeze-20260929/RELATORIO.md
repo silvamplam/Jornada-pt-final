@@ -2,7 +2,7 @@
 
 Data: 29/09/2026. Repositório: `silvamplam/Jornada-pt-final`.
 
-Implementação e ferramentas concluídas e testadas localmente. **Não instaladas em produção.** O trabalho termina no checkpoint de revisão do dry-run: nenhum artigo histórico, objeto de Storage ou schema de produção foi alterado. Não houve merge, push ou alteração da main.
+Implementação e ferramentas concluídas e testadas localmente. **Não instaladas em produção.** O checkpoint histórico mantém-se: nenhum artigo histórico, objeto de Storage ou schema de produção foi alterado. A branch foi enviada por push após autorização; não houve merge ou alteração da main. A correção de rollout separa agora FOUNDATION de ACTIVATION, com deploy da aplicação entre ambas.
 
 - Branch: `jornada-editorial-images-freeze-egress-20260929`.
 - SHA-base: `ccfebdc9c85ec8f6167dcc0768c11496112ecc1a`.
@@ -80,13 +80,23 @@ Original e previews recebem `Cache-Control: max-age=31536000`, com `x-upsert:fal
 | Batch | Preflight de imagens antes de escrever; cada RPC é atómica; o lote continua retomável, sem inventar uma transação global |
 | Continuidade/intents/Article Plans | Mesmo contrato, incluindo preserve e as guardas de persistência |
 
-### Migration SQL
+### Migrations SQL e ordem segura de rollout
 
-`supabase/migrations/20260929084410_editorial_image_authority.sql`, criada pelo CLI normal do projeto e testada em PostgreSQL 17 local. Não aplicada remotamente.
+As duas migrations foram criadas pelo CLI normal do projeto e testadas em PostgreSQL 17 local. Nenhuma foi aplicada remotamente. A versão `20260929084410` ainda não foi instalada, pelo que pode ser corrigida nesta branch sem reescrever uma migration já aplicada.
 
-Cria `editorial_image_assets`, `editorial_image_decisions`, `editorial_image_promotions`, coluna `source_url` no banco do Dossiê, imutabilidade das decisões, guarda de autoridade em `editorial_articles` e RPCs de confirmação/promoção. Recibos são escritos apenas pelo serviço; RLS e privilégios impedem o cliente público de os fabricar. A guarda SQL usa registo de asset + `storage.objects`, sem hostname Supabase hardcoded.
+| Fase | Migration | Conteúdo e compatibilidade |
+|---|---|---|
+| FOUNDATION | `supabase/migrations/20260929084410_editorial_image_authority.sql` | Tabelas assets/decisions/promotions, `source_url`, decisão imutável, confirmação, promoção, ACL/RLS e proteções image-only. **Não cria a função de guarda nem instala `editorial_require_local_image`.** A main antiga pode continuar a escrever; a aplicação nova já tem todas as dependências disponíveis. |
+| Deploy da aplicação | Commit compatível desta branch | Freezer, registo, confirmação e writers funcionam só com FOUNDATION. Guardas da aplicação já recusam NEW e substituições externas, mantendo apenas preserve exato do mesmo artigo publicado. Confirmar que este código está efetivamente em produção antes da fase seguinte. |
+| ACTIVATION | `supabase/migrations/20260929101014_editorial_image_authority_activation.sql` | Cria `editorial_require_local_image_v1`, restringe EXECUTE e instala o trigger em `editorial_articles`. Guarda final transversal, com a mesma lógica anterior e sem flag/fallback permanente. |
 
-A promoção histórica altera apenas `image_url`; a auditoria está numa tabela separada. Compara todos os outros campos antes/depois, incluindo `updated_at`. Foram também identificados três triggers que podiam causar reconciliação de banco/composição/fontes/contexto numa atualização só da imagem. A migration acrescenta um early return exclusivamente a esse caso, preservando o resto das funções, owner e ACL: `sync_published_editorial_source_to_matchday_bank`, `newsroom_link_legacy_article_source_v1`, `newsroom_mesa_after_article_publication_v2`. O trigger statement de classificação já filtra os campos editoriais e não processa esta mudança.
+**Ordem obrigatória: FOUNDATION → deploy e confirmação da aplicação → ACTIVATION.** A primeira fase elimina a dependência circular: não exige que a aplicação antiga produza recibos novos. Na fase intermédia a aplicação nova protege os seus writers, mas a proteção de qualquer SQL direto só passa a existir depois da ACTIVATION. A rollout não está concluída enquanto faltar essa fase final.
+
+Recibos são escritos apenas pelo serviço; RLS e privilégios impedem o cliente público de os fabricar. A guarda SQL final usa registo de asset + `storage.objects`, sem hostname Supabase hardcoded. Depois da ACTIVATION, NEW local sem recibo também é recusado; preserve continua limitado à referência exata do mesmo artigo já publicado.
+
+A promoção histórica altera apenas `image_url`; a auditoria está numa tabela separada. Compara todos os outros campos antes/depois, incluindo `updated_at`. Foram também identificados três triggers que podiam causar reconciliação de banco/composição/fontes/contexto numa atualização só da imagem. A FOUNDATION acrescenta um early return exclusivamente a esse caso, preservando o resto das funções, owner e ACL: `sync_published_editorial_source_to_matchday_bank`, `newsroom_link_legacy_article_source_v1`, `newsroom_mesa_after_article_publication_v2`. Estas proteções pertencem à FOUNDATION porque a RPC de promoção já deve funcionar integralmente antes da ACTIVATION.
+
+As definições atuais das três funções foram novamente lidas de produção e confirmadas no formato esperado pelo patch. Também se confirmou `jornada_private.refresh_automatic_classifications_from_articles_update()`: filtra diferenças de identidade, label, title, subtitle, body e status; não considera `image_url`. Nenhuma destas leituras executou DDL/DML. [Definições remotas consultadas e timestamp](rollout-remote-functions.json).
 
 ### Segurança de rede
 
@@ -213,14 +223,16 @@ Assumindo as quotas inteiras disponíveis e 100% uncached, 5 milhões de pedidos
 | `app/admin/editorial/redacao-automatica/publicacao-lote/_batchPreflightClient.tsx` | Propagar URL confirmada em output e session storage |
 | `lib/editorial-image-migration.ts` | Plano puro, resumo e relatório de revisão HTML |
 | `scripts/migrate-editorial-images.ts`, `package.json` | Snapshot/dry-run/staging/promoção, cache, lock, métricas |
-| `supabase/migrations/20260929084410_editorial_image_authority.sql` | Proteção final transversal e promoção sem efeitos editoriais laterais |
+| `supabase/migrations/20260929084410_editorial_image_authority.sql` | FOUNDATION: infraestrutura completa e promoção sem efeitos editoriais laterais; compatível com a aplicação antiga |
+| `supabase/migrations/20260929101014_editorial_image_authority_activation.sql` | ACTIVATION: instalar a guarda transversal só depois de confirmar o deploy compatível |
 | `lib/editorial-image-freeze.test.ts` | Testes dos novos invariantes e segurança |
 | `lib/editorial-article-service.test.ts`, `editorial-article-published-slug.test.ts` | NEW local/externo, UPDATE preserve e fixtures adequadas |
 | `lib/editorial-image-preview-a2.test.ts` | Contrato do importador partilhado e bytes reutilizados |
 | `lib/redacao-automatica/editorial-source-package.test.ts` | Importação por decisão e confirmação antes de aplicar |
 | `lib/redacao-automatica/editorial-dossier-mesa-workspace-ui.test.ts` | Pacote transporta imagem congelada |
 | `lib/redacao-automatica/editorial-batch-preflight-ui.test.ts` | IDs legacy na seleção de candidatas |
-| `scripts/verify-editorial-image-authority.cjs` | Teste da migration em PostgreSQL local isolado |
+| `scripts/verify-editorial-image-authority.cjs` | Teste PostgreSQL isolado das três fases A/B/C, com paragem entre migrations |
+| `scripts/verify-editorial-image-foundation.ts` | Freezer e serviço canónico reais contra PostgreSQL/role de serviço antes da ACTIVATION; objetos de imagem apenas em memória |
 | `scripts/serve-image-freeze-fixture.ts` | Verificação no navegador com componentes/gerador reais e dados sintéticos |
 | `docs/image-freeze-20260929/*` | Diagnóstico, inventário, economia, validação e diffs A3 auditáveis |
 
@@ -228,10 +240,12 @@ Não se reformataram ficheiros alheios. Artefactos preexistentes de continuidade
 
 ## Passos que dependem de autorização
 
-1. Rever o código/migration e autorizar instalação no ambiente pretendido. Antes de aplicar, confirmar a lista de migrations remotas e o plano `supabase db push --linked --dry-run`; aplicar apenas o plano revisto e disponibilizar a aplicação compatível. Sem merge automático. A guarda SQL deve estar instalada para considerar a proteção transversal ativa.
-2. Autorizar o **staging das candidatas históricas**, depois deste dry-run. Usar o diretório existente; não criar outro run para repetir a operação. O staging não altera artigos.
-3. Fazer revisão humana no HTML e exportar as decisões. Não há nenhuma aprovação predefinida. Antes da promoção, executar novo dry-run da fase promote com esse ficheiro; conflitos interrompem a escrita.
-4. Autorizar explicitamente a promoção do conjunto aprovado. As candidatas contaminadas, duvidosas, indisponíveis e não revistas ficam excluídas. Depois validar referências e observar novas janelas de 24h para cache/egress; medir separadamente qualquer GET de validação.
+1. Autorizar a **FOUNDATION apenas**. O artefacto/job de migrations desta release deve conter o histórico e `20260929084410_editorial_image_authority.sql`, excluindo a ACTIVATION. O CLI aplica todas as migrations pendentes: **não executar `db push` com ambas disponíveis antes do deploy**. Num diretório de release isolado, validar `supabase --workdir <release-foundation> db push --project-ref mztkeurmeadwbgebmuvv --skip-vault --dry-run`; só prosseguir se listar exclusivamente FOUNDATION. Depois de aplicada por processo autorizado, confirmar tabelas/RPCs e ausência do trigger. Não alterar nem marcar a ACTIVATION como aplicada no histórico remoto.
+2. Autorizar o deploy da aplicação compatível e confirmar a versão em produção. Verificar freeze/registo/confirmação, NEW local, rejeição de NEW externo e UPDATE preserve. Esta é a paragem obrigatória entre migrations; a existência do ficheiro ACTIVATION no Git não autoriza a sua aplicação automática.
+3. Só após essa confirmação, autorizar **ACTIVATION**. No artefacto completo, o dry-run deve listar exclusivamente `20260929101014_editorial_image_authority_activation.sql`. Aplicar pelo processo normal de migrations e confirmar o trigger ativo. Não existe flag de bypass permanente. Após esta fase, rollback para aplicação antiga requer um plano compatível com a guarda, não apenas trocar o código. Nenhuma destas operações foi executada nesta correção.
+4. Autorizar o **staging das candidatas históricas**, depois deste dry-run. Usar o diretório existente; não criar outro run para repetir a operação. O staging não altera artigos.
+5. Fazer revisão humana no HTML e exportar as decisões. Não há nenhuma aprovação predefinida. Antes da promoção, executar novo dry-run da fase promote com esse ficheiro; conflitos interrompem a escrita.
+6. Autorizar explicitamente a promoção do conjunto aprovado. As candidatas contaminadas, duvidosas, indisponíveis e não revistas ficam excluídas. Depois validar referências e observar novas janelas de 24h para cache/egress; medir separadamente qualquer GET de validação.
 
 Comandos PowerShell, **não executados com `--execute` neste trabalho**:
 
@@ -239,7 +253,7 @@ Comandos PowerShell, **não executados com `--execute` neste trabalho**:
 # Repetir o inventário existente e regenerar o relatório, sem escrita remota:
 node --env-file=.env.local --import tsx scripts/migrate-editorial-images.ts --dir out/image-freeze/historical
 
-# Só após autorização de staging e instalação da migration:
+# Só após autorização de staging e rollout FOUNDATION -> app -> ACTIVATION:
 $env:JORNADA_IMAGE_MIGRATION_WRITE='allow:mztkeurmeadwbgebmuvv.supabase.co'
 node --env-file=.env.local --import tsx scripts/migrate-editorial-images.ts --dir out/image-freeze/historical --phase snapshot --execute
 

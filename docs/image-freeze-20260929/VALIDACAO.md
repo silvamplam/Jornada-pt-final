@@ -9,12 +9,32 @@
 | A3, mantida separada | 21 testes: **13 passam, 7 falham, 1 skip** | [Análise individual](A3.md); mesmos resultados na main; baseline inalterado |
 | Typecheck focado, incluindo dependências transitivas dos ficheiros alterados | **Passa** | `tsc --noEmit --project out/image-freeze/tsconfig.json` |
 | `git diff --check` | **Passa** | Sem erros de whitespace |
-| PostgreSQL 17 local, migration real | **Passa** | Guardas, proveniência, privilégios, promoção estreita, triggers laterais, idempotência, rollback |
+| PostgreSQL 17 local, duas migrations reais e três fases A/B/C | **Passa** | FOUNDATION compatível com main antiga; aplicação nova completa antes da ACTIVATION; guarda transversal depois da ACTIVATION |
 | Navegador, componente de confirmação real | **Passa** | A → alteração da origem → retry A → nova ação B; sem erros de consola |
 | Navegador, importador direto real | **Passa** | Campo vazio antes da confirmação; retry A; nova candidata B não substitui o campo até confirmação |
 | Snapshot histórico repetido | **Passa** | Mesmo manifest/hash; zero novas descargas e zero mutações remotas |
 
 As baterias focadas foram repetidas após as últimas alterações do importador. A bateria alargada foi usada para encontrar contratos antigos e regressões; as asserções alteradas por esta implementação foram corrigidas para o novo comportamento e repetidas na bateria focada. Não foi alterado nenhum dos cinco testes pré-existentes abaixo nem o baseline A3.
+
+## Revalidação da correção de rollout
+
+Ordem testada: **FOUNDATION → deploy da aplicação compatível → ACTIVATION**. A migration existente `20260929084410_editorial_image_authority.sql` passa a ser apenas FOUNDATION. A nova `20260929101014_editorial_image_authority_activation.sql` contém exclusivamente a função de guarda, os privilégios dessa função e o trigger, dentro de uma transação. Não se alterou runtime, preserve ou regra final.
+
+`scripts/verify-editorial-image-authority.cjs` executa as fases separadamente numa base PostgreSQL **17.11**, local e descartável, chamada `image_freeze_test`:
+
+| Fase | Prova executada | Resultado |
+|---|---|---|
+| A — main antiga + FOUNDATION | Ausência da função/trigger de guarda; NEW externa, NEW de upload local sem recibo, UPDATE e draft → published não exigem o registo novo | **Passa** |
+| B — aplicação nova + FOUNDATION | `verify-editorial-image-foundation.ts` executa freezer real, quatro previews, retry A após origem B, nova decisão B, decisões/recibos e RPC de confirmação no PostgreSQL sob `service_role`; serviço canónico real cria/atualiza local, rejeita NEW externo e nova substituição externa, permite preserve exato; promoção image-only funciona sem efeitos laterais e é idempotente | **Passa**, trigger ainda ausente antes e depois |
+| C — aplicação nova + FOUNDATION + ACTIVATION | Trigger ativo; SQL direto recusa NEW externa, local sem recibo, draft externo e substituição legacy por outra externa; aceita NEW local registada e preserve exato; promoção mantém os outros campos e não executa efeitos laterais; rollback multi-row, imutabilidade e privilégios continuam válidos | **Passa** |
+
+A fase A representa as operações SQL da aplicação antiga; não é um E2E da interface antiga. A fase B utiliza os módulos reais da aplicação com transportes PostgreSQL; os bytes e derivados são sintéticos e os objetos de Storage ficam exclusivamente em memória. A/B/C usam funções laterais com efeitos observáveis para provar que image-only não os executa.
+
+Adicionalmente, o teste compila **as três definições remotas reais e a função de classificação**, aplica localmente o mesmo patch da FOUNDATION e executa um UPDATE exclusivamente de imagem. Prova que owner/ACL/security-definer/search-path das três funções são preservados, os triggers diferidos não provocam efeitos e a classificação não recebe IDs alterados. Essa transação local termina em rollback; dependências downstream são fixtures. As definições, novamente lidas sem escrita remota, estão em [rollout-remote-functions.json](rollout-remote-functions.json). A função `jornada_private.refresh_automatic_classifications_from_articles_update` filtra identidade/label/title/subtitle/body/status, sem `image_url`.
+
+Nesta correção foram novamente executados: **175 testes focados (174 passam, zero falhas, um skip opcional A2)**; **typecheck focado**, incluindo o novo teste TypeScript e dependências transitivas; **git diff --check**. Todos passam. Os resultados A3 permanecem separados e inalterados; não foi trocado o baseline nem repetida a bateria pública, pois nenhum renderer/runtime mudou nesta correção. Resultados resumidos: [rollout-validation.json](rollout-validation.json); logs locais em `out/image-freeze/rollout-*.txt`.
+
+O runbook no RELATORIO exige um artefacto de migrations FOUNDATION que exclua ACTIVATION, confirmação da aplicação em produção e só depois o artefacto ACTIVATION. Um `db push` indiscriminado com ambos os ficheiros pendentes não respeita esta ordem. Nenhuma migration remota, staging, upload ou promoção foi executada.
 
 ## Falhas pré-existentes fora de A3
 
