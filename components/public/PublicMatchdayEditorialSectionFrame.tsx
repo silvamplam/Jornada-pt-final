@@ -18,6 +18,7 @@ export default function PublicMatchdayEditorialSectionFrame({
   useLayoutEffect(() => {
     const frame = frameRef.current;
     if (!frame) return;
+    const isLive = Boolean(frame.closest('[data-public-editorial-authority="editorial_snapshot"]'));
     const headings = Array.from(frame.querySelectorAll<HTMLElement>(
       'h2, .public-roundup-zone-heading, .public-editorial-section-title, [data-public-latest-news] > h3',
     )).filter((element) => !element.closest('article, [aria-hidden="true"]') &&
@@ -50,6 +51,13 @@ export default function PublicMatchdayEditorialSectionFrame({
       const below = parseFloat(frameStyle.getPropertyValue("--public-editorial-section-rule-content-gap"));
       const ruleHeight = parseFloat(getComputedStyle(frame, "::before").height);
       const headingRect = heading.getBoundingClientRect();
+      // Live headings share clearance below the tallest title on their row.
+      const rowBottom = isLive
+        ? Math.max(...headings.filter((title) => title.getClientRects().length > 0)
+          .map((title) => title.getBoundingClientRect())
+          .filter((rect) => Math.abs(rect.top - headingRect.top) <= 1)
+          .map((rect) => rect.bottom))
+        : headingRect.bottom;
       for (const entry of entries) {
         // Only headings on this separator's row share its content clearance.
         if (!entry.title.getClientRects().length ||
@@ -58,7 +66,7 @@ export default function PublicMatchdayEditorialSectionFrame({
           continue;
         }
         if (!entry.content) continue;
-        const gap = entry.content.getBoundingClientRect().top - headingRect.bottom;
+        const gap = entry.content.getBoundingClientRect().top - rowBottom;
         const adjustment = above + ruleHeight + below - gap;
         if (Math.abs(adjustment) > 0.1) {
           const margin = parseFloat(getComputedStyle(entry.header).marginBottom);
@@ -76,7 +84,7 @@ export default function PublicMatchdayEditorialSectionFrame({
           entry.latest.style.setProperty("--public-latest-header-reserve", `${reserve}px`);
         } else entry.latest.style.removeProperty("--public-latest-header-reserve");
       }
-      const bottom = heading.getBoundingClientRect().bottom - frame.getBoundingClientRect().top;
+      const bottom = (isLive ? rowBottom : heading.getBoundingClientRect().bottom) - frame.getBoundingClientRect().top;
       frame.style.setProperty("--public-editorial-section-rule-top", `${bottom + above}px`);
     };
     positionRule();
