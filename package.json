@@ -10,6 +10,7 @@
     "build": "next build",
     "images:backfill": "tsx scripts/backfill-editorial-image-previews.ts",
     "images:benchmark": "tsx scripts/benchmark-editorial-image-previews.ts",
+    "images:migrate": "tsx scripts/migrate-editorial-images.ts",
     "start": "next start -H 0.0.0.0 -p 3000",
     "lint": "next lint",
     "test:redacao-hardening": "tsx --test lib/redacao-automatica/source-access-hardening.test.ts",

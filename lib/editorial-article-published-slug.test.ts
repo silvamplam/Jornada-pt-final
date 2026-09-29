@@ -46,6 +46,7 @@ function makeTransport(options: {
         status: options.status,
         matchday_id: null,
         slug: options.slug,
+        image_url: baseInput.image_url,
       };
     },
 

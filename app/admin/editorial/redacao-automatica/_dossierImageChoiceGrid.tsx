@@ -1,12 +1,17 @@
 "use client";
 
 import BackofficeImage from "@/components/admin/BackofficeImage";
+import { useState } from "react";
+import FreezeEditorialImage from "@/components/admin/FreezeEditorialImage";
+import { editorialImageOriginalPath } from "@/lib/editorial-image-authority";
 import styles from "./dossier-image-choice-grid.module.css";
 
 export type DossierImageChoice = Readonly<{
   id: string;
   imageUrl: string;
   label: string;
+  // Legacy packages sometimes use output IDs, which are not dossier rows.
+  freezeDossierImageId?: string | null;
 }>;
 
 type DossierImageChoiceGridProps = Readonly<{
@@ -19,7 +24,7 @@ type DossierImageChoiceGridProps = Readonly<{
   allowNoImage?: boolean;
   allowPreservePublished?: boolean;
   preservePublishedImageUrl?: string | null;
-  onChange: (value: string) => void;
+  onChange: (value: string, frozenUrl?: string) => void;
   onAddImage?: () => void;
   addImageControls?: string;
 }>;
@@ -38,6 +43,7 @@ export default function DossierImageChoiceGrid({
   onAddImage,
   addImageControls,
 }: DossierImageChoiceGridProps) {
+  const [confirmed, setConfirmed] = useState<Record<string, string>>({});
   return (
     <fieldset className={styles.imageChoices} data-compact={compact ? "true" : "false"}>
       <legend>{legend}</legend>
@@ -75,6 +81,15 @@ export default function DossierImageChoiceGrid({
 
         {images.map((image) => {
           const imageValue = `dossier_image:${image.id}`;
+          const imageUrl = confirmed[image.id] ?? image.imageUrl;
+          if (!editorialImageOriginalPath(imageUrl)) return <div key={image.id}>
+            <BackofficeImage previewWidth={320} src={image.imageUrl} alt="Candidata da fonte" loading="lazy" referrerPolicy="no-referrer" />
+            <small>{image.label}</small>
+            {!disabled ? <FreezeEditorialImage sourceUrl={image.imageUrl} dossierImageId={image.freezeDossierImageId === null ? undefined : image.freezeDossierImageId ?? image.id} onConfirm={(url) => {
+              setConfirmed(current => ({ ...current, [image.id]: url }));
+              onChange(imageValue, url);
+            }} /> : null}
+          </div>;
           return (
             <label key={image.id} data-selected={value === imageValue}>
               <input
@@ -84,7 +99,7 @@ export default function DossierImageChoiceGrid({
                 disabled={disabled}
                 onChange={() => onChange(imageValue)}
               />
-              <BackofficeImage previewWidth={320} src={image.imageUrl} alt="" loading="lazy" referrerPolicy="no-referrer" />
+              <BackofficeImage previewWidth={320} src={imageUrl} alt="" loading="lazy" referrerPolicy="no-referrer" />
               <small>{image.label}</small>
             </label>
           );

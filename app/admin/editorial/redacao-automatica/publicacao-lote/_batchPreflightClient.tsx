@@ -513,7 +513,7 @@ function ResultSummary({
   }>>;
   noChangeCount: number;
   sourcePackage: EditorialBatchTransferSourcePackage | null;
-  onImageChoice: (outputId: string, value: string) => void;
+  onImageChoice: (outputId: string, value: string, frozenUrl?: string) => void;
   onRegisteredImage: (outputId: string, image: RegisteredDossierUploadImage) => void;
   imageChoiceDisabled: boolean;
   historicalChoices: EditorialBatchHistoricalChoices;
@@ -839,12 +839,15 @@ function ResultSummary({
                         <DossierImageChoiceGrid
                           name={`batch_output_image_${outputId}`}
                           value={selectedImageChoice}
-                          images={displayedDossierImages}
+                          images={displayedDossierImages.map(image => ({ ...image,
+                            freezeDossierImageId: sourcePackage?.dossierImages?.some(row => row.id === image.id)
+                              ? image.id : sourcePackage?.outputImages?.find(row => row.dossierImageId === image.id)?.dossierImageId ?? null,
+                          }))}
                           legend="Imagens deste artigo"
                           disabled={imageChoiceDisabled}
                           allowNoImage
                           allowPreservePublished={existingOutput}
-                          onChange={(value) => onImageChoice(outputId, value)}
+                          onChange={(value, url) => onImageChoice(outputId, value, url)}
                           onAddImage={sourcePackage?.dossierId
                             ? () => openDossierImageBank(`batch-image-bank-${outputId}`)
                             : undefined}
@@ -2336,7 +2339,7 @@ export default function BatchPreflightClient({
     });
   }
 
-  function handleDossierImageChoice(outputId: string, value: string) {
+  function handleDossierImageChoice(outputId: string, value: string, frozenUrl?: string) {
     resetPublicationRun();
     setSourcePackage((current) => {
       const position = (current?.batchContract?.outputIds.indexOf(outputId) ?? -1) + 1;
@@ -2345,7 +2348,8 @@ export default function BatchPreflightClient({
         ? value.slice("dossier_image:".length)
         : "";
       const next = withEditorialBatchOutputImageChoice(
-        current,
+        frozenUrl ? { ...current, dossierImages: editorialBatchDossierImages(current).map(image =>
+          image.id === dossierImageId ? { ...image, imageUrl: frozenUrl } : image) } : current,
         outputId,
         dossierImageId || null,
       );

@@ -1,6 +1,7 @@
 import "server-only";
 
 import { randomUUID } from "node:crypto";
+import { requirePublishableEditorialImage } from "./editorial-image-publication.server";
 
 import { placePublishedArticleInitially } from "@/lib/editorial-matchday-news-flow";
 import { syncEditorialArticleLiveSnapshots } from "@/lib/editorial-article-live-snapshot-sync";
@@ -41,6 +42,7 @@ type ArticleStatusRow = {
   status: string | null;
   matchday_id: string | null;
   slug: string | null;
+  image_url: string | null;
 };
 
 type CreatedArticleRow = {
@@ -63,6 +65,7 @@ type MatchdayContextRow = {
 };
 
 const service = createEditorialArticleService({
+  requireImage: requirePublishableEditorialImage,
   findArticlesBySlug(slug: string) {
     return fetchSupabaseAdminTable<ArticleIdRow>(
       `editorial_articles?select=id&slug=eq.${encodeURIComponent(slug)}&limit=2`,
@@ -71,7 +74,7 @@ const service = createEditorialArticleService({
 
   async readArticleStatus(articleId: string) {
     const rows = await fetchSupabaseAdminTable<ArticleStatusRow>(
-      `editorial_articles?select=id,status,matchday_id,slug&id=eq.${encodeURIComponent(articleId)}&limit=1`,
+      `editorial_articles?select=id,status,matchday_id,slug,image_url&id=eq.${encodeURIComponent(articleId)}&limit=1`,
     );
     return rows[0] ?? null;
   },

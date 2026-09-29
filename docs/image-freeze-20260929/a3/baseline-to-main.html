@@ -1,0 +1,1907 @@
+<!doctype html><meta charset="utf-8"><title>A3 baseline-to-main</title><style>body{font:13px monospace;margin:24px}.line{white-space:pre-wrap;overflow-wrap:anywhere;min-height:1em}.add{background:#e5f6e5}.del{background:#ffeaea}.hunk{background:#e7eefb}h1{font:22px system-ui}</style><h1>A3 baseline-to-main</h1><p>Baseline 2d6628f432d659fa7c4c0314730cd5ed0f183348; main ccfebdc9c85ec8f6167dcc0768c11496112ecc1a. Baseline do teste inalterado.</p><div class="line ">diff --git a/app/admin/editorial/redacao-automatica/mesa/producao/[dossierId]/_workspace-client.tsx b/app/admin/editorial/redacao-automatica/mesa/producao/[dossierId]/_workspace-client.tsx</div>
+<div class="line ">index f865cfc6..db6ffa72 100644</div>
+<div class="line del">--- a/app/admin/editorial/redacao-automatica/mesa/producao/[dossierId]/_workspace-client.tsx</div>
+<div class="line add">+++ b/app/admin/editorial/redacao-automatica/mesa/producao/[dossierId]/_workspace-client.tsx</div>
+<div class="line hunk">@@ -4,6 +4,7 @@ import BackofficeImage from &quot;@/components/admin/BackofficeImage&quot;;</div>
+<div class="line "> import { completeEditorialImagePreviews } from &quot;@/lib/editorial-image-preview-upload&quot;;</div>
+<div class="line "> import {</div>
+<div class="line ">   useEffect,</div>
+<div class="line add">+  useMemo,</div>
+<div class="line ">   useRef,</div>
+<div class="line ">   useState,</div>
+<div class="line ">   type ClipboardEvent,</div>
+<div class="line hunk">@@ -34,7 +35,6 @@ import {</div>
+<div class="line ">   EDITORIAL_BATCH_TRANSFER_SOURCE_PACKAGE_STORAGE_KEY,</div>
+<div class="line ">   EDITORIAL_BATCH_TRANSFER_STORAGE_KEY,</div>
+<div class="line ">   preflightEditorialArticleBatchForSourcePackage,</div>
+<div class="line del">-  type EditorialBatchTransferSourcePackage,</div>
+<div class="line "> } from &quot;@/lib/redacao-automatica/editorial-batch-transfer&quot;;</div>
+<div class="line "> import type {</div>
+<div class="line ">   ThemeContinuityFrozenContract,</div>
+<div class="line hunk">@@ -56,11 +56,17 @@ import {</div>
+<div class="line ">   type ArticlePlanClassificationSource,</div>
+<div class="line "> } from &quot;@/lib/redacao-automatica/article-plan-classification&quot;;</div>
+<div class="line "> import { ArticlePlanClassificationEditor } from &quot;./_article-plan-classification&quot;;</div>
+<div class="line add">+import { copyText } from &quot;./_clipboard-copy&quot;;</div>
+<div class="line "> import {</div>
+<div class="line ">   confirmedProductionClassifications,</div>
+<div class="line ">   productionClassificationNeedsSave,</div>
+<div class="line ">   productionPackageDisabled,</div>
+<div class="line "> } from &quot;./_production-package-state&quot;;</div>
+<div class="line add">+import {</div>
+<div class="line add">+  loadProductionPackage,</div>
+<div class="line add">+  ProductionPackagePreparation,</div>
+<div class="line add">+  type PreparedSourcePackage,</div>
+<div class="line add">+} from &quot;./_production-package-preparation&quot;;</div>
+<div class="line "> type WorkspaceContinuitySlot = ThemeContinuitySlot | ReturnType&lt;typeof mesaProductionIntentSlots&gt;[number];</div>
+<div class="line "> import styles from &quot;./workspace.module.css&quot;;</div>
+<div class="line "> </div>
+<div class="line hunk">@@ -121,16 +127,6 @@ type CommandResponse = Readonly&lt;{</div>
+<div class="line ">   }&gt;;</div>
+<div class="line "> }&gt;;</div>
+<div class="line "> </div>
+<div class="line del">-type PreparedSourcePackage = Readonly&lt;{</div>
+<div class="line del">-  contentUrl: string;</div>
+<div class="line del">-  imagesUrl: string;</div>
+<div class="line del">-  imagesFileName: string;</div>
+<div class="line del">-  imageSourceCount: number;</div>
+<div class="line del">-  articleCount: number;</div>
+<div class="line del">-  genreLabel: string;</div>
+<div class="line del">-  sourcePackage: EditorialBatchTransferSourcePackage;</div>
+<div class="line del">-}&gt;;</div>
+<div class="line del">-</div>
+<div class="line "> type SignedUpload = Readonly&lt;{</div>
+<div class="line ">   previewTicket?: string;</div>
+<div class="line ">   bucket: string;</div>
+<div class="line hunk">@@ -181,26 +177,6 @@ function planField(cardKey: string, field: string): string {</div>
+<div class="line ">   return `plan:${cardKey}:${field}`;</div>
+<div class="line "> }</div>
+<div class="line "> </div>
+<div class="line del">-async function copyText(text: string): Promise&lt;void&gt; {</div>
+<div class="line del">-  if (navigator.clipboard?.writeText) {</div>
+<div class="line del">-    await navigator.clipboard.writeText(text);</div>
+<div class="line del">-    return;</div>
+<div class="line del">-  }</div>
+<div class="line del">-</div>
+<div class="line del">-  const textarea = document.createElement(&quot;textarea&quot;);</div>
+<div class="line del">-  textarea.value = text;</div>
+<div class="line del">-  textarea.setAttribute(&quot;readonly&quot;, &quot;&quot;);</div>
+<div class="line del">-  textarea.style.position = &quot;fixed&quot;;</div>
+<div class="line del">-  textarea.style.left = &quot;-9999px&quot;;</div>
+<div class="line del">-  document.body.appendChild(textarea);</div>
+<div class="line del">-  textarea.select();</div>
+<div class="line del">-  try {</div>
+<div class="line del">-    if (!document.execCommand(&quot;copy&quot;)) throw new Error(&quot;copy_failed&quot;);</div>
+<div class="line del">-  } finally {</div>
+<div class="line del">-    textarea.remove();</div>
+<div class="line del">-  }</div>
+<div class="line del">-}</div>
+<div class="line del">-</div>
+<div class="line "> function imageOriginLabel(image: EditorialDossierImage): string {</div>
+<div class="line ">   if (image.origin === &quot;upload&quot;) return &quot;Upload&quot;;</div>
+<div class="line ">   if (image.origin === &quot;published&quot;) return &quot;Publicada&quot;;</div>
+<div class="line hunk">@@ -765,86 +741,66 @@ function ProductionActions({</div>
+<div class="line ">   saving: boolean;</div>
+<div class="line ">   packageVersion: number;</div>
+<div class="line "> }&gt;) {</div>
+<div class="line del">-  const [prepared, setPrepared] = useState&lt;PreparedSourcePackage | null&gt;(null);</div>
+<div class="line del">-  const [preparing, setPreparing] = useState(false);</div>
+<div class="line ">   const [status, setStatus] = useState(&quot;&quot;);</div>
+<div class="line ">   const [manualResponse, setManualResponse] = useState(&quot;&quot;);</div>
+<div class="line "> </div>
+<div class="line add">+  const preparation = useMemo(() =&gt; new ProductionPackagePreparation&lt;PreparedSourcePackage&gt;(</div>
+<div class="line add">+    () =&gt; loadProductionPackage(dossierId),</div>
+<div class="line add">+  ), [dossierId, packageVersion, disabled]);</div>
+<div class="line add">+  const [observedPreparation, setObservedPreparation] = useState(() =&gt; ({</div>
+<div class="line add">+    preparation,</div>
+<div class="line add">+    state: preparation.snapshot(),</div>
+<div class="line add">+  }));</div>
+<div class="line add">+  const preparationState = observedPreparation.preparation === preparation</div>
+<div class="line add">+    ? observedPreparation.state</div>
+<div class="line add">+    : preparation.snapshot();</div>
+<div class="line add">+  const prepared = preparationState.kind === &quot;ready&quot;</div>
+<div class="line add">+    ? preparationState.value.sourcePackage</div>
+<div class="line add">+    : null;</div>
+<div class="line add">+  const preparing = !disabled &amp;&amp; (</div>
+<div class="line add">+    preparationState.kind === &quot;idle&quot; || preparationState.kind === &quot;preparing&quot;</div>
+<div class="line add">+  );</div>
+<div class="line add">+</div>
+<div class="line add">+  useEffect(() =&gt; {</div>
+<div class="line add">+    const unsubscribe = preparation.subscribe((state) =&gt; {</div>
+<div class="line add">+      setObservedPreparation({ preparation, state });</div>
+<div class="line add">+    });</div>
+<div class="line add">+    if (!disabled) preparation.start();</div>
+<div class="line add">+    return () =&gt; {</div>
+<div class="line add">+      unsubscribe();</div>
+<div class="line add">+      preparation.invalidate();</div>
+<div class="line add">+    };</div>
+<div class="line add">+  }, [preparation, disabled]);</div>
+<div class="line add">+</div>
+<div class="line ">   async function ensurePackage(): Promise&lt;PreparedSourcePackage&gt; {</div>
+<div class="line del">-    if (prepared) return prepared;</div>
+<div class="line del">-    if (preparing) throw new Error(&quot;package_preparing&quot;);</div>
+<div class="line del">-    setPreparing(true);</div>
+<div class="line del">-    setStatus(&quot;A preparar o pacote editorial…&quot;);</div>
+<div class="line del">-    try {</div>
+<div class="line del">-      const response = await fetch(WORKSPACE_ROUTE, {</div>
+<div class="line del">-        method: &quot;POST&quot;,</div>
+<div class="line del">-        headers: { &quot;Content-Type&quot;: &quot;application/json&quot; },</div>
+<div class="line del">-        body: JSON.stringify({ action: &quot;prepare_source_package&quot;, dossierId }),</div>
+<div class="line del">-      });</div>
+<div class="line del">-      const result = await response.json().catch(() =&gt; null) as</div>
+<div class="line del">-        (CommandResponse &amp; Partial&lt;PreparedSourcePackage&gt;) | null;</div>
+<div class="line del">-      if (</div>
+<div class="line del">-        !response.ok</div>
+<div class="line del">-        || !result?.ok</div>
+<div class="line del">-        || !result.contentUrl</div>
+<div class="line del">-        || !result.imagesUrl</div>
+<div class="line del">-        || !result.imagesFileName</div>
+<div class="line del">-        || !result.sourcePackage</div>
+<div class="line del">-        || typeof result.articleCount !== &quot;number&quot;</div>
+<div class="line del">-        || typeof result.imageSourceCount !== &quot;number&quot;</div>
+<div class="line del">-        || !result.genreLabel</div>
+<div class="line del">-      ) {</div>
+<div class="line del">-        throw new Error(result?.message || &quot;Não foi possível preparar o pacote editorial.&quot;);</div>
+<div class="line del">-      }</div>
+<div class="line del">-      const value: PreparedSourcePackage = {</div>
+<div class="line del">-        contentUrl: result.contentUrl,</div>
+<div class="line del">-        imagesUrl: result.imagesUrl,</div>
+<div class="line del">-        imagesFileName: result.imagesFileName,</div>
+<div class="line del">-        imageSourceCount: result.imageSourceCount,</div>
+<div class="line del">-        articleCount: result.articleCount,</div>
+<div class="line del">-        genreLabel: result.genreLabel,</div>
+<div class="line del">-        sourcePackage: result.sourcePackage,</div>
+<div class="line del">-      };</div>
+<div class="line del">-      setPrepared(value);</div>
+<div class="line del">-      return value;</div>
+<div class="line del">-    } finally {</div>
+<div class="line del">-      setPreparing(false);</div>
+<div class="line del">-    }</div>
+<div class="line add">+    const { sourcePackage } = await preparation.ensure();</div>
+<div class="line add">+    return sourcePackage;</div>
+<div class="line ">   }</div>
+<div class="line "> </div>
+<div class="line ">   async function copyPackage() {</div>
+<div class="line del">-    if (disabled || preparing) return;</div>
+<div class="line add">+    if (disabled) return;</div>
+<div class="line ">     try {</div>
+<div class="line del">-      const value = await ensurePackage();</div>
+<div class="line del">-      const response = await fetch(value.contentUrl, {</div>
+<div class="line del">-        cache: &quot;no-store&quot;,</div>
+<div class="line del">-        credentials: &quot;same-origin&quot;,</div>
+<div class="line del">-      });</div>
+<div class="line del">-      if (!response.ok) throw new Error(&quot;package_unavailable&quot;);</div>
+<div class="line del">-      await copyText(await response.text());</div>
+<div class="line del">-      setStatus(`Pacote com ${value.articleCount} ${value.articleCount === 1 ? &quot;artigo&quot; : &quot;artigos&quot;} copiado.`);</div>
+<div class="line del">-    } catch (error) {</div>
+<div class="line del">-      if (error instanceof Error &amp;&amp; error.message !== &quot;package_preparing&quot;) {</div>
+<div class="line del">-        setStatus(error.message === &quot;package_unavailable&quot;</div>
+<div class="line del">-          ? &quot;Não foi possível copiar o pacote neste momento.&quot;</div>
+<div class="line del">-          : error.message);</div>
+<div class="line add">+      const write = preparation.copy(copyText);</div>
+<div class="line add">+      if (!write) return;</div>
+<div class="line add">+      await write;</div>
+<div class="line add">+      const value = preparation.ready()?.sourcePackage;</div>
+<div class="line add">+      if (value) {</div>
+<div class="line add">+        setStatus(`Pacote com ${value.articleCount} ${value.articleCount === 1 ? &quot;artigo&quot; : &quot;artigos&quot;} copiado.`);</div>
+<div class="line ">       }</div>
+<div class="line add">+    } catch (error) {</div>
+<div class="line add">+      setStatus(error instanceof Error ? error.message : &quot;Não foi possível copiar o pacote neste momento.&quot;);</div>
+<div class="line ">     }</div>
+<div class="line ">   }</div>
+<div class="line "> </div>
+<div class="line del">-  async function downloadImages() {</div>
+<div class="line del">-    if (disabled || preparing) return;</div>
+<div class="line del">-    try {</div>
+<div class="line del">-      const value = await ensurePackage();</div>
+<div class="line del">-      if (value.imageSourceCount &lt; 1) {</div>
+<div class="line del">-        setStatus(&quot;Esta produção não tem imagens selecionadas para download.&quot;);</div>
+<div class="line del">-        return;</div>
+<div class="line del">-      }</div>
+<div class="line del">-      setStatus(`A preparar ${value.imageSourceCount} ${value.imageSourceCount === 1 ? &quot;imagem&quot; : &quot;imagens&quot;}…`);</div>
+<div class="line del">-      window.location.assign(value.imagesUrl);</div>
+<div class="line del">-    } catch (error) {</div>
+<div class="line del">-      if (error instanceof Error &amp;&amp; error.message !== &quot;package_preparing&quot;) setStatus(error.message);</div>
+<div class="line add">+  function downloadImages() {</div>
+<div class="line add">+    const value = preparation.ready()?.sourcePackage;</div>
+<div class="line add">+    if (disabled || !value) return;</div>
+<div class="line add">+    if (value.imageSourceCount &lt; 1) {</div>
+<div class="line add">+      setStatus(&quot;Esta produção não tem imagens selecionadas para download.&quot;);</div>
+<div class="line add">+      return;</div>
+<div class="line ">     }</div>
+<div class="line add">+    setStatus(`A preparar ${value.imageSourceCount} ${value.imageSourceCount === 1 ? &quot;imagem&quot; : &quot;imagens&quot;}…`);</div>
+<div class="line add">+    window.location.assign(value.imagesUrl);</div>
+<div class="line ">   }</div>
+<div class="line "> </div>
+<div class="line ">   async function importText(text: string) {</div>
+<div class="line hunk">@@ -906,7 +862,7 @@ function ProductionActions({</div>
+<div class="line ">       window.location.assign(&quot;/admin/editorial/redacao-automatica/publicacao-lote&quot;);</div>
+<div class="line ">       return true;</div>
+<div class="line ">     } catch (error) {</div>
+<div class="line del">-      if (error instanceof Error &amp;&amp; error.message !== &quot;package_preparing&quot;) setStatus(error.message);</div>
+<div class="line add">+      if (error instanceof Error) setStatus(error.message);</div>
+<div class="line ">       return false;</div>
+<div class="line ">     }</div>
+<div class="line ">   }</div>
+<div class="line hunk">@@ -936,13 +892,21 @@ function ProductionActions({</div>
+<div class="line ">         &lt;button className={styles.primaryAction} type=&quot;submit&quot; form={PRODUCTION_FORM_ID} disabled={saving}&gt;</div>
+<div class="line ">           {saving ? &quot;A guardar…&quot; : &quot;Guardar artigos e imagens&quot;}</div>
+<div class="line ">         &lt;/button&gt;</div>
+<div class="line del">-        &lt;button type=&quot;button&quot; onClick={downloadImages} disabled={disabled || preparing}&gt;</div>
+<div class="line add">+        &lt;button type=&quot;button&quot; onClick={downloadImages} disabled={disabled || !prepared}&gt;</div>
+<div class="line ">           Descarregar imagens (.zip) — {prepared?.imageSourceCount ?? imageCount}</div>
+<div class="line ">         &lt;/button&gt;</div>
+<div class="line del">-        &lt;button type=&quot;button&quot; onClick={copyPackage} disabled={disabled || preparing}&gt;</div>
+<div class="line add">+        &lt;button type=&quot;button&quot; onClick={copyPackage} disabled={disabled || preparationState.kind !== &quot;ready&quot;}&gt;</div>
+<div class="line ">           {preparing ? &quot;A preparar pacote…&quot; : &quot;Copiar pacote para ChatGPT&quot;}</div>
+<div class="line ">         &lt;/button&gt;</div>
+<div class="line add">+        {!disabled &amp;&amp; preparationState.kind === &quot;error&quot; ? (</div>
+<div class="line add">+          &lt;button type=&quot;button&quot; onClick={() =&gt; preparation.retry()}&gt;Tentar preparar novamente&lt;/button&gt;</div>
+<div class="line add">+        ) : null}</div>
+<div class="line ">       &lt;/div&gt;</div>
+<div class="line add">+      {!disabled &amp;&amp; preparationState.kind === &quot;error&quot; ? (</div>
+<div class="line add">+        &lt;p className={styles.commandMessage} role=&quot;alert&quot;&gt;</div>
+<div class="line add">+          Não foi possível preparar o pacote: {preparationState.message}</div>
+<div class="line add">+        &lt;/p&gt;</div>
+<div class="line add">+      ) : null}</div>
+<div class="line ">       &lt;label className={styles.responseField}&gt;</div>
+<div class="line ">         &lt;span&gt;Colar resposta do ChatGPT&lt;/span&gt;</div>
+<div class="line ">         &lt;textarea</div>
+<div class="line ">diff --git a/app/admin/editorial/redacao-automatica/publicacao-lote/_batchPreflightClient.tsx b/app/admin/editorial/redacao-automatica/publicacao-lote/_batchPreflightClient.tsx</div>
+<div class="line ">index 91f5a179..873d8c61 100644</div>
+<div class="line del">--- a/app/admin/editorial/redacao-automatica/publicacao-lote/_batchPreflightClient.tsx</div>
+<div class="line add">+++ b/app/admin/editorial/redacao-automatica/publicacao-lote/_batchPreflightClient.tsx</div>
+<div class="line hunk">@@ -33,9 +33,13 @@ import {</div>
+<div class="line ">   shouldRequestAutomaticEditorialBatchPreflight,</div>
+<div class="line "> } from &quot;@/lib/redacao-automatica/editorial-batch-publication-client&quot;;</div>
+<div class="line "> import {</div>
+<div class="line del">-  applyEditorialBatchHistoricalDecisions,</div>
+<div class="line add">+  applyHistoricalDecisionGroups,</div>
+<div class="line add">+  historicalTargetsForBatch,</div>
+<div class="line add">+  historicalDecisionGroups,</div>
+<div class="line add">+  readPendingHistoricalDecisions,</div>
+<div class="line add">+  HISTORICAL_PENDING_STORAGE_KEY,</div>
+<div class="line add">+  type HistoricalTarget,</div>
+<div class="line ">   editorialBatchHistoricalChoiceIdentity,</div>
+<div class="line del">-  editorialBatchSelectedHistoricalArticleIds,</div>
+<div class="line ">   pruneEditorialBatchHistoricalChoices,</div>
+<div class="line ">   type EditorialBatchHistoricalChoices,</div>
+<div class="line ">   type EditorialBatchHistoricalCompletion,</div>
+<div class="line hunk">@@ -55,6 +59,8 @@ import {</div>
+<div class="line ">   editorialBatchDossierImages,</div>
+<div class="line ">   editorialBatchInitialImageChoice,</div>
+<div class="line ">   editorialBatchOutputImage,</div>
+<div class="line add">+  editorialBatchUpdateImageMessage,</div>
+<div class="line add">+  editorialBatchPublishedImageUrl,</div>
+<div class="line ">   withEditorialBatchOutputImageChoice,</div>
+<div class="line "> } from &quot;@/lib/redacao-automatica/editorial-batch-image-selection&quot;;</div>
+<div class="line "> import DossierImageChoiceGrid from &quot;../_dossierImageChoiceGrid&quot;;</div>
+<div class="line hunk">@@ -485,6 +491,7 @@ function ResultSummary({</div>
+<div class="line ">   historicalChoices,</div>
+<div class="line ">   onHistoricalChoice,</div>
+<div class="line ">   historicalChoiceDisabled,</div>
+<div class="line add">+  historicalTargets,</div>
+<div class="line ">   classificationChoices,</div>
+<div class="line ">   lockedClassificationKeys,</div>
+<div class="line ">   onClassificationChoice,</div>
+<div class="line hunk">@@ -512,6 +519,7 @@ function ResultSummary({</div>
+<div class="line ">   historicalChoices: EditorialBatchHistoricalChoices;</div>
+<div class="line ">   onHistoricalChoice: (identity: string, checked: boolean) =&gt; void;</div>
+<div class="line ">   historicalChoiceDisabled: boolean;</div>
+<div class="line add">+  historicalTargets: Readonly&lt;Record&lt;string, HistoricalTarget&gt;&gt;;</div>
+<div class="line ">   classificationChoices: Readonly&lt;Record&lt;string, ArticleClassificationKey&gt;&gt;;</div>
+<div class="line ">   lockedClassificationKeys: ReadonlySet&lt;string&gt;;</div>
+<div class="line ">   onClassificationChoice: (articleKey: string, classificationKey: ArticleClassificationKey) =&gt; void;</div>
+<div class="line hunk">@@ -698,13 +706,13 @@ function ResultSummary({</div>
+<div class="line ">                             &lt;input</div>
+<div class="line ">                               type=&quot;checkbox&quot;</div>
+<div class="line ">                               checked={Boolean(historicalChoices[historicalChoiceIdentity])}</div>
+<div class="line del">-                              disabled={historicalChoiceDisabled}</div>
+<div class="line add">+                              disabled={historicalChoiceDisabled || !historicalTargets[historicalChoiceIdentity]?.matchdayId}</div>
+<div class="line ">                               onChange={(event) =&gt; onHistoricalChoice(</div>
+<div class="line ">                                 historicalChoiceIdentity,</div>
+<div class="line ">                                 event.target.checked,</div>
+<div class="line ">                               )}</div>
+<div class="line ">                             /&gt;</div>
+<div class="line del">-                            &lt;span&gt;Histórica&lt;/span&gt;</div>
+<div class="line add">+                            &lt;span&gt;{historicalTargets[historicalChoiceIdentity]?.matchdayId ? &quot;Histórica&quot; : &quot;Histórica indisponível · sem Jornada válida&quot;}&lt;/span&gt;</div>
+<div class="line ">                           &lt;/label&gt;</div>
+<div class="line ">                         ) : null}</div>
+<div class="line ">                         {classificationRequired ? (</div>
+<div class="line hunk">@@ -816,9 +824,10 @@ function ResultSummary({</div>
+<div class="line ">                         &lt;div className={styles.articleImageEditorHeader}&gt;</div>
+<div class="line ">                           &lt;div&gt;</div>
+<div class="line ">                             &lt;strong&gt;Imagem deste artigo&lt;/strong&gt;</div>
+<div class="line del">-                            &lt;span&gt;{productionImage?.label ?? (existingOutput</div>
+<div class="line del">-                              ? &quot;Mantém a imagem publicada&quot;</div>
+<div class="line del">-                              : &quot;Escolhe no banco do Dossiê&quot;)}&lt;/span&gt;</div>
+<div class="line add">+                            &lt;span&gt;{existingOutput</div>
+<div class="line add">+                              ? editorialBatchUpdateImageMessage(productionImage?.imageUrl,</div>
+<div class="line add">+                                  editorialBatchPublishedImageUrl(sourcePackage, outputId))</div>
+<div class="line add">+                              : productionImage?.label ?? &quot;Escolhe no banco do Dossiê&quot;}&lt;/span&gt;</div>
+<div class="line ">                           &lt;/div&gt;</div>
+<div class="line ">                           &lt;span&gt;{productionImage ? &quot;SELECIONADA&quot; : existingOutput ? &quot;PRESERVADA&quot; : &quot;EM FALTA&quot;}&lt;/span&gt;</div>
+<div class="line ">                         &lt;/div&gt;</div>
+<div class="line hunk">@@ -895,6 +904,7 @@ function PublicationPanel({</div>
+<div class="line ">   onRetryPreflight,</div>
+<div class="line ">   onPublish,</div>
+<div class="line ">   noChangeCount,</div>
+<div class="line add">+  updateImageMessages,</div>
+<div class="line "> }: Readonly&lt;{</div>
+<div class="line ">   articles: readonly EditorialBatchArticle[];</div>
+<div class="line ">   states: Readonly&lt;Record&lt;string, BatchPublicationItemState&gt;&gt;;</div>
+<div class="line hunk">@@ -910,6 +920,7 @@ function PublicationPanel({</div>
+<div class="line ">   onRetryPreflight: () =&gt; void;</div>
+<div class="line ">   onPublish: () =&gt; void;</div>
+<div class="line ">   noChangeCount: number;</div>
+<div class="line add">+  updateImageMessages: ReadonlyMap&lt;string, string&gt;;</div>
+<div class="line "> }&gt;) {</div>
+<div class="line ">   const stateValues = Object.values(states);</div>
+<div class="line ">   const hasRun = stateValues.length &gt; 0;</div>
+<div class="line hunk">@@ -986,7 +997,7 @@ function PublicationPanel({</div>
+<div class="line ">                   : &quot;ÚLTIMAS&quot;;</div>
+<div class="line ">               const destinationDetail = updateRequired || item.mode === &quot;update&quot;</div>
+<div class="line ">                 ? item.articleId</div>
+<div class="line del">-                  ? &quot;Este Dossiê corresponde a um artigo já publicado. A atualização manterá o mesmo artigo e o mesmo URL. A imagem atualmente publicada também será preservada.&quot;</div>
+<div class="line add">+                  ? `Este Dossiê corresponde a um artigo já publicado. A atualização manterá o mesmo artigo e o mesmo URL. ${updateImageMessages.get(item.key) ?? &quot;&quot;}`</div>
+<div class="line ">                   : &quot;O servidor identificou uma atualização, mas não devolveu um articleId válido. A publicação permanece bloqueada.&quot;</div>
+<div class="line ">                 : item.mode === &quot;resume&quot;</div>
+<div class="line ">                   ? &quot;Publicação já preparada; o artigo será confirmado e mantido em Últimas.&quot;</div>
+<div class="line hunk">@@ -1144,6 +1155,11 @@ export default function BatchPreflightClient({</div>
+<div class="line ">     );</div>
+<div class="line ">   const publicationStatesRef = useRef&lt;Record&lt;string, BatchPublicationItemState&gt;&gt;({});</div>
+<div class="line ">   const historicalChoicesRef = useRef&lt;EditorialBatchHistoricalChoices&gt;({});</div>
+<div class="line add">+  const touchedHistoricalRef = useRef(new Set&lt;string&gt;());</div>
+<div class="line add">+  const [historicalReadState, setHistoricalReadState] = useState&lt;&quot;ready&quot; | &quot;loading&quot; | &quot;error&quot;&gt;(&quot;ready&quot;);</div>
+<div class="line add">+  const [historicalReadVersion, setHistoricalReadVersion] = useState(0);</div>
+<div class="line add">+  const [pendingHistorical, setPendingHistorical] = useState&lt;ReturnType&lt;typeof readPendingHistoricalDecisions&gt;&gt;(null);</div>
+<div class="line add">+  const pendingHistoricalRef = useRef&lt;ReturnType&lt;typeof readPendingHistoricalDecisions&gt;&gt;(null);</div>
+<div class="line ">   const classificationChoicesRef = useRef&lt;Record&lt;string, ArticleClassificationKey&gt;&gt;({});</div>
+<div class="line ">   const frozenClassificationChoicesRef = useRef&lt;Record&lt;string, ArticleClassificationKey&gt;&gt;({});</div>
+<div class="line ">   const touchedClassificationKeysRef = useRef&lt;Set&lt;string&gt;&gt;(new Set());</div>
+<div class="line hunk">@@ -1186,6 +1202,12 @@ export default function BatchPreflightClient({</div>
+<div class="line ">     slots:mesaProductionIntentSlots(sourcePackage.productionIntents), newArticleCount:sourcePackage.productionIntents.totals.newArticles,</div>
+<div class="line ">     publishedArticleCount:sourcePackage.productionIntents.totals.reviews,</div>
+<div class="line ">   } : sourcePackage?.themeContinuity ?? null, [sourcePackage]);</div>
+<div class="line add">+  const historicalTargets = useMemo(() =&gt; {</div>
+<div class="line add">+    const targets = historicalTargetsForBatch(preflight.articles, themeContinuity?.slots ?? [], matchdayId);</div>
+<div class="line add">+    return Object.fromEntries(Object.entries(targets).map(([identity, target]) =&gt; [identity, {</div>
+<div class="line add">+      ...target, matchdayId: matchdays.some((day) =&gt; day.id === target.matchdayId) ? target.matchdayId : null,</div>
+<div class="line add">+    }]));</div>
+<div class="line add">+  }, [preflight.articles, themeContinuity, matchdayId, matchdays]);</div>
+<div class="line ">   const publicationContextComplete = themeContinuity</div>
+<div class="line ">     ? themeContinuity.newArticleCount === 0 || contextComplete</div>
+<div class="line ">     : contextComplete;</div>
+<div class="line hunk">@@ -1341,6 +1363,9 @@ export default function BatchPreflightClient({</div>
+<div class="line ">   const publicationCanPublish =</div>
+<div class="line ">     canPublish</div>
+<div class="line ">     &amp;&amp; classificationsComplete</div>
+<div class="line add">+    &amp;&amp; !pendingHistorical</div>
+<div class="line add">+    &amp;&amp; historicalReadState === &quot;ready&quot;</div>
+<div class="line add">+    &amp;&amp; Object.keys(historicalChoices).every((identity) =&gt; historicalTargets[identity]?.matchdayId)</div>
+<div class="line ">     &amp;&amp; Boolean(publicationPlan)</div>
+<div class="line ">     &amp;&amp; updatesConfirmed;</div>
+<div class="line "> </div>
+<div class="line hunk">@@ -1352,6 +1377,45 @@ export default function BatchPreflightClient({</div>
+<div class="line ">     || Object.keys(publicationStates).length &gt; 0,</div>
+<div class="line ">   );</div>
+<div class="line "> </div>
+<div class="line add">+  useEffect(() =&gt; {</div>
+<div class="line add">+    const pending = readPendingHistoricalDecisions(window.sessionStorage.getItem(HISTORICAL_PENDING_STORAGE_KEY));</div>
+<div class="line add">+    if (pending?.groups.length) {</div>
+<div class="line add">+      pendingHistoricalRef.current = pending;</div>
+<div class="line add">+      setPendingHistorical(pending);</div>
+<div class="line add">+      if (pending.complete) setBatchFinalized(true);</div>
+<div class="line add">+    }</div>
+<div class="line add">+  }, []);</div>
+<div class="line add">+</div>
+<div class="line add">+  useEffect(() =&gt; {</div>
+<div class="line add">+    const existing = Object.entries(historicalTargets).filter(([, target]) =&gt; target.articleId &amp;&amp; target.matchdayId);</div>
+<div class="line add">+    if (!existing.length) { setHistoricalReadState(&quot;ready&quot;); return; }</div>
+<div class="line add">+    const controller = new AbortController();</div>
+<div class="line add">+    setHistoricalReadState(&quot;loading&quot;);</div>
+<div class="line add">+    void (async () =&gt; {</div>
+<div class="line add">+      try {</div>
+<div class="line add">+        const response = await fetch(BATCH_PUBLICATION_ROUTE, { method: &quot;POST&quot;, signal: controller.signal,</div>
+<div class="line add">+          headers: { &quot;Content-Type&quot;: &quot;application/json&quot; }, body: JSON.stringify({ action: &quot;read_historical_decisions&quot;,</div>
+<div class="line add">+            historicalMatchdayIds: [...new Set(existing.map(([, target]) =&gt; target.matchdayId))] }) });</div>
+<div class="line add">+        const result = await response.json();</div>
+<div class="line add">+        if (!response.ok || !result?.ok || !Array.isArray(result.decisions)) throw new Error(&quot;historical-read-unavailable&quot;);</div>
+<div class="line add">+        if (controller.signal.aborted) return;</div>
+<div class="line add">+        setHistoricalChoices((current) =&gt; {</div>
+<div class="line add">+          const next = { ...current };</div>
+<div class="line add">+          for (const [identity, target] of existing) {</div>
+<div class="line add">+            if (touchedHistoricalRef.current.has(identity)) continue;</div>
+<div class="line add">+            const selected = result.decisions.some((row: { matchdayId: string; articleId: string; decision: string }) =&gt;</div>
+<div class="line add">+              row.matchdayId === target.matchdayId &amp;&amp; row.articleId === target.articleId &amp;&amp; row.decision === &quot;selected&quot;);</div>
+<div class="line add">+            if (selected) next[identity] = true; else delete next[identity];</div>
+<div class="line add">+          }</div>
+<div class="line add">+          historicalChoicesRef.current = next;</div>
+<div class="line add">+          return next;</div>
+<div class="line add">+        });</div>
+<div class="line add">+        setHistoricalReadState(&quot;ready&quot;);</div>
+<div class="line add">+      } catch { if (!controller.signal.aborted) setHistoricalReadState(&quot;error&quot;); }</div>
+<div class="line add">+    })();</div>
+<div class="line add">+    return () =&gt; controller.abort();</div>
+<div class="line add">+  }, [historicalTargets, historicalReadVersion]);</div>
+<div class="line add">+</div>
+<div class="line ">   useEffect(() =&gt; {</div>
+<div class="line ">     const transferredText = window.sessionStorage.getItem(</div>
+<div class="line ">       EDITORIAL_BATCH_TRANSFER_STORAGE_KEY,</div>
+<div class="line hunk">@@ -1612,10 +1676,10 @@ export default function BatchPreflightClient({</div>
+<div class="line ">   }</div>
+<div class="line "> </div>
+<div class="line ">   function setHistoricalChoice(identity: string, checked: boolean) {</div>
+<div class="line add">+    touchedHistoricalRef.current.add(identity);</div>
+<div class="line ">     setHistoricalChoices((current) =&gt; {</div>
+<div class="line ">       const next = { ...current };</div>
+<div class="line del">-      if (checked) next[identity] = true;</div>
+<div class="line del">-      else delete next[identity];</div>
+<div class="line add">+      next[identity] = checked;</div>
+<div class="line ">       historicalChoicesRef.current = next;</div>
+<div class="line ">       return next;</div>
+<div class="line ">     });</div>
+<div class="line hunk">@@ -1635,15 +1699,41 @@ export default function BatchPreflightClient({</div>
+<div class="line ">     setPublicationError(null);</div>
+<div class="line ">   }</div>
+<div class="line "> </div>
+<div class="line del">-  async function applyHistoricalChoices(</div>
+<div class="line del">-    completions: readonly EditorialBatchHistoricalCompletion[],</div>
+<div class="line del">-  ) {</div>
+<div class="line del">-    const articleIds = editorialBatchSelectedHistoricalArticleIds({</div>
+<div class="line del">-      articles: preflight.articles,</div>
+<div class="line del">-      choices: historicalChoicesRef.current,</div>
+<div class="line del">-      completions,</div>
+<div class="line del">-    });</div>
+<div class="line del">-    await applyEditorialBatchHistoricalDecisions({ matchdayId, articleIds });</div>
+<div class="line add">+  function savePendingHistorical(value: ReturnType&lt;typeof readPendingHistoricalDecisions&gt;) {</div>
+<div class="line add">+    pendingHistoricalRef.current = value;</div>
+<div class="line add">+    setPendingHistorical(value);</div>
+<div class="line add">+    try {</div>
+<div class="line add">+      if (value) window.sessionStorage.setItem(HISTORICAL_PENDING_STORAGE_KEY, JSON.stringify(value));</div>
+<div class="line add">+      else window.sessionStorage.removeItem(HISTORICAL_PENDING_STORAGE_KEY);</div>
+<div class="line add">+    } catch { /* Keep the retry in memory if browser storage is unavailable. */ }</div>
+<div class="line add">+  }</div>
+<div class="line add">+</div>
+<div class="line add">+  async function applyHistoricalChoices(completions: readonly EditorialBatchHistoricalCompletion[], complete = true) {</div>
+<div class="line add">+    const groups = historicalDecisionGroups(preflight.articles, historicalChoicesRef.current, completions, historicalTargets);</div>
+<div class="line add">+    if (complete) setBatchFinalized(true);</div>
+<div class="line add">+    await applyHistoricalDecisionGroups(groups, (remaining) =&gt; savePendingHistorical(remaining.length</div>
+<div class="line add">+      ? { fingerprint: publicationFingerprint, groups: remaining, complete } : null));</div>
+<div class="line add">+  }</div>
+<div class="line add">+</div>
+<div class="line add">+  async function retryHistoricalChoices() {</div>
+<div class="line add">+    const pending = pendingHistoricalRef.current;</div>
+<div class="line add">+    if (!pending || publishingRef.current) return;</div>
+<div class="line add">+    publishingRef.current = true;</div>
+<div class="line add">+    setIsPublishing(true);</div>
+<div class="line add">+    setPublicationError(null);</div>
+<div class="line add">+    try {</div>
+<div class="line add">+      await applyHistoricalDecisionGroups(pending.groups, (groups) =&gt; savePendingHistorical(groups.length ? { ...pending, groups } : null));</div>
+<div class="line add">+      if (pending.complete) {</div>
+<div class="line add">+        setBatchFinalized(true);</div>
+<div class="line add">+        clearTransferredBatch();</div>
+<div class="line add">+        returnToMesaAfterSuccessfulPublication();</div>
+<div class="line add">+      }</div>
+<div class="line add">+    } catch (error) {</div>
+<div class="line add">+      setPublicationError(error instanceof Error ? error.message : &quot;A decisão Histórica continua pendente.&quot;);</div>
+<div class="line add">+    } finally {</div>
+<div class="line add">+      publishingRef.current = false;</div>
+<div class="line add">+      setIsPublishing(false);</div>
+<div class="line add">+    }</div>
+<div class="line ">   }</div>
+<div class="line "> </div>
+<div class="line ">   function invalidatePublicationPreflightRequest() {</div>
+<div class="line hunk">@@ -2140,7 +2230,7 @@ export default function BatchPreflightClient({</div>
+<div class="line ">                     : publicationStatesRef.current[publishedArticle.key]?.status === &quot;not_attempted&quot;</div>
+<div class="line ">                       ? &quot;not_attempted&quot;</div>
+<div class="line ">                       : &quot;error&quot;,</div>
+<div class="line del">-            })));</div>
+<div class="line add">+            })), false);</div>
+<div class="line ">           } catch (historicalError) {</div>
+<div class="line ">             setPublicationError(</div>
+<div class="line ">               `Publicação interrompida no artigo ${planItem.key}: ${message}. Os artigos publicados foram preservados, mas a decisão Histórica falhou: ${</div>
+<div class="line hunk">@@ -2549,7 +2639,8 @@ export default function BatchPreflightClient({</div>
+<div class="line ">           imageChoiceDisabled={isPublishing}</div>
+<div class="line ">           historicalChoices={historicalChoices}</div>
+<div class="line ">           onHistoricalChoice={setHistoricalChoice}</div>
+<div class="line del">-          historicalChoiceDisabled={isPublishing}</div>
+<div class="line add">+          historicalChoiceDisabled={isPublishing || Boolean(pendingHistorical) || historicalReadState !== &quot;ready&quot;}</div>
+<div class="line add">+          historicalTargets={historicalTargets}</div>
+<div class="line ">           classificationChoices={classificationChoices}</div>
+<div class="line ">           lockedClassificationKeys={lockedClassificationKeys}</div>
+<div class="line ">           onClassificationChoice={setFinalClassificationChoice}</div>
+<div class="line hunk">@@ -2557,6 +2648,16 @@ export default function BatchPreflightClient({</div>
+<div class="line ">         /&gt;</div>
+<div class="line ">       ) : null}</div>
+<div class="line "> </div>
+<div class="line add">+      {historicalReadState === &quot;error&quot; ? &lt;p role=&quot;alert&quot;&gt;</div>
+<div class="line add">+        Não foi possível ler a decisão Histórica existente.</div>
+<div class="line add">+        &lt;button type=&quot;button&quot; onClick={() =&gt; setHistoricalReadVersion((version) =&gt; version + 1)}&gt;Repetir leitura da Histórica&lt;/button&gt;</div>
+<div class="line add">+      &lt;/p&gt; : null}</div>
+<div class="line add">+      {pendingHistorical ? &lt;section role=&quot;status&quot;&gt;</div>
+<div class="line add">+        &lt;p&gt;Publicação preservada. Falta concluir apenas a decisão Histórica em {pendingHistorical.groups.length} Jornada(s).&lt;/p&gt;</div>
+<div class="line add">+        &lt;button type=&quot;button&quot; disabled={isPublishing} onClick={() =&gt; void retryHistoricalChoices()}&gt;</div>
+<div class="line add">+          {isPublishing ? &quot;A guardar Histórica…&quot; : &quot;Repetir apenas decisão Histórica&quot;}</div>
+<div class="line add">+        &lt;/button&gt;</div>
+<div class="line add">+      &lt;/section&gt; : null}</div>
+<div class="line ">       {publicationPanelVisible ? (</div>
+<div class="line ">         &lt;PublicationPanel</div>
+<div class="line ">           articles={preflight.articles}</div>
+<div class="line hunk">@@ -2574,6 +2675,10 @@ export default function BatchPreflightClient({</div>
+<div class="line ">           onRetryPreflight={retryPublicationPreflight}</div>
+<div class="line ">           onPublish={publishBatch}</div>
+<div class="line ">           noChangeCount={sourcePackage?.continuityResolution?.noChangeOutputIds.length ?? 0}</div>
+<div class="line add">+          updateImageMessages={new Map(preflight.articles.map((article) =&gt; [article.key,</div>
+<div class="line add">+            editorialBatchUpdateImageMessage(productionImagesByKey.get(article.key)?.imageUrl,</div>
+<div class="line add">+              editorialBatchPublishedImageUrl(sourcePackage, article.outputId),</div>
+<div class="line add">+              Boolean(imagePreflight.articles.find((image) =&gt; image.key === article.key)?.file))]))}</div>
+<div class="line ">         /&gt;</div>
+<div class="line ">       ) : null}</div>
+<div class="line ">     &lt;/div&gt;</div>
+<div class="line ">diff --git a/app/competicoes/[competitionSlug]/[seasonLabel]/jornadas/[matchdayNumber]/jogos/page.tsx b/app/competicoes/[competitionSlug]/[seasonLabel]/jornadas/[matchdayNumber]/jogos/page.tsx</div>
+<div class="line ">index 71629fec..4fee312c 100644</div>
+<div class="line del">--- a/app/competicoes/[competitionSlug]/[seasonLabel]/jornadas/[matchdayNumber]/jogos/page.tsx</div>
+<div class="line add">+++ b/app/competicoes/[competitionSlug]/[seasonLabel]/jornadas/[matchdayNumber]/jogos/page.tsx</div>
+<div class="line hunk">@@ -1,3 +1,4 @@</div>
+<div class="line add">+import PublicEditorialImage from &quot;@/components/public/PublicEditorialImage&quot;;</div>
+<div class="line "> import { getPublicCompetitionMenu } from &quot;@/lib/public-competition-menu&quot;;</div>
+<div class="line "> import { buildPublicMatchdayLegNavigation } from &quot;@/lib/public-matchday-leg-navigation&quot;;</div>
+<div class="line "> import {</div>
+<div class="line hunk">@@ -328,6 +329,10 @@ const gamesPageStyles = `</div>
+<div class="line ">     min-width: 0;</div>
+<div class="line ">   }</div>
+<div class="line "> </div>
+<div class="line add">+  .public-games-layout:not(:has(.public-games-sidebar)) {</div>
+<div class="line add">+    grid-template-columns: minmax(0, 1fr);</div>
+<div class="line add">+  }</div>
+<div class="line add">+</div>
+<div class="line ">   .public-games-main,</div>
+<div class="line ">   .public-games-sidebar {</div>
+<div class="line ">     display: grid;</div>
+<div class="line hunk">@@ -580,17 +585,6 @@ const gamesPageStyles = `</div>
+<div class="line ">     line-height: 1.42;</div>
+<div class="line ">   }</div>
+<div class="line "> </div>
+<div class="line del">-  .public-games-ad-slot {</div>
+<div class="line del">-    display: grid;</div>
+<div class="line del">-    min-height: 260px;</div>
+<div class="line del">-    place-items: center;</div>
+<div class="line del">-    border: 1px solid #dfe5ec;</div>
+<div class="line del">-    background: #f8fafc;</div>
+<div class="line del">-    color: #8a96a5;</div>
+<div class="line del">-    font-size: 11px;</div>
+<div class="line del">-    font-weight: 900;</div>
+<div class="line del">-    text-transform: uppercase;</div>
+<div class="line del">-  }</div>
+<div class="line "> </div>
+<div class="line ">   .public-games-news-list {</div>
+<div class="line ">     display: grid;</div>
+<div class="line hunk">@@ -1509,49 +1503,47 @@ export default async function PublicMatchdayGamesPage({ params }: PublicMatchday</div>
+<div class="line ">             )}</div>
+<div class="line ">           &lt;/section&gt;</div>
+<div class="line "> </div>
+<div class="line del">-          &lt;aside className=&quot;public-games-sidebar&quot; aria-label=&quot;Informação lateral da jornada&quot;&gt;</div>
+<div class="line del">-            &lt;section className=&quot;public-games-panel public-games-side-block&quot; aria-label=&quot;Publicidade&quot;&gt;</div>
+<div class="line del">-              &lt;div className=&quot;public-games-ad-slot&quot;&gt;Publicidade&lt;/div&gt;</div>
+<div class="line del">-            &lt;/section&gt;</div>
+<div class="line del">-</div>
+<div class="line del">-            {sidebarNewsItems.length &gt; 0 ? (</div>
+<div class="line del">-              &lt;section className=&quot;public-games-panel public-games-side-block&quot; aria-label=&quot;Mais notícias&quot;&gt;</div>
+<div class="line del">-                &lt;div className=&quot;public-games-news-list&quot;&gt;</div>
+<div class="line del">-                  {sidebarNewsItems.map((item) =&gt; {</div>
+<div class="line del">-                    const itemClassName = `public-games-news-item ${item.imageUrl ? &quot;&quot; : &quot;public-games-news-item-no-image&quot;}`.trim();</div>
+<div class="line del">-                    const itemContent = (</div>
+<div class="line del">-                      &lt;&gt;</div>
+<div class="line del">-                        {item.imageUrl ? (</div>
+<div class="line del">-                          &lt;span className=&quot;public-games-news-thumb&quot;&gt;</div>
+<div class="line del">-                            &lt;img</div>
+<div class="line del">-                              {...editorialImageFramingProps(&quot;standard&quot;)}</div>
+<div class="line del">-                              alt=&quot;&quot;</div>
+<div class="line del">-                              src={item.imageUrl}</div>
+<div class="line del">-                            /&gt;</div>
+<div class="line add">+          {sidebarNewsItems.length &gt; 0 ? (</div>
+<div class="line add">+            &lt;aside className=&quot;public-games-sidebar&quot; aria-label=&quot;Informação lateral da jornada&quot;&gt;</div>
+<div class="line add">+              {sidebarNewsItems.length &gt; 0 ? (</div>
+<div class="line add">+                &lt;section className=&quot;public-games-panel public-games-side-block&quot; aria-label=&quot;Mais notícias&quot;&gt;</div>
+<div class="line add">+                  &lt;div className=&quot;public-games-news-list&quot;&gt;</div>
+<div class="line add">+                    {sidebarNewsItems.map((item) =&gt; {</div>
+<div class="line add">+                      const itemClassName = `public-games-news-item ${item.imageUrl ? &quot;&quot; : &quot;public-games-news-item-no-image&quot;}`.trim();</div>
+<div class="line add">+                      const itemContent = (</div>
+<div class="line add">+                        &lt;&gt;</div>
+<div class="line add">+                          {item.imageUrl ? (</div>
+<div class="line add">+                            &lt;span className=&quot;public-games-news-thumb&quot;&gt;</div>
+<div class="line add">+                              &lt;PublicEditorialImage imageSize=&quot;thumbnail&quot;</div>
+<div class="line add">+                                {...editorialImageFramingProps(&quot;standard&quot;)}</div>
+<div class="line add">+                                alt=&quot;&quot;</div>
+<div class="line add">+                                src={item.imageUrl}</div>
+<div class="line add">+                              /&gt;</div>
+<div class="line add">+                            &lt;/span&gt;</div>
+<div class="line add">+                          ) : null}</div>
+<div class="line add">+                          &lt;span className=&quot;public-games-news-copy&quot;&gt;</div>
+<div class="line add">+                            {item.label ? &lt;span className=&quot;public-games-news-label&quot;&gt;{item.label}&lt;/span&gt; : null}</div>
+<div class="line add">+                            &lt;strong&gt;{item.title}&lt;/strong&gt;</div>
+<div class="line add">+                            {item.dateLabel ? &lt;span className=&quot;public-games-news-date&quot;&gt;{item.dateLabel}&lt;/span&gt; : null}</div>
+<div class="line ">                           &lt;/span&gt;</div>
+<div class="line del">-                        ) : null}</div>
+<div class="line del">-                        &lt;span className=&quot;public-games-news-copy&quot;&gt;</div>
+<div class="line del">-                          {item.label ? &lt;span className=&quot;public-games-news-label&quot;&gt;{item.label}&lt;/span&gt; : null}</div>
+<div class="line del">-                          &lt;strong&gt;{item.title}&lt;/strong&gt;</div>
+<div class="line del">-                          {item.dateLabel ? &lt;span className=&quot;public-games-news-date&quot;&gt;{item.dateLabel}&lt;/span&gt; : null}</div>
+<div class="line del">-                        &lt;/span&gt;</div>
+<div class="line del">-                      &lt;/&gt;</div>
+<div class="line del">-                    );</div>
+<div class="line del">-</div>
+<div class="line del">-                    return item.linkUrl ? (</div>
+<div class="line del">-                      &lt;a className={itemClassName} href={item.linkUrl} key={item.id}&gt;</div>
+<div class="line del">-                        {itemContent}</div>
+<div class="line del">-                      &lt;/a&gt;</div>
+<div class="line del">-                    ) : (</div>
+<div class="line del">-                      &lt;div className={itemClassName} key={item.id}&gt;</div>
+<div class="line del">-                        {itemContent}</div>
+<div class="line del">-                      &lt;/div&gt;</div>
+<div class="line del">-                    );</div>
+<div class="line del">-                  })}</div>
+<div class="line del">-                &lt;/div&gt;</div>
+<div class="line del">-              &lt;/section&gt;</div>
+<div class="line del">-            ) : null}</div>
+<div class="line del">-          &lt;/aside&gt;</div>
+<div class="line add">+                        &lt;/&gt;</div>
+<div class="line add">+                      );</div>
+<div class="line add">+</div>
+<div class="line add">+                      return item.linkUrl ? (</div>
+<div class="line add">+                        &lt;a className={itemClassName} href={item.linkUrl} key={item.id}&gt;</div>
+<div class="line add">+                          {itemContent}</div>
+<div class="line add">+                        &lt;/a&gt;</div>
+<div class="line add">+                      ) : (</div>
+<div class="line add">+                        &lt;div className={itemClassName} key={item.id}&gt;</div>
+<div class="line add">+                          {itemContent}</div>
+<div class="line add">+                        &lt;/div&gt;</div>
+<div class="line add">+                      );</div>
+<div class="line add">+                    })}</div>
+<div class="line add">+                  &lt;/div&gt;</div>
+<div class="line add">+                &lt;/section&gt;</div>
+<div class="line add">+              ) : null}</div>
+<div class="line add">+            &lt;/aside&gt;</div>
+<div class="line add">+          ) : null}</div>
+<div class="line ">         &lt;/div&gt;</div>
+<div class="line ">       &lt;/div&gt;</div>
+<div class="line ">     &lt;/main&gt;</div>
+<div class="line ">diff --git a/app/competicoes/[competitionSlug]/[seasonLabel]/jornadas/[matchdayNumber]/page.tsx b/app/competicoes/[competitionSlug]/[seasonLabel]/jornadas/[matchdayNumber]/page.tsx</div>
+<div class="line ">index 50494b8e..4235c0f1 100644</div>
+<div class="line del">--- a/app/competicoes/[competitionSlug]/[seasonLabel]/jornadas/[matchdayNumber]/page.tsx</div>
+<div class="line add">+++ b/app/competicoes/[competitionSlug]/[seasonLabel]/jornadas/[matchdayNumber]/page.tsx</div>
+<div class="line hunk">@@ -1,4 +1,11 @@</div>
+<div class="line del">-import { publicTopNavigationStyles } from &quot;@/components/public/publicEditorialStyles&quot;;</div>
+<div class="line add">+import { columnGroupMember } from &quot;@/lib/editorial-column-groups&quot;;</div>
+<div class="line add">+import { readHistoricalColumnGroups } from &quot;@/lib/editorial-column-groups-reader&quot;;</div>
+<div class="line add">+import { editorialVisualFamilyPublicationPositionsAreValid } from &quot;@/lib/editorial-visual-families&quot;;</div>
+<div class="line add">+import { composePublicEditorialColumnRuns } from &quot;@/lib/public-editorial-column-runs&quot;;</div>
+<div class="line add">+import PublicEditorialColumnRunLayout from &quot;@/components/public/PublicEditorialColumnRunLayout&quot;;</div>
+<div class="line add">+import PublicMatchdayHeader from &quot;@/components/public/PublicMatchdayHeader&quot;;</div>
+<div class="line add">+import PublicHorizontalAdvertisement from &quot;@/components/public/PublicHorizontalAdvertisement&quot;;</div>
+<div class="line add">+import { renderPublicAdvertisingBoundary } from &quot;@/components/public/renderPublicAdvertisingBoundary&quot;;</div>
+<div class="line "> import { buildAccumulatedClassification, totalClassificationStats, type ClassificationSplit } from &quot;@/lib/classification&quot;;</div>
+<div class="line "> import { getPublicLiveMinute } from &quot;@/lib/live-match-clock&quot;;</div>
+<div class="line "> import { getPublicMatchdayDiagnostic, seasonLabelToUrlSegment, type PublicMatchdayContext, type PublicMatchdayDiagnostic, type PublicReferenceCompositionItem, type PublicSeasonMatch } from &quot;@/lib/public-matchday&quot;;</div>
+<div class="line hunk">@@ -8,8 +15,6 @@ import {</div>
+<div class="line "> } from &quot;@/lib/public-matchday-editorial&quot;;</div>
+<div class="line "> import { getPublicCompetitionMenu } from &quot;@/lib/public-competition-menu&quot;;</div>
+<div class="line "> import { createPublicMatchdayStructuralReaders } from &quot;@/lib/public-matchday-structural-context&quot;;</div>
+<div class="line del">-import { resolvePublicCompetitionLogoPresentation } from &quot;@/lib/public-competition-navigation&quot;;</div>
+<div class="line del">-import { buildPublicMatchdayLegNavigation } from &quot;@/lib/public-matchday-leg-navigation&quot;;</div>
+<div class="line "> import { resolveMatchdayHorizontalNewsItems } from &quot;@/lib/editorial-horizontal-news&quot;;</div>
+<div class="line "> import {</div>
+<div class="line ">   DEFAULT_MATCHDAY_ROUNDUP_VIDEO_HEADING,</div>
+<div class="line hunk">@@ -53,8 +58,6 @@ import PublicHorizontalNewsStrip from &quot;@/components/public/PublicHorizontalNewsS</div>
+<div class="line "> import PublicMatchMeta from &quot;@/components/public/PublicMatchMeta&quot;;</div>
+<div class="line "> import PublicMatchdayEditorialSectionFrame from &quot;@/components/public/PublicMatchdayEditorialSectionFrame&quot;;</div>
+<div class="line "> import PublicMatchStrip from &quot;@/components/public/PublicMatchStrip&quot;;</div>
+<div class="line del">-import PublicCompetitionNavigation from &quot;@/components/public/PublicCompetitionNavigation&quot;;</div>
+<div class="line del">-import headerStyles from &quot;@/components/public/PublicLeagueNewsHeader.module.css&quot;;</div>
+<div class="line "> import PublicSideAdvertisement from &quot;@/components/public/PublicSideAdvertisement&quot;;</div>
+<div class="line "> import PublicTeamBadge, { type PublicTeamBadgeVariant } from &quot;@/components/public/PublicTeamBadge&quot;;</div>
+<div class="line "> import PublicThematicZoneLayout from &quot;@/components/public/PublicThematicZoneLayout&quot;;</div>
+<div class="line hunk">@@ -88,14 +91,17 @@ const PUBLIC_STAT_COLUMNS: Array&lt;{ key: keyof ClassificationSplit; label: string</div>
+<div class="line "> </div>
+<div class="line "> type HistoricalDynamicZoneVisualFamily =</div>
+<div class="line ">   | &quot;six_news&quot;</div>
+<div class="line add">+  | &quot;six_news_1_2_3&quot;</div>
+<div class="line ">   | &quot;five_news_balanced&quot;</div>
+<div class="line del">-  | &quot;five_news_secondary&quot;;</div>
+<div class="line add">+  | &quot;five_news_secondary&quot;</div>
+<div class="line add">+  | &quot;five_news_column&quot;;</div>
+<div class="line "> </div>
+<div class="line "> type HistoricalDynamicZoneRow = {</div>
+<div class="line ">   id: string;</div>
+<div class="line ">   composition_id: string;</div>
+<div class="line ">   sort_order: number;</div>
+<div class="line ">   public_title: string;</div>
+<div class="line add">+  public_title_color: string | null;</div>
+<div class="line ">   visual_family: HistoricalDynamicZoneVisualFamily;</div>
+<div class="line "> };</div>
+<div class="line "> </div>
+<div class="line hunk">@@ -122,9 +128,9 @@ type HistoricalDynamicPublicZoneState = {</div>
+<div class="line "> async function readPublicHistoricalDynamicZones(</div>
+<div class="line ">   compositionId: string,</div>
+<div class="line "> ): Promise&lt;HistoricalDynamicPublicZoneState[]&gt; {</div>
+<div class="line del">-  const [zoneRows, itemRows] = await Promise.all([</div>
+<div class="line add">+  const [zoneRows, itemRows, columnGroups] = await Promise.all([</div>
+<div class="line ">     fetchSupabaseAdminTable&lt;HistoricalDynamicZoneRow&gt;(</div>
+<div class="line del">-      `matchday_historical_composition_zones?select=id,composition_id,sort_order,public_title,visual_family&amp;composition_id=eq.${encodeURIComponent(</div>
+<div class="line add">+      `matchday_historical_composition_zones?select=id,composition_id,sort_order,public_title,public_title_color,visual_family&amp;composition_id=eq.${encodeURIComponent(</div>
+<div class="line ">         compositionId,</div>
+<div class="line ">       )}&amp;order=sort_order.asc`,</div>
+<div class="line ">     ).catch(() =&gt; []),</div>
+<div class="line hunk">@@ -133,6 +139,7 @@ async function readPublicHistoricalDynamicZones(</div>
+<div class="line ">         compositionId,</div>
+<div class="line ">       )}&amp;order=position.asc`,</div>
+<div class="line ">     ).catch(() =&gt; []),</div>
+<div class="line add">+    readHistoricalColumnGroups(compositionId),</div>
+<div class="line ">   ]);</div>
+<div class="line "> </div>
+<div class="line ">   return zoneRows.map((row, zoneIndex) =&gt; {</div>
+<div class="line hunk">@@ -144,6 +151,8 @@ async function readPublicHistoricalDynamicZones(</div>
+<div class="line ">       key: `historical:${row.id}`,</div>
+<div class="line ">       visualFamily: row.visual_family,</div>
+<div class="line ">       publicTitle: row.public_title.trim(),</div>
+<div class="line add">+      publicTitleColor: row.public_title_color,</div>
+<div class="line add">+      columnGroup: columnGroupMember(columnGroups, row.id),</div>
+<div class="line ">       items: sourceItems.map((item) =&gt; ({</div>
+<div class="line ">         id: item.id,</div>
+<div class="line ">         sourceId:</div>
+<div class="line hunk">@@ -169,19 +178,13 @@ async function readPublicHistoricalDynamicZones(</div>
+<div class="line ">       })),</div>
+<div class="line ">     });</div>
+<div class="line "> </div>
+<div class="line del">-    const capacity = zone.slots.length;</div>
+<div class="line del">-</div>
+<div class="line ">     const positions =</div>
+<div class="line ">       sourceItems.map((item) =&gt; item.position);</div>
+<div class="line "> </div>
+<div class="line ">     const complete =</div>
+<div class="line ">       row.sort_order === zoneIndex + 1</div>
+<div class="line ">       &amp;&amp; Boolean(row.public_title.trim())</div>
+<div class="line del">-      &amp;&amp; sourceItems.length === capacity</div>
+<div class="line del">-      &amp;&amp; positions.every(</div>
+<div class="line del">-        (position, index) =&gt;</div>
+<div class="line del">-          position === index + 1,</div>
+<div class="line del">-      )</div>
+<div class="line add">+      &amp;&amp; editorialVisualFamilyPublicationPositionsAreValid(row.visual_family, positions)</div>
+<div class="line ">       &amp;&amp; sourceItems.every(</div>
+<div class="line ">         (item) =&gt;</div>
+<div class="line ">           Boolean(item.label_snapshot?.trim())</div>
+<div class="line hunk">@@ -199,16 +202,7 @@ async function readPublicHistoricalDynamicZones(</div>
+<div class="line ">   });</div>
+<div class="line "> }</div>
+<div class="line "> </div>
+<div class="line del">-function publicCompetitionBarColor(competitionSlug: string) {</div>
+<div class="line del">-  if (competitionSlug === &quot;liga-portugal&quot;) return &quot;#00235a&quot;;</div>
+<div class="line del">-  if (competitionSlug === &quot;premier-league&quot;) return &quot;#3d195b&quot;;</div>
+<div class="line del">-  if (competitionSlug === &quot;la-liga&quot;) return &quot;#1d2230&quot;;</div>
+<div class="line del">-  return &quot;#262626&quot;;</div>
+<div class="line del">-}</div>
+<div class="line del">-</div>
+<div class="line "> const publicMatchdayStyles = `</div>
+<div class="line del">-  ${publicTopNavigationStyles}</div>
+<div class="line del">-</div>
+<div class="line ">   body {</div>
+<div class="line ">     margin: 0;</div>
+<div class="line ">     overflow-x: hidden;</div>
+<div class="line hunk">@@ -2610,30 +2604,6 @@ function matchSchedulePresentation(match: Pick&lt;PublicSeasonMatch, &quot;scheduled_dat</div>
+<div class="line ">   };</div>
+<div class="line "> }</div>
+<div class="line "> </div>
+<div class="line del">-function formatCivilDateRange(firstDate: NonNullable&lt;ReturnType&lt;typeof parseCivilDate&gt;&gt;, lastDate: NonNullable&lt;ReturnType&lt;typeof parseCivilDate&gt;&gt;) {</div>
+<div class="line del">-  if (firstDate.key === lastDate.key) return `${firstDate.day} de ${civilMonthNames[firstDate.month - 1]} de ${firstDate.year}`;</div>
+<div class="line del">-  if (firstDate.year === lastDate.year &amp;&amp; firstDate.month === lastDate.month) {</div>
+<div class="line del">-    return `${firstDate.day}–${lastDate.day} de ${civilMonthNames[lastDate.month - 1]} de ${lastDate.year}`;</div>
+<div class="line del">-  }</div>
+<div class="line del">-  if (firstDate.year === lastDate.year) {</div>
+<div class="line del">-    return `${firstDate.day} de ${civilMonthNames[firstDate.month - 1]} – ${lastDate.day} de ${civilMonthNames[lastDate.month - 1]} de ${lastDate.year}`;</div>
+<div class="line del">-  }</div>
+<div class="line del">-  return `${firstDate.day} de ${civilMonthNames[firstDate.month - 1]} de ${firstDate.year} – ${lastDate.day} de ${civilMonthNames[lastDate.month - 1]} de ${lastDate.year}`;</div>
+<div class="line del">-}</div>
+<div class="line del">-</div>
+<div class="line del">-function formatPreferredMatchdayDateContext(matches: PublicSeasonMatch[], startsOn: string | null, endsOn: string | null) {</div>
+<div class="line del">-  const startsDate = parseCivilDate(startsOn);</div>
+<div class="line del">-  const endsDate = parseCivilDate(endsOn);</div>
+<div class="line del">-  if (startsDate &amp;&amp; endsDate) return formatCivilDateRange(startsDate, endsDate);</div>
+<div class="line del">-</div>
+<div class="line del">-  const scheduledDates = matches</div>
+<div class="line del">-    .map((match) =&gt; parseCivilDate(match.scheduled_date))</div>
+<div class="line del">-    .filter((date): date is NonNullable&lt;typeof date&gt; =&gt; date !== null)</div>
+<div class="line del">-    .sort((firstDate, secondDate) =&gt; firstDate.key.localeCompare(secondDate.key));</div>
+<div class="line del">-  if (scheduledDates.length === 0) return &quot;Data por definir&quot;;</div>
+<div class="line del">-  return formatCivilDateRange(scheduledDates[0], scheduledDates[scheduledDates.length - 1]);</div>
+<div class="line del">-}</div>
+<div class="line del">-</div>
+<div class="line "> function statusLabel(status: string) {</div>
+<div class="line ">   const normalized = status.trim().toLowerCase();</div>
+<div class="line ">   if (normalized === &quot;finished&quot;) return &quot;Finalizado&quot;;</div>
+<div class="line hunk">@@ -3083,30 +3053,9 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi</div>
+<div class="line ">     );</div>
+<div class="line "> </div>
+<div class="line ">   const showLogoDiagnostic = query.debug_logos === &quot;1&quot;;</div>
+<div class="line del">-  const competitionBarColor = publicCompetitionBarColor(context.competition.slug);</div>
+<div class="line "> </div>
+<div class="line ">   const seasonSegment = seasonLabelToUrlSegment(context.season.label);</div>
+<div class="line del">-  const seasonOptions = context.seasons.map((season) =&gt; ({</div>
+<div class="line del">-    id: season.id,</div>
+<div class="line del">-    label: season.label,</div>
+<div class="line del">-    href: `/competicoes/${context.competition.slug}/${seasonLabelToUrlSegment(season.label)}/jornadas/1`</div>
+<div class="line del">-  }));</div>
+<div class="line del">-  const currentSeasonHref = `/competicoes/${context.competition.slug}/${seasonSegment}/jornadas/1`;</div>
+<div class="line del">-  const currentCompetitionMenuItem = {</div>
+<div class="line del">-    label: context.competition.name,</div>
+<div class="line del">-    slug: context.competition.slug,</div>
+<div class="line del">-    href: `/competicoes/${context.competition.slug}/${seasonSegment}/jornadas/${context.matchday.number}`,</div>
+<div class="line del">-    logoUrl: context.competition.logo_url</div>
+<div class="line del">-  };</div>
+<div class="line ">   const publicCompetitionMenuBase = await getPublicCompetitionMenu(structure.menu).catch(() =&gt; []);</div>
+<div class="line del">-  const competitionLogo = resolvePublicCompetitionLogoPresentation(currentCompetitionMenuItem);</div>
+<div class="line del">-  const publicCompetitionMenu = publicCompetitionMenuBase.map((item) =&gt;</div>
+<div class="line del">-    item.slug === currentCompetitionMenuItem.slug ? currentCompetitionMenuItem : item</div>
+<div class="line del">-  );</div>
+<div class="line del">-</div>
+<div class="line del">-  if (!publicCompetitionMenu.some((item) =&gt; item.slug === currentCompetitionMenuItem.slug)) {</div>
+<div class="line del">-    publicCompetitionMenu.unshift(currentCompetitionMenuItem);</div>
+<div class="line del">-  }</div>
+<div class="line "> </div>
+<div class="line ">   const classificationRows = buildAccumulatedClassification({</div>
+<div class="line ">     participants: context.participants,</div>
+<div class="line hunk">@@ -3134,27 +3083,8 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi</div>
+<div class="line ">     };</div>
+<div class="line ">   });</div>
+<div class="line ">   const matchdayHref = (number: number) =&gt; `/competicoes/${context.competition.slug}/${seasonSegment}/jornadas/${number}`;</div>
+<div class="line del">-  const matchdayLegNavigation = buildPublicMatchdayLegNavigation(</div>
+<div class="line del">-    context.matchdays,</div>
+<div class="line del">-    context.activeParticipantCount,</div>
+<div class="line del">-    context.matchday.id</div>
+<div class="line del">-  );</div>
+<div class="line del">-  const shouldSplitMatchdayNav = matchdayLegNavigation.applies;</div>
+<div class="line del">-  const activeMatchdayLeg = matchdayLegNavigation.activeLeg;</div>
+<div class="line del">-  const visibleMatchdays = matchdayLegNavigation.visibleMatchdays;</div>
+<div class="line del">-  const firstLegHref = matchdayLegNavigation.firstLegTarget</div>
+<div class="line del">-    ? matchdayHref(matchdayLegNavigation.firstLegTarget.number)</div>
+<div class="line del">-    : currentSeasonHref;</div>
+<div class="line del">-  const secondLegHref = matchdayLegNavigation.secondLegTarget</div>
+<div class="line del">-    ? matchdayHref(matchdayLegNavigation.secondLegTarget.number)</div>
+<div class="line del">-    : currentSeasonHref;</div>
+<div class="line ">   const liveMatches = context.matchesForMatchday.filter((match) =&gt; statusKind(match.status) === &quot;live&quot;);</div>
+<div class="line ">   const halftimeMatches = context.matchesForMatchday.filter((match) =&gt; statusKind(match.status) === &quot;halftime&quot;);</div>
+<div class="line del">-  const selectedMatchdayDateContext = formatPreferredMatchdayDateContext(</div>
+<div class="line del">-    context.matchesForMatchday,</div>
+<div class="line del">-    context.matchday.starts_on,</div>
+<div class="line del">-    context.matchday.ends_on</div>
+<div class="line del">-  );</div>
+<div class="line ">   const editorial = context.editorial;</div>
+<div class="line ">   const publishedHeadline = editorial?.status === &quot;published&quot; ? editorial : null;</div>
+<div class="line ">   const editorialCarryover =</div>
+<div class="line hunk">@@ -3231,6 +3161,10 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi</div>
+<div class="line ">         ?? historicalDynamicZones.length,</div>
+<div class="line ">     );</div>
+<div class="line "> </div>
+<div class="line add">+  const historicalDynamicVisualBlocks = composePublicEditorialColumnRuns(</div>
+<div class="line add">+    historicalDynamicBodyBlocks, (block) =&gt; block.kind === &quot;zone&quot; ? block.zone : undefined,</div>
+<div class="line add">+  );</div>
+<div class="line add">+</div>
+<div class="line ">   const historicalOpeningKeys = [</div>
+<div class="line ">     &quot;dominant_main&quot;,</div>
+<div class="line ">     &quot;other_chronicle_1&quot;,</div>
+<div class="line hunk">@@ -3786,7 +3720,7 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi</div>
+<div class="line ">     highlightCount: visibleHighlights.length,</div>
+<div class="line ">     roundupCount: visibleRoundupItems.length,</div>
+<div class="line ">     hasComplementaryStory: hasPublishedComplementaryStory,</div>
+<div class="line del">-    latestNewsCount: latestNewsItems.length,</div>
+<div class="line add">+    latestNewsCount: physicalLatestDestination?.kind === &quot;ineligible_host&quot; ? 0 : latestNewsItems.length,</div>
+<div class="line ">     latestZonePlacement,</div>
+<div class="line ">     importantNewsCount: visibleImportantNewsItems.length</div>
+<div class="line ">   });</div>
+<div class="line hunk">@@ -3961,6 +3895,7 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi</div>
+<div class="line "> </div>
+<div class="line ">   const showBodyLatestBlock =</div>
+<div class="line ">     latestZonePlacement === &quot;four_news&quot;</div>
+<div class="line add">+    &amp;&amp; physicalLatestDestination?.kind !== &quot;ineligible_host&quot;</div>
+<div class="line ">     &amp;&amp; latestNewsItems.length &gt; 0;</div>
+<div class="line "> </div>
+<div class="line ">   const showFourNewsLatestLayout =</div>
+<div class="line hunk">@@ -3984,6 +3919,18 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi</div>
+<div class="line ">     physicalSnapshot?.zones.map((zone) =&gt; [zone.zoneId, zone] as const) ?? [],</div>
+<div class="line ">   );</div>
+<div class="line "> </div>
+<div class="line add">+  const physicalVisualBlocks = composePublicEditorialColumnRuns(</div>
+<div class="line add">+    physicalSnapshot?.blocks ?? [], (block) =&gt; {</div>
+<div class="line add">+      const zone = block.kind === &quot;zone&quot; ? physicalZoneById.get(block.zoneId) : undefined;</div>
+<div class="line add">+      return zone ? { key: zone.zoneId, visualFamily: zone.layoutId,</div>
+<div class="line add">+        publicTitle: zone.publicTitle, publicTitleColor: zone.publicTitleColor, columnGroup: zone.columnGroup, slots: zone.slots } : undefined;</div>
+<div class="line add">+    },</div>
+<div class="line add">+  );</div>
+<div class="line add">+  const thematicVisualBlocks = composePublicEditorialColumnRuns(</div>
+<div class="line add">+    thematicEditorialBodyBlocks, (block) =&gt; block.kind === &quot;zone&quot;</div>
+<div class="line add">+      ? createPublicFlexibleZone({ ...block.zone, items: block.zone.items }) : undefined,</div>
+<div class="line add">+  );</div>
+<div class="line add">+</div>
+<div class="line ">   const physicalLatestCompanionZone =</div>
+<div class="line ">     physicalLatestDestination?.kind === &quot;zone&quot;</div>
+<div class="line ">       ? physicalZoneById.get(physicalLatestDestination.zoneId) ?? null</div>
+<div class="line hunk">@@ -4117,15 +4064,18 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi</div>
+<div class="line ">     if (zone === &quot;six_news&quot;) {</div>
+<div class="line ">       if (liveSixNewsSlots.length !== 6) return null;</div>
+<div class="line "> </div>
+<div class="line add">+      const content = PublicHierarchicalLiveLayouts({</div>
+<div class="line add">+        ariaLabel: &quot;Zona editorial de 6 notícias&quot;,</div>
+<div class="line add">+        slots: liveSixNewsSlots,</div>
+<div class="line add">+        matchdayNumber: liveContext.matchday.number,</div>
+<div class="line add">+        beyondMatchdayItems: [],</div>
+<div class="line add">+      });</div>
+<div class="line add">+      if (!content) return null;</div>
+<div class="line add">+</div>
+<div class="line ">       return (</div>
+<div class="line ">         &lt;PublicMatchdayEditorialSectionFrame kind=&quot;zone&quot; key={zone}&gt;</div>
+<div class="line ">           &lt;div className=&quot;public-matchday-hierarchical-region public-matchday-live-hierarchical-region&quot;&gt;</div>
+<div class="line del">-            &lt;PublicHierarchicalLiveLayouts</div>
+<div class="line del">-              ariaLabel=&quot;Zona editorial de 6 notícias&quot;</div>
+<div class="line del">-              slots={liveSixNewsSlots}</div>
+<div class="line del">-              matchdayNumber={liveContext.matchday.number}</div>
+<div class="line del">-              beyondMatchdayItems={[]}</div>
+<div class="line del">-            /&gt;</div>
+<div class="line add">+            {content}</div>
+<div class="line ">           &lt;/div&gt;</div>
+<div class="line ">         &lt;/PublicMatchdayEditorialSectionFrame&gt;</div>
+<div class="line ">       );</div>
+<div class="line hunk">@@ -4134,15 +4084,18 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi</div>
+<div class="line ">     if (zone === &quot;five_news_balanced&quot;) {</div>
+<div class="line ">       if (liveFiveNewsBalancedSlots.length !== 5) return null;</div>
+<div class="line "> </div>
+<div class="line add">+      const content = PublicHierarchicalLiveLayouts({</div>
+<div class="line add">+        ariaLabel: &quot;Zona editorial de 5 notícias equilibradas&quot;,</div>
+<div class="line add">+        slots: liveFiveNewsBalancedSlots,</div>
+<div class="line add">+        matchdayNumber: liveContext.matchday.number,</div>
+<div class="line add">+        beyondMatchdayItems: [],</div>
+<div class="line add">+      });</div>
+<div class="line add">+      if (!content) return null;</div>
+<div class="line add">+</div>
+<div class="line ">       return (</div>
+<div class="line ">         &lt;PublicMatchdayEditorialSectionFrame kind=&quot;zone&quot; key={zone}&gt;</div>
+<div class="line ">           &lt;div className=&quot;public-matchday-hierarchical-region public-matchday-live-hierarchical-region&quot;&gt;</div>
+<div class="line del">-            &lt;PublicHierarchicalLiveLayouts</div>
+<div class="line del">-              ariaLabel=&quot;Zona editorial de 5 notícias equilibradas&quot;</div>
+<div class="line del">-              slots={liveFiveNewsBalancedSlots}</div>
+<div class="line del">-              matchdayNumber={liveContext.matchday.number}</div>
+<div class="line del">-              beyondMatchdayItems={[]}</div>
+<div class="line del">-            /&gt;</div>
+<div class="line add">+            {content}</div>
+<div class="line ">           &lt;/div&gt;</div>
+<div class="line ">         &lt;/PublicMatchdayEditorialSectionFrame&gt;</div>
+<div class="line ">       );</div>
+<div class="line hunk">@@ -4150,113 +4103,40 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi</div>
+<div class="line "> </div>
+<div class="line ">     if (liveBeyondMatchdayNews.length !== 5) return null;</div>
+<div class="line "> </div>
+<div class="line add">+    const content = PublicHierarchicalLiveLayouts({</div>
+<div class="line add">+      ariaLabel: &quot;Zona editorial de 5 notícias secundárias&quot;,</div>
+<div class="line add">+      slots: [],</div>
+<div class="line add">+      matchdayNumber: liveContext.matchday.number,</div>
+<div class="line add">+      beyondMatchdayItems: liveBeyondMatchdayNews,</div>
+<div class="line add">+    });</div>
+<div class="line add">+    if (!content) return null;</div>
+<div class="line add">+</div>
+<div class="line ">     return (</div>
+<div class="line ">       &lt;PublicMatchdayEditorialSectionFrame kind=&quot;zone&quot; key={zone}&gt;</div>
+<div class="line ">         &lt;div className=&quot;public-matchday-hierarchical-region public-matchday-live-hierarchical-region&quot;&gt;</div>
+<div class="line del">-          &lt;PublicHierarchicalLiveLayouts</div>
+<div class="line del">-            ariaLabel=&quot;Zona editorial de 5 notícias secundárias&quot;</div>
+<div class="line del">-            slots={[]}</div>
+<div class="line del">-            matchdayNumber={liveContext.matchday.number}</div>
+<div class="line del">-            beyondMatchdayItems={liveBeyondMatchdayNews}</div>
+<div class="line del">-          /&gt;</div>
+<div class="line add">+          {content}</div>
+<div class="line ">         &lt;/div&gt;</div>
+<div class="line ">       &lt;/PublicMatchdayEditorialSectionFrame&gt;</div>
+<div class="line ">     );</div>
+<div class="line ">   }</div>
+<div class="line "> </div>
+<div class="line add">+  const [sideAdvertisement, horizontalAdvertisement] = await Promise.all([</div>
+<div class="line add">+    useHierarchicalReferenceComposition ? PublicSideAdvertisement({}) : Promise.resolve(null),</div>
+<div class="line add">+    publicEditorialUnavailable ? Promise.resolve(null) : PublicHorizontalAdvertisement(),</div>
+<div class="line add">+  ]);</div>
+<div class="line add">+  const openingHasNews = visibleHighlights.length &gt; 0</div>
+<div class="line add">+    || editorialVisibility.showHeadline</div>
+<div class="line add">+    || editorialVisibility.showSideBlock</div>
+<div class="line add">+    || (editorialVisibility.showLatestZone &amp;&amp; latestNewsItems.length &gt; 0);</div>
+<div class="line add">+  const historicalLegacyBlockOrder = context.referenceComposition?.hierarchical_block_order == null</div>
+<div class="line add">+    ? null</div>
+<div class="line add">+    : normalizeHistoricalCompositionBlockOrder(context.referenceComposition.hierarchical_block_order);</div>
+<div class="line add">+</div>
+<div class="line ">   return (</div>
+<div class="line ">     &lt;main className=&quot;public-matchday-shell&quot;&gt;</div>
+<div class="line ">       &lt;style&gt;{publicMatchdayStyles}&lt;/style&gt;</div>
+<div class="line ">       {showLogoDiagnostic ? &lt;LogoDiagnosticPanel context={context} /&gt; : null}</div>
+<div class="line del">-      &lt;div className={`public-top-stack ${headerStyles.topStack}`}&gt;</div>
+<div class="line del">-      &lt;header className=&quot;public-site-topbar&quot; aria-label=&quot;Topo do Jornada.pt&quot;&gt;</div>
+<div class="line del">-        &lt;a className={headerStyles.competitionIdentity} href={currentCompetitionMenuItem.href}&gt;</div>
+<div class="line del">-          {competitionLogo ? (</div>
+<div class="line del">-            &lt;img</div>
+<div class="line del">-              alt=&quot;&quot;</div>
+<div class="line del">-              data-variant={competitionLogo.variant}</div>
+<div class="line del">-              height={competitionLogo.intrinsicHeight}</div>
+<div class="line del">-              src={competitionLogo.logoUrl}</div>
+<div class="line del">-              width={competitionLogo.intrinsicWidth}</div>
+<div class="line del">-            /&gt;</div>
+<div class="line del">-          ) : null}</div>
+<div class="line del">-          &lt;span&gt;{context.competition.name}&lt;/span&gt;</div>
+<div class="line del">-        &lt;/a&gt;</div>
+<div class="line del">-        &lt;a className={headerStyles.matchdayBrand} href=&quot;/&quot; aria-label={`Jornada.pt — Jornada ${context.matchday.number}`}&gt;</div>
+<div class="line del">-          &lt;span&gt;a Jornada&lt;/span&gt;</div>
+<div class="line del">-          &lt;strong&gt;{String(context.matchday.number).padStart(2, &quot;0&quot;)}&lt;/strong&gt;</div>
+<div class="line del">-        &lt;/a&gt;</div>
+<div class="line del">-        &lt;PublicCompetitionNavigation</div>
+<div class="line del">-          competitions={publicCompetitionMenu}</div>
+<div class="line del">-          activeCompetitionSlug={context.competition.slug}</div>
+<div class="line del">-          classificationHref=&quot;#classificacao&quot;</div>
+<div class="line del">-          showMessageTicker={false}</div>
+<div class="line del">-        /&gt;</div>
+<div class="line del">-        &lt;div className=&quot;public-matchday-date-row&quot;&gt;</div>
+<div class="line del">-          &lt;span className=&quot;public-matchday-date-context&quot;&gt;</div>
+<div class="line del">-            {selectedMatchdayDateContext}</div>
+<div class="line del">-          &lt;/span&gt;</div>
+<div class="line del">-        &lt;/div&gt;</div>
+<div class="line del">-        &lt;div className=&quot;public-site-actions&quot; aria-label=&quot;Ações&quot;&gt;</div>
+<div class="line del">-          &lt;span className=&quot;public-site-search&quot; aria-label=&quot;Pesquisar&quot;&gt;Pesquisar&lt;/span&gt;</div>
+<div class="line del">-          &lt;a href=&quot;/admin/gestor&quot;&gt;Entrar&lt;/a&gt;</div>
+<div class="line del">-        &lt;/div&gt;</div>
+<div class="line del">-      &lt;/header&gt;</div>
+<div class="line del">-      &lt;section className=&quot;public-season-nav-bar&quot; aria-label=&quot;Navegacao de jornadas&quot; style={{ &quot;--public-season-accent&quot;: competitionBarColor } as CSSProperties}&gt;</div>
+<div class="line del">-        &lt;div className=&quot;public-hidden-heading&quot;&gt;</div>
+<div class="line del">-          &lt;h2&gt;Jornadas&lt;/h2&gt;</div>
+<div class="line del">-          &lt;p&gt;Navegação principal da época {context.season.label}.&lt;/p&gt;</div>
+<div class="line del">-        &lt;/div&gt;</div>
+<div class="line del">-        &lt;div className=&quot;public-season-nav-inner&quot;&gt;</div>
+<div class="line del">-          &lt;div className=&quot;public-season-context-card&quot; aria-label=&quot;Contexto da competição&quot;&gt;</div>
+<div class="line del">-            &lt;label className=&quot;public-season-select-wrap&quot;&gt;</div>
+<div class="line del">-              &lt;span&gt;Época&lt;/span&gt;</div>
+<div class="line del">-              &lt;select className=&quot;public-season-select&quot; data-season-select defaultValue={currentSeasonHref}&gt;</div>
+<div class="line del">-                {seasonOptions.map((season) =&gt; (</div>
+<div class="line del">-                  &lt;option key={season.id} value={season.href}&gt;</div>
+<div class="line del">-                    {season.label}</div>
+<div class="line del">-                  &lt;/option&gt;</div>
+<div class="line del">-                ))}</div>
+<div class="line del">-              &lt;/select&gt;</div>
+<div class="line del">-            &lt;/label&gt;</div>
+<div class="line del">-            {shouldSplitMatchdayNav ? (</div>
+<div class="line del">-              &lt;nav className=&quot;public-matchday-leg-nav&quot; aria-label=&quot;Voltas da época&quot;&gt;</div>
+<div class="line del">-                &lt;a aria-current={activeMatchdayLeg === &quot;first&quot; ? &quot;true&quot; : undefined} href={firstLegHref}&gt;</div>
+<div class="line del">-                  1.ª volta</div>
+<div class="line del">-                &lt;/a&gt;</div>
+<div class="line del">-                &lt;a aria-current={activeMatchdayLeg === &quot;second&quot; ? &quot;true&quot; : undefined} href={secondLegHref}&gt;</div>
+<div class="line del">-                  2.ª volta</div>
+<div class="line del">-                &lt;/a&gt;</div>
+<div class="line del">-              &lt;/nav&gt;</div>
+<div class="line del">-            ) : null}</div>
+<div class="line del">-          &lt;/div&gt;</div>
+<div class="line del">-          &lt;nav className=&quot;public-matchday-nav-compact&quot; aria-label=&quot;Jornadas da época&quot;&gt;</div>
+<div class="line del">-            {visibleMatchdays.map((matchday) =&gt; (</div>
+<div class="line del">-              &lt;a</div>
+<div class="line del">-                aria-current={matchday.id === context.matchday.id ? &quot;page&quot; : undefined}</div>
+<div class="line del">-                href={matchdayHref(matchday.number)}</div>
+<div class="line del">-                key={matchday.id}</div>
+<div class="line del">-              &gt;</div>
+<div class="line del">-                J{String(matchday.number).padStart(2, &quot;0&quot;)}</div>
+<div class="line del">-              &lt;/a&gt;</div>
+<div class="line del">-            ))}</div>
+<div class="line del">-          &lt;/nav&gt;</div>
+<div class="line del">-        &lt;/div&gt;</div>
+<div class="line del">-      &lt;/section&gt;</div>
+<div class="line del">-      &lt;/div&gt;</div>
+<div class="line del">-      &lt;script</div>
+<div class="line del">-        dangerouslySetInnerHTML={{</div>
+<div class="line del">-          __html: `</div>
+<div class="line del">-            document.addEventListener(&quot;DOMContentLoaded&quot;, function () {</div>
+<div class="line del">-              var select = document.querySelector(&quot;[data-season-select]&quot;);</div>
+<div class="line del">-              if (!select) return;</div>
+<div class="line del">-              select.addEventListener(&quot;change&quot;, function () {</div>
+<div class="line del">-                if (select.value) window.location.href = select.value;</div>
+<div class="line del">-              });</div>
+<div class="line del">-            });</div>
+<div class="line del">-          `</div>
+<div class="line del">-        }}</div>
+<div class="line del">-      /&gt;</div>
+<div class="line add">+      &lt;PublicMatchdayHeader context={context} competitions={publicCompetitionMenuBase} /&gt;</div>
+<div class="line ">       &lt;div className={`public-league-match-strip-scroll ${styles.matchStrip}`}&gt;</div>
+<div class="line ">         &lt;PublicMatchStrip</div>
+<div class="line ">           carouselLayout=&quot;fluid-peek&quot;</div>
+<div class="line hunk">@@ -4285,15 +4165,12 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi</div>
+<div class="line ">               blockOrder={</div>
+<div class="line ">                 useHistoricalDynamicZones</div>
+<div class="line ">                   ? [&quot;opening&quot;]</div>
+<div class="line del">-                  : context.referenceComposition?.hierarchical_block_order == null</div>
+<div class="line del">-                    ? null</div>
+<div class="line del">-                    : normalizeHistoricalCompositionBlockOrder(</div>
+<div class="line del">-                        context.referenceComposition.hierarchical_block_order,</div>
+<div class="line del">-                      )</div>
+<div class="line add">+                  : historicalLegacyBlockOrder</div>
+<div class="line ">               }</div>
+<div class="line ">               editorial={hierarchicalEditorial}</div>
+<div class="line ">               editorialHref={hierarchicalEditorialHref}</div>
+<div class="line del">-              editorialAfter={&lt;PublicSideAdvertisement /&gt;}</div>
+<div class="line add">+              afterOpeningNews={horizontalAdvertisement}</div>
+<div class="line add">+              editorialAfter={sideAdvertisement}</div>
+<div class="line ">               headlineTitleColor={</div>
+<div class="line ">                 context.referenceComposition?.hierarchical_headline_title_color</div>
+<div class="line ">                   ? normalizeHistoricalCompositionHeadlineTitleColor(</div>
+<div class="line hunk">@@ -4325,18 +4202,20 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi</div>
+<div class="line ">                 useHistoricalDynamicZones</div>
+<div class="line ">                   ? undefined</div>
+<div class="line ">                   : (children, key) =&gt; (</div>
+<div class="line del">-                      &lt;PublicMatchdayEditorialSectionFrame</div>
+<div class="line del">-                        kind=&quot;video&quot;</div>
+<div class="line del">-                        key={`historical-legacy-${key}`}</div>
+<div class="line del">-                      &gt;</div>
+<div class="line del">-                        {children}</div>
+<div class="line del">-                      &lt;/PublicMatchdayEditorialSectionFrame&gt;</div>
+<div class="line add">+                    &lt;PublicMatchdayEditorialSectionFrame</div>
+<div class="line add">+                      kind=&quot;video&quot;</div>
+<div class="line add">+                      key={`historical-legacy-${key}`}</div>
+<div class="line add">+                    &gt;</div>
+<div class="line add">+                      {children}</div>
+<div class="line add">+                    &lt;/PublicMatchdayEditorialSectionFrame&gt;</div>
+<div class="line ">                     )</div>
+<div class="line ">               }</div>
+<div class="line ">             /&gt;</div>
+<div class="line "> </div>
+<div class="line ">             {useHistoricalDynamicZones</div>
+<div class="line del">-              ? historicalDynamicBodyBlocks.map((block) =&gt; {</div>
+<div class="line add">+              ? historicalDynamicVisualBlocks.map((block) =&gt; {</div>
+<div class="line add">+                  if (block.kind === &quot;column_run&quot;) return &lt;PublicEditorialColumnRunLayout</div>
+<div class="line add">+                    key={block.key} zones={block.zones} publicTitle={block.publicTitle} matchdayNumber={context.matchday.number} /&gt;;</div>
+<div class="line ">                   if (block.kind === &quot;video&quot;) {</div>
+<div class="line ">                     if (effectiveRoundupItems.length === 0) return null;</div>
+<div class="line "> </div>
+<div class="line hunk">@@ -4443,7 +4322,9 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi</div>
+<div class="line ">       )}</div>
+<div class="line "> </div>
+<div class="line ">       {!usePublishedReferenceComposition &amp;&amp; physicalSnapshot</div>
+<div class="line del">-        ? physicalSnapshot.blocks.map((block) =&gt; {</div>
+<div class="line add">+        ? renderPublicAdvertisingBoundary(physicalVisualBlocks, (block) =&gt; {</div>
+<div class="line add">+            if (block.kind === &quot;column_run&quot;) return &lt;PublicEditorialColumnRunLayout</div>
+<div class="line add">+              key={block.key} zones={block.zones} publicTitle={block.publicTitle} matchdayNumber={context.matchday.number} /&gt;;</div>
+<div class="line ">             if (block.kind === &quot;video&quot;) {</div>
+<div class="line ">               if (</div>
+<div class="line ">                 !physicalSnapshot.video.active</div>
+<div class="line hunk">@@ -4510,13 +4391,16 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi</div>
+<div class="line ">                   key: zone.zoneId,</div>
+<div class="line ">                   visualFamily: zone.layoutId,</div>
+<div class="line ">                   publicTitle: zone.publicTitle,</div>
+<div class="line add">+                  publicTitleColor: zone.publicTitleColor,</div>
+<div class="line ">                   slots: zone.slots,</div>
+<div class="line ">                 }}</div>
+<div class="line ">               /&gt;</div>
+<div class="line ">             );</div>
+<div class="line del">-          })</div>
+<div class="line add">+          }, horizontalAdvertisement, openingHasNews)</div>
+<div class="line ">         : !usePublishedReferenceComposition &amp;&amp; thematicSnapshot</div>
+<div class="line del">-          ? thematicEditorialBodyBlocks.map((block) =&gt; {</div>
+<div class="line add">+          ? renderPublicAdvertisingBoundary(thematicVisualBlocks, (block) =&gt; {</div>
+<div class="line add">+            if (block.kind === &quot;column_run&quot;) return &lt;PublicEditorialColumnRunLayout</div>
+<div class="line add">+              key={block.key} zones={block.zones} publicTitle={block.publicTitle} matchdayNumber={context.matchday.number} /&gt;;</div>
+<div class="line ">             if (block.kind === &quot;video&quot;) {</div>
+<div class="line ">               if (</div>
+<div class="line ">                 complementaryMode !== &quot;roundup_video&quot;</div>
+<div class="line hunk">@@ -4565,10 +4449,10 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi</div>
+<div class="line ">                 zone={block.zone}</div>
+<div class="line ">               /&gt;</div>
+<div class="line ">             );</div>
+<div class="line del">-            })</div>
+<div class="line add">+            }, horizontalAdvertisement, openingHasNews)</div>
+<div class="line ">           : isGenuineLegacy</div>
+<div class="line ">           &amp;&amp; !useHierarchicalReferenceComposition</div>
+<div class="line del">-          ? liveEditorialBodyBlocks.map((block) =&gt; {</div>
+<div class="line add">+          ? renderPublicAdvertisingBoundary(liveEditorialBodyBlocks, (block) =&gt; {</div>
+<div class="line ">               if (block.kind === &quot;video&quot;) {</div>
+<div class="line ">                 return renderLivePublicZone(&quot;video&quot;);</div>
+<div class="line ">               }</div>
+<div class="line hunk">@@ -4578,7 +4462,7 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi</div>
+<div class="line ">               }</div>
+<div class="line "> </div>
+<div class="line ">               return renderLivePublicZone(block.zone.key);</div>
+<div class="line del">-            })</div>
+<div class="line add">+            }, horizontalAdvertisement, openingHasNews)</div>
+<div class="line ">           : null}</div>
+<div class="line "> </div>
+<div class="line ">       {!publicEditorialUnavailable</div>
+<div class="line ">diff --git a/app/noticias/[slug]/page.tsx b/app/noticias/[slug]/page.tsx</div>
+<div class="line ">index 8ac09c75..cce233bb 100644</div>
+<div class="line del">--- a/app/noticias/[slug]/page.tsx</div>
+<div class="line add">+++ b/app/noticias/[slug]/page.tsx</div>
+<div class="line hunk">@@ -1,3 +1,4 @@</div>
+<div class="line add">+import PublicEditorialImage from &quot;@/components/public/PublicEditorialImage&quot;;</div>
+<div class="line "> import { publicTopNavigationStyles } from &quot;@/components/public/publicEditorialStyles&quot;;</div>
+<div class="line "> import { notFound } from &quot;next/navigation&quot;;</div>
+<div class="line "> import type { CSSProperties } from &quot;react&quot;;</div>
+<div class="line hunk">@@ -10,7 +11,7 @@ import headerStyles from &quot;@/components/public/PublicLeagueNewsHeader.module.css&quot;</div>
+<div class="line "> import PublicMatchStrip from &quot;@/components/public/PublicMatchStrip&quot;;</div>
+<div class="line "> import PublicSideAdvertisement from &quot;@/components/public/PublicSideAdvertisement&quot;;</div>
+<div class="line "> import { getPublicCompetitionMenu } from &quot;@/lib/public-competition-menu&quot;;</div>
+<div class="line del">-import { resolvePublicCompetitionLogoPresentation } from &quot;@/lib/public-competition-navigation&quot;;</div>
+<div class="line add">+import { resolvePublicCompetitionMastheadLogoPresentation } from &quot;@/lib/public-competition-navigation&quot;;</div>
+<div class="line "> import { buildPublicMatchdayLegNavigation } from &quot;@/lib/public-matchday-leg-navigation&quot;;</div>
+<div class="line "> import { seasonLabelToUrlSegment } from &quot;@/lib/public-matchday&quot;;</div>
+<div class="line "> import { readPublicArticleMatchdayContext, type PublicArticleMatch } from &quot;@/lib/public-article-matchday-context&quot;;</div>
+<div class="line hunk">@@ -166,6 +167,10 @@ const articlePageStyles = `</div>
+<div class="line ">     margin: 0 0 22px;</div>
+<div class="line ">   }</div>
+<div class="line "> </div>
+<div class="line add">+  .news-article-layout:not(:has(.news-article-sidebar)) {</div>
+<div class="line add">+    grid-template-columns: minmax(0, 1fr);</div>
+<div class="line add">+  }</div>
+<div class="line add">+</div>
+<div class="line ">   .news-article-sidebar {</div>
+<div class="line ">     display: grid;</div>
+<div class="line ">     align-content: start;</div>
+<div class="line hunk">@@ -517,7 +522,7 @@ export default async function NewsArticlePage({ params }: PageProps) {</div>
+<div class="line ">           logoUrl: articleContext.competition.logo_url</div>
+<div class="line ">         }</div>
+<div class="line ">       : null;</div>
+<div class="line del">-  const competitionLogo = resolvePublicCompetitionLogoPresentation(currentCompetitionMenuItem);</div>
+<div class="line add">+  const competitionLogo = resolvePublicCompetitionMastheadLogoPresentation(currentCompetitionMenuItem);</div>
+<div class="line ">   const publicCompetitionMenu = currentCompetitionMenuItem</div>
+<div class="line ">     ? publicCompetitionMenuBase.map((item) =&gt; (item.slug === currentCompetitionMenuItem.slug ? currentCompetitionMenuItem : item))</div>
+<div class="line ">     : publicCompetitionMenuBase;</div>
+<div class="line hunk">@@ -553,10 +558,13 @@ export default async function NewsArticlePage({ params }: PageProps) {</div>
+<div class="line ">     ? publicCompetitionBarColor(articleContext.competition.slug)</div>
+<div class="line ">     : &quot;#262626&quot;;</div>
+<div class="line "> </div>
+<div class="line add">+  const sideAdvertisement = await PublicSideAdvertisement({ className: &quot;news-article-ad news-article-ad-link&quot; });</div>
+<div class="line add">+</div>
+<div class="line ">   return (</div>
+<div class="line ">     &lt;div className=&quot;news-article-shell&quot;&gt;</div>
+<div class="line ">       &lt;style&gt;{articlePageStyles}&lt;/style&gt;</div>
+<div class="line ">       &lt;div</div>
+<div class="line add">+        data-competition={articleContext?.competition.slug}</div>
+<div class="line ">         className={`public-top-stack ${headerStyles.topStack} ${</div>
+<div class="line ">           articleContext ? &quot;&quot; : headerStyles.simpleTopStack</div>
+<div class="line ">         }`}</div>
+<div class="line hunk">@@ -690,7 +698,7 @@ export default async function NewsArticlePage({ params }: PageProps) {</div>
+<div class="line "> </div>
+<div class="line ">           {article.image_url ? (</div>
+<div class="line ">             &lt;figure className=&quot;news-article-image&quot;&gt;</div>
+<div class="line del">-              &lt;img</div>
+<div class="line add">+              &lt;PublicEditorialImage imageSize=&quot;article&quot;</div>
+<div class="line ">                 {...editorialImageFramingProps(&quot;standard&quot;)}</div>
+<div class="line ">                 alt=&quot;&quot;</div>
+<div class="line ">                 src={article.image_url}</div>
+<div class="line hunk">@@ -704,40 +712,42 @@ export default async function NewsArticlePage({ params }: PageProps) {</div>
+<div class="line ">           &lt;/div&gt;</div>
+<div class="line ">         &lt;/article&gt;</div>
+<div class="line "> </div>
+<div class="line del">-        &lt;aside className=&quot;news-article-sidebar&quot;&gt;</div>
+<div class="line del">-          &lt;PublicSideAdvertisement className=&quot;news-article-ad news-article-ad-link&quot; /&gt;</div>
+<div class="line del">-          {moreArticles.length &gt; 0 ? (</div>
+<div class="line del">-            &lt;section className=&quot;news-article-side-panel&quot; aria-label=&quot;Artigos relacionados&quot;&gt;</div>
+<div class="line del">-              &lt;ul className=&quot;news-article-side-list&quot;&gt;</div>
+<div class="line del">-                {moreArticles.map((item) =&gt; {</div>
+<div class="line del">-                  const itemLabel = firstText(item.label);</div>
+<div class="line del">-                  const itemSubtitle = firstText(item.subtitle);</div>
+<div class="line del">-                  const itemDate = formatShortDate(item.published_at);</div>
+<div class="line del">-</div>
+<div class="line del">-                  return (</div>
+<div class="line del">-                    &lt;li className=&quot;news-article-side-item&quot; key={item.id}&gt;</div>
+<div class="line del">-                      {item.image_url ? (</div>
+<div class="line del">-                        &lt;img</div>
+<div class="line del">-                          {...editorialImageFramingProps(&quot;standard&quot;)}</div>
+<div class="line del">-                          alt=&quot;&quot;</div>
+<div class="line del">-                          src={item.image_url}</div>
+<div class="line del">-                        /&gt;</div>
+<div class="line del">-                      ) : (</div>
+<div class="line del">-                        &lt;span className=&quot;news-article-side-thumb-placeholder&quot; aria-hidden=&quot;true&quot; /&gt;</div>
+<div class="line del">-                      )}</div>
+<div class="line del">-                      &lt;div className=&quot;news-article-side-copy&quot;&gt;</div>
+<div class="line del">-                        {itemLabel ? &lt;span className=&quot;news-article-side-label&quot;&gt;{itemLabel}&lt;/span&gt; : null}</div>
+<div class="line del">-                        &lt;a href={publicArticleHref(item)}&gt;{item.title}&lt;/a&gt;</div>
+<div class="line del">-                        {itemSubtitle ? &lt;p className=&quot;news-article-side-subtitle&quot;&gt;{itemSubtitle}&lt;/p&gt; : null}</div>
+<div class="line del">-                        {itemDate ? &lt;time className=&quot;news-article-side-date&quot; dateTime={item.published_at ?? undefined}&gt;{itemDate}&lt;/time&gt; : null}</div>
+<div class="line del">-                      &lt;/div&gt;</div>
+<div class="line del">-                    &lt;/li&gt;</div>
+<div class="line del">-                  );</div>
+<div class="line del">-                })}</div>
+<div class="line del">-              &lt;/ul&gt;</div>
+<div class="line del">-            &lt;/section&gt;</div>
+<div class="line del">-          ) : null}</div>
+<div class="line del">-        &lt;/aside&gt;</div>
+<div class="line add">+        {sideAdvertisement || moreArticles.length &gt; 0 ? (</div>
+<div class="line add">+          &lt;aside className=&quot;news-article-sidebar&quot;&gt;</div>
+<div class="line add">+            {sideAdvertisement}</div>
+<div class="line add">+            {moreArticles.length &gt; 0 ? (</div>
+<div class="line add">+              &lt;section className=&quot;news-article-side-panel&quot; aria-label=&quot;Artigos relacionados&quot;&gt;</div>
+<div class="line add">+                &lt;ul className=&quot;news-article-side-list&quot;&gt;</div>
+<div class="line add">+                  {moreArticles.map((item) =&gt; {</div>
+<div class="line add">+                    const itemLabel = firstText(item.label);</div>
+<div class="line add">+                    const itemSubtitle = firstText(item.subtitle);</div>
+<div class="line add">+                    const itemDate = formatShortDate(item.published_at);</div>
+<div class="line add">+</div>
+<div class="line add">+                    return (</div>
+<div class="line add">+                      &lt;li className=&quot;news-article-side-item&quot; key={item.id}&gt;</div>
+<div class="line add">+                        {item.image_url ? (</div>
+<div class="line add">+                          &lt;PublicEditorialImage imageSize=&quot;thumbnail&quot;</div>
+<div class="line add">+                            {...editorialImageFramingProps(&quot;standard&quot;)}</div>
+<div class="line add">+                            alt=&quot;&quot;</div>
+<div class="line add">+                            src={item.image_url}</div>
+<div class="line add">+                          /&gt;</div>
+<div class="line add">+                        ) : (</div>
+<div class="line add">+                          &lt;span className=&quot;news-article-side-thumb-placeholder&quot; aria-hidden=&quot;true&quot; /&gt;</div>
+<div class="line add">+                        )}</div>
+<div class="line add">+                        &lt;div className=&quot;news-article-side-copy&quot;&gt;</div>
+<div class="line add">+                          {itemLabel ? &lt;span className=&quot;news-article-side-label&quot;&gt;{itemLabel}&lt;/span&gt; : null}</div>
+<div class="line add">+                          &lt;a href={publicArticleHref(item)}&gt;{item.title}&lt;/a&gt;</div>
+<div class="line add">+                          {itemSubtitle ? &lt;p className=&quot;news-article-side-subtitle&quot;&gt;{itemSubtitle}&lt;/p&gt; : null}</div>
+<div class="line add">+                          {itemDate ? &lt;time className=&quot;news-article-side-date&quot; dateTime={item.published_at ?? undefined}&gt;{itemDate}&lt;/time&gt; : null}</div>
+<div class="line add">+                        &lt;/div&gt;</div>
+<div class="line add">+                      &lt;/li&gt;</div>
+<div class="line add">+                    );</div>
+<div class="line add">+                  })}</div>
+<div class="line add">+                &lt;/ul&gt;</div>
+<div class="line add">+              &lt;/section&gt;</div>
+<div class="line add">+            ) : null}</div>
+<div class="line add">+          &lt;/aside&gt;</div>
+<div class="line add">+        ) : null}</div>
+<div class="line ">       &lt;/main&gt;</div>
+<div class="line ">     &lt;/div&gt;</div>
+<div class="line ">   );</div>
+<div class="line ">diff --git a/app/page.tsx b/app/page.tsx</div>
+<div class="line ">index 711b2385..2272603b 100644</div>
+<div class="line del">--- a/app/page.tsx</div>
+<div class="line add">+++ b/app/page.tsx</div>
+<div class="line hunk">@@ -1,4 +1,5 @@</div>
+<div class="line "> import Link from &quot;next/link&quot;;</div>
+<div class="line add">+import { redirect } from &quot;next/navigation&quot;;</div>
+<div class="line "> import PublicCompetitionNavigation from &quot;@/components/public/PublicCompetitionNavigation&quot;;</div>
+<div class="line "> import homeNewsHeaderStyles from &quot;@/components/public/PublicHomeNewsHeader.module.css&quot;;</div>
+<div class="line "> import { PublicEditorialLayout, type PublicEditorialHighlight, type PublicEditorialLatestNews } from &quot;@/components/public/PublicEditorialLayout&quot;;</div>
+<div class="line hunk">@@ -436,8 +437,15 @@ async function readBroadcastChannelsByMatchId(matchIds: string[], matches: HomeM</div>
+<div class="line "> }</div>
+<div class="line "> </div>
+<div class="line "> export default async function HomePage() {</div>
+<div class="line add">+  const competitionLinks = await readPublicCompetitionMenu().catch(() =&gt; []);</div>
+<div class="line add">+  const ligaPortugalEntry = competitionLinks.find((item) =&gt; item.slug === &quot;liga-portugal&quot;);</div>
+<div class="line add">+</div>
+<div class="line add">+  if (ligaPortugalEntry?.href) {</div>
+<div class="line add">+    redirect(ligaPortugalEntry.href);</div>
+<div class="line add">+  }</div>
+<div class="line add">+</div>
+<div class="line ">   const editorial = await readHomeEditorial();</div>
+<div class="line del">-  const [featuredMatches, competitionLinks] = await Promise.all([readHomeFeaturedMatches(), readPublicCompetitionMenu()]);</div>
+<div class="line add">+  const featuredMatches = await readHomeFeaturedMatches();</div>
+<div class="line ">   const [highlights, roundupItems, latestNews, horizontalNews]: [SiteHighlight[], SiteRoundupItem[], SiteLatestNews[], SiteHorizontalNews[]] = editorial</div>
+<div class="line ">     ? await Promise.all([</div>
+<div class="line ">         readHomeHighlights(editorial.id),</div>
+<div class="line ">diff --git a/components/public/PublicBeyondMatchdayNews.tsx b/components/public/PublicBeyondMatchdayNews.tsx</div>
+<div class="line ">index bd6f254b..4bfb48ba 100644</div>
+<div class="line del">--- a/components/public/PublicBeyondMatchdayNews.tsx</div>
+<div class="line add">+++ b/components/public/PublicBeyondMatchdayNews.tsx</div>
+<div class="line hunk">@@ -1,3 +1,4 @@</div>
+<div class="line add">+import PublicBeyondMatchdayImage from &quot;./PublicBeyondMatchdayImage&quot;;</div>
+<div class="line "> import { editorialImageFramingProps } from &quot;@/lib/editorial-image-framing&quot;;</div>
+<div class="line "> </div>
+<div class="line "> export type PublicBeyondMatchdayNewsItem = {</div>
+<div class="line hunk">@@ -67,7 +68,7 @@ const styles = `</div>
+<div class="line ">     display: grid;</div>
+<div class="line ">     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);</div>
+<div class="line ">     gap: 28px;</div>
+<div class="line del">-    align-items: start;</div>
+<div class="line add">+    align-items: stretch;</div>
+<div class="line ">   }</div>
+<div class="line "> </div>
+<div class="line ">   .public-beyond-matchday-grid[data-secondary-count=&quot;0&quot;] {</div>
+<div class="line hunk">@@ -84,6 +85,7 @@ const styles = `</div>
+<div class="line ">   }</div>
+<div class="line "> </div>
+<div class="line ">   .public-beyond-matchday-media {</div>
+<div class="line add">+    position: relative;</div>
+<div class="line ">     display: block;</div>
+<div class="line ">     width: 100%;</div>
+<div class="line ">     overflow: hidden;</div>
+<div class="line hunk">@@ -100,6 +102,8 @@ const styles = `</div>
+<div class="line ">   }</div>
+<div class="line "> </div>
+<div class="line ">   .public-beyond-matchday-media img {</div>
+<div class="line add">+    position: absolute;</div>
+<div class="line add">+    inset: 0;</div>
+<div class="line ">     display: block;</div>
+<div class="line ">     width: 100%;</div>
+<div class="line ">     height: 100%;</div>
+<div class="line hunk">@@ -107,6 +111,12 @@ const styles = `</div>
+<div class="line ">     transition: transform 180ms ease;</div>
+<div class="line ">   }</div>
+<div class="line "> </div>
+<div class="line add">+  .public-beyond-matchday-media img[data-editorial-image-fallback=&quot;true&quot;] {</div>
+<div class="line add">+    object-fit: contain;</div>
+<div class="line add">+    object-position: center !important;</div>
+<div class="line add">+    background: #080a0c;</div>
+<div class="line add">+  }</div>
+<div class="line add">+</div>
+<div class="line ">   .public-beyond-matchday-media:hover img,</div>
+<div class="line ">   .public-beyond-matchday-media:focus-visible img {</div>
+<div class="line ">     transform: scale(1.015);</div>
+<div class="line hunk">@@ -162,13 +172,16 @@ const styles = `</div>
+<div class="line ">   }</div>
+<div class="line "> </div>
+<div class="line ">   .public-beyond-matchday-secondary-card[data-secondary-presentation=&quot;image&quot;] .public-beyond-matchday-subtitle {</div>
+<div class="line del">-    -webkit-line-clamp: 3;</div>
+<div class="line del">-    line-clamp: 3;</div>
+<div class="line add">+    font-size: 13px;</div>
+<div class="line add">+    line-height: 1.4;</div>
+<div class="line add">+    -webkit-line-clamp: 2;</div>
+<div class="line add">+    line-clamp: 2;</div>
+<div class="line ">   }</div>
+<div class="line "> </div>
+<div class="line ">   .public-beyond-matchday-secondary-grid {</div>
+<div class="line ">     display: grid;</div>
+<div class="line ">     grid-template-columns: repeat(2, minmax(0, 1fr));</div>
+<div class="line add">+    grid-auto-rows: 1fr;</div>
+<div class="line ">     gap: 22px 18px;</div>
+<div class="line ">   }</div>
+<div class="line "> </div>
+<div class="line hunk">@@ -177,6 +190,7 @@ const styles = `</div>
+<div class="line ">   }</div>
+<div class="line "> </div>
+<div class="line ">   .public-beyond-matchday-secondary-card .public-beyond-matchday-copy {</div>
+<div class="line add">+    align-content: start;</div>
+<div class="line ">     gap: 4px;</div>
+<div class="line ">     padding-top: 7px;</div>
+<div class="line ">   }</div>
+<div class="line hunk">@@ -189,25 +203,6 @@ const styles = `</div>
+<div class="line ">     line-clamp: unset;</div>
+<div class="line ">   }</div>
+<div class="line "> </div>
+<div class="line del">-  .public-beyond-matchday-text-only {</div>
+<div class="line del">-    display: grid;</div>
+<div class="line del">-    align-content: start;</div>
+<div class="line del">-    min-height: 0;</div>
+<div class="line del">-    padding: 13px 0 0;</div>
+<div class="line del">-    border-top: 1px solid #dbe4ee;</div>
+<div class="line del">-  }</div>
+<div class="line del">-</div>
+<div class="line del">-  .public-beyond-matchday-text-only .public-beyond-matchday-copy {</div>
+<div class="line del">-    padding-top: 0;</div>
+<div class="line del">-  }</div>
+<div class="line del">-</div>
+<div class="line del">-  .public-beyond-matchday-text-only .public-beyond-matchday-subtitle {</div>
+<div class="line del">-    font-size: 12.5px;</div>
+<div class="line del">-    line-height: 1.4;</div>
+<div class="line del">-    -webkit-line-clamp: 2;</div>
+<div class="line del">-    line-clamp: 2;</div>
+<div class="line del">-  }</div>
+<div class="line del">-</div>
+<div class="line ">   .public-beyond-matchday-title:hover,</div>
+<div class="line ">   .public-beyond-matchday-title:focus-visible {</div>
+<div class="line ">     text-decoration: underline;</div>
+<div class="line hunk">@@ -215,6 +210,17 @@ const styles = `</div>
+<div class="line ">     text-underline-offset: 3px;</div>
+<div class="line ">   }</div>
+<div class="line "> </div>
+<div class="line add">+  @media (min-width: 901px) {</div>
+<div class="line add">+    .public-beyond-matchday-grid[data-secondary-count=&quot;4&quot;] .public-beyond-matchday-lead {</div>
+<div class="line add">+      display: flex;</div>
+<div class="line add">+      flex-direction: column;</div>
+<div class="line add">+    }</div>
+<div class="line add">+</div>
+<div class="line add">+    .public-beyond-matchday-grid[data-secondary-count=&quot;4&quot;] .public-beyond-matchday-lead .public-beyond-matchday-media {</div>
+<div class="line add">+      flex: 1 0 auto;</div>
+<div class="line add">+    }</div>
+<div class="line add">+  }</div>
+<div class="line add">+</div>
+<div class="line ">   @media (max-width: 900px) {</div>
+<div class="line ">     .public-beyond-matchday-grid {</div>
+<div class="line ">       grid-template-columns: minmax(0, 1fr);</div>
+<div class="line hunk">@@ -243,6 +249,7 @@ const styles = `</div>
+<div class="line "> </div>
+<div class="line ">     .public-beyond-matchday-secondary-grid {</div>
+<div class="line ">       grid-template-columns: minmax(0, 1fr);</div>
+<div class="line add">+      grid-auto-rows: auto;</div>
+<div class="line ">       gap: 18px;</div>
+<div class="line ">     }</div>
+<div class="line "> </div>
+<div class="line hunk">@@ -264,23 +271,15 @@ const styles = `</div>
+<div class="line ">     .public-beyond-matchday-secondary-card .public-beyond-matchday-title {</div>
+<div class="line ">       font-size: 17px;</div>
+<div class="line ">     }</div>
+<div class="line del">-</div>
+<div class="line del">-    .public-beyond-matchday-secondary-card.public-beyond-matchday-text-only {</div>
+<div class="line del">-      display: block;</div>
+<div class="line del">-      min-height: 0;</div>
+<div class="line del">-      padding-top: 12px;</div>
+<div class="line del">-    }</div>
+<div class="line ">   }</div>
+<div class="line "> `;</div>
+<div class="line "> </div>
+<div class="line "> function StoryMedia({ item }: { item: PublicBeyondMatchdayNewsItem }) {</div>
+<div class="line del">-  if (!item.imageUrl) return null;</div>
+<div class="line del">-</div>
+<div class="line ">   return (</div>
+<div class="line ">     &lt;a className=&quot;public-beyond-matchday-media&quot; href={item.linkUrl} aria-label={item.title}&gt;</div>
+<div class="line del">-      &lt;img</div>
+<div class="line add">+      &lt;PublicBeyondMatchdayImage imageSize=&quot;half&quot;</div>
+<div class="line ">         {...editorialImageFramingProps(&quot;wide&quot;)}</div>
+<div class="line del">-        src={item.imageUrl}</div>
+<div class="line add">+        src={item.imageUrl?.trim() || &quot;&quot;}</div>
+<div class="line ">         alt=&quot;&quot;</div>
+<div class="line ">         loading=&quot;lazy&quot;</div>
+<div class="line ">       /&gt;</div>
+<div class="line hunk">@@ -363,8 +362,6 @@ export default function PublicBeyondMatchdayNews({</div>
+<div class="line ">         {secondaryCount &gt; 0 ? (</div>
+<div class="line ">           &lt;div className=&quot;public-beyond-matchday-secondary-grid&quot;&gt;</div>
+<div class="line ">             {secondary.map((item, index) =&gt; {</div>
+<div class="line del">-              const isTextOnly = index &gt;= 2;</div>
+<div class="line del">-</div>
+<div class="line ">               if (!item) {</div>
+<div class="line ">                 return (</div>
+<div class="line ">                   &lt;div</div>
+<div class="line hunk">@@ -378,12 +375,12 @@ export default function PublicBeyondMatchdayNews({</div>
+<div class="line "> </div>
+<div class="line ">               return (</div>
+<div class="line ">                 &lt;article</div>
+<div class="line del">-                  className={`public-beyond-matchday-secondary-card${isTextOnly ? &quot; public-beyond-matchday-text-only&quot; : &quot;&quot;}`}</div>
+<div class="line add">+                  className=&quot;public-beyond-matchday-secondary-card&quot;</div>
+<div class="line ">                   data-public-slot-position={index + 2}</div>
+<div class="line del">-                  data-secondary-presentation={isTextOnly ? &quot;text&quot; : &quot;image&quot;}</div>
+<div class="line add">+                  data-secondary-presentation=&quot;image&quot;</div>
+<div class="line ">                   key={item.id}</div>
+<div class="line ">                 &gt;</div>
+<div class="line del">-                  {isTextOnly ? null : &lt;StoryMedia item={item} /&gt;}</div>
+<div class="line add">+                  &lt;StoryMedia item={item} /&gt;</div>
+<div class="line ">                   &lt;StoryCopy item={item} showSubtitle /&gt;</div>
+<div class="line ">                 &lt;/article&gt;</div>
+<div class="line ">               );</div>
+<div class="line ">diff --git a/components/public/PublicEditorialLayout.tsx b/components/public/PublicEditorialLayout.tsx</div>
+<div class="line ">index af434ef4..5eafe67c 100644</div>
+<div class="line del">--- a/components/public/PublicEditorialLayout.tsx</div>
+<div class="line add">+++ b/components/public/PublicEditorialLayout.tsx</div>
+<div class="line hunk">@@ -1,3 +1,5 @@</div>
+<div class="line add">+import PublicEditorialImage from &quot;./PublicEditorialImage&quot;;</div>
+<div class="line add">+import { publicLiveOpeningStyles } from &quot;./publicLiveOpeningStyles&quot;;</div>
+<div class="line "> import type { ReactNode } from &quot;react&quot;;</div>
+<div class="line "> import { editorialImageFramingProps } from &quot;@/lib/editorial-image-framing&quot;;</div>
+<div class="line "> import PublicContextPostTitle from &quot;./PublicContextPostTitle&quot;;</div>
+<div class="line hunk">@@ -717,8 +719,37 @@ const publicEditorialLayoutPolishStyles = `</div>
+<div class="line ">     }</div>
+<div class="line ">   }</div>
+<div class="line ">   @media (max-width: 760px) {</div>
+<div class="line del">-    .public-editorial-layout-panel[data-editorial-scope=&quot;matchday&quot;] .public-below-headline-highlights[data-highlight-count=&quot;2&quot;] .public-cover-story-strip {</div>
+<div class="line add">+    .public-editorial-layout-panel[data-editorial-scope=&quot;matchday&quot;] .public-below-headline-highlights[data-highlight-count] .public-cover-story-strip {</div>
+<div class="line ">       grid-template-columns: minmax(0, 1fr);</div>
+<div class="line add">+      gap: 24px;</div>
+<div class="line add">+    }</div>
+<div class="line add">+</div>
+<div class="line add">+    .public-editorial-layout-panel[data-editorial-scope=&quot;matchday&quot;] .public-below-headline-highlights .public-cover-story {</div>
+<div class="line add">+      gap: 9px;</div>
+<div class="line add">+      padding: 0 0 24px;</div>
+<div class="line add">+      border-bottom: 1px solid #dfe5eb;</div>
+<div class="line add">+    }</div>
+<div class="line add">+</div>
+<div class="line add">+    .public-editorial-layout-panel[data-editorial-scope=&quot;matchday&quot;] .public-below-headline-highlights .public-cover-story:last-child {</div>
+<div class="line add">+      padding-bottom: 0;</div>
+<div class="line add">+      border-bottom: 0;</div>
+<div class="line add">+    }</div>
+<div class="line add">+</div>
+<div class="line add">+    .public-editorial-layout-panel[data-editorial-scope=&quot;matchday&quot;] .public-below-headline-highlights .public-cover-story &gt; span {</div>
+<div class="line add">+      display: block;</div>
+<div class="line add">+    }</div>
+<div class="line add">+</div>
+<div class="line add">+    .public-editorial-layout-panel[data-editorial-scope=&quot;matchday&quot;] .public-below-headline-highlights .public-cover-story strong {</div>
+<div class="line add">+      font-size: 21px;</div>
+<div class="line add">+      line-height: 1.25;</div>
+<div class="line add">+    }</div>
+<div class="line add">+</div>
+<div class="line add">+    .public-editorial-layout-panel[data-editorial-scope=&quot;matchday&quot;] .public-below-headline-highlights .public-cover-story small {</div>
+<div class="line add">+      display: block;</div>
+<div class="line add">+      overflow: visible;</div>
+<div class="line add">+      -webkit-line-clamp: unset;</div>
+<div class="line add">+      font-size: 14px;</div>
+<div class="line add">+      line-height: 1.5;</div>
+<div class="line ">     }</div>
+<div class="line ">   }</div>
+<div class="line "> </div>
+<div class="line hunk">@@ -753,7 +784,7 @@ export function PublicSideBlock({</div>
+<div class="line ">           &lt;&gt;</div>
+<div class="line ">             {data.imageUrl ? (</div>
+<div class="line ">               &lt;div className=&quot;public-side-editorial-image&quot;&gt;</div>
+<div class="line del">-                &lt;img</div>
+<div class="line add">+                &lt;PublicEditorialImage imageSize=&quot;card&quot;</div>
+<div class="line ">                   {...editorialImageFramingProps(&quot;standard&quot;)}</div>
+<div class="line ">                   alt=&quot;&quot;</div>
+<div class="line ">                   src={data.imageUrl}</div>
+<div class="line hunk">@@ -805,7 +836,7 @@ export function PublicHeadlineBlock({ data }: { data: PublicHeadlineData }) {</div>
+<div class="line ">     &lt;/div&gt;</div>
+<div class="line ">   ) : data.imageUrl ? (</div>
+<div class="line ">     &lt;div className=&quot;public-editorial-main-image&quot;&gt;</div>
+<div class="line del">-      &lt;img</div>
+<div class="line add">+      &lt;PublicEditorialImage imageSize=&quot;headline&quot;</div>
+<div class="line ">         {...editorialImageFramingProps(&quot;wide&quot;)}</div>
+<div class="line ">         src={data.imageUrl}</div>
+<div class="line ">         alt=&quot;&quot;</div>
+<div class="line hunk">@@ -868,21 +899,21 @@ export function PublicHeadlineBlock({ data }: { data: PublicHeadlineData }) {</div>
+<div class="line ">   );</div>
+<div class="line "> }</div>
+<div class="line "> </div>
+<div class="line del">-function PublicHighlightCard({ item }: { item: PublicEditorialHighlight }) {</div>
+<div class="line add">+function PublicHighlightCard({ item, imageTitleOnly = false }: { item: PublicEditorialHighlight; imageTitleOnly?: boolean }) {</div>
+<div class="line ">   const body = (</div>
+<div class="line ">     &lt;&gt;</div>
+<div class="line ">       &lt;div className=&quot;public-highlight-image&quot;&gt;</div>
+<div class="line ">         {item.imageUrl ? (</div>
+<div class="line del">-          &lt;img</div>
+<div class="line add">+          &lt;PublicEditorialImage imageSize=&quot;card&quot;</div>
+<div class="line ">             {...editorialImageFramingProps(&quot;wide&quot;)}</div>
+<div class="line ">             src={item.imageUrl}</div>
+<div class="line ">             alt=&quot;&quot;</div>
+<div class="line ">           /&gt;</div>
+<div class="line ">         ) : null}</div>
+<div class="line ">       &lt;/div&gt;</div>
+<div class="line del">-      {item.label ? &lt;span style={item.labelColor ? { color: item.labelColor } : undefined}&gt;{item.label}&lt;/span&gt; : null}</div>
+<div class="line add">+      {!imageTitleOnly &amp;&amp; item.label ? &lt;span style={item.labelColor ? { color: item.labelColor } : undefined}&gt;{item.label}&lt;/span&gt; : null}</div>
+<div class="line ">       &lt;strong&gt;{item.title}&lt;/strong&gt;</div>
+<div class="line del">-      {item.subtitle ? &lt;small&gt;{item.subtitle}&lt;/small&gt; : null}</div>
+<div class="line add">+      {!imageTitleOnly &amp;&amp; item.subtitle ? &lt;small&gt;{item.subtitle}&lt;/small&gt; : null}</div>
+<div class="line ">     &lt;/&gt;</div>
+<div class="line ">   );</div>
+<div class="line "> </div>
+<div class="line hunk">@@ -895,11 +926,11 @@ function PublicHighlightCard({ item }: { item: PublicEditorialHighlight }) {</div>
+<div class="line ">   );</div>
+<div class="line "> }</div>
+<div class="line "> </div>
+<div class="line del">-export function PublicHighlightsBlock({ highlights }: { highlights: PublicEditorialHighlight[] }) {</div>
+<div class="line add">+export function PublicHighlightsBlock({ highlights, imageTitleOnly = false }: { highlights: PublicEditorialHighlight[]; imageTitleOnly?: boolean }) {</div>
+<div class="line ">   return (</div>
+<div class="line ">     &lt;div className=&quot;public-cover-story-strip&quot;&gt;</div>
+<div class="line ">       {highlights.map((item) =&gt; (</div>
+<div class="line del">-        &lt;PublicHighlightCard item={item} key={item.id} /&gt;</div>
+<div class="line add">+        &lt;PublicHighlightCard item={item} key={item.id} imageTitleOnly={imageTitleOnly} /&gt;</div>
+<div class="line ">       ))}</div>
+<div class="line ">     &lt;/div&gt;</div>
+<div class="line ">   );</div>
+<div class="line hunk">@@ -934,7 +965,7 @@ export function PublicComplementaryBlock({</div>
+<div class="line ">     &lt;/div&gt;</div>
+<div class="line ">   ) : data.imageUrl ? (</div>
+<div class="line ">     &lt;div className=&quot;public-complement-media&quot;&gt;</div>
+<div class="line del">-      &lt;img</div>
+<div class="line add">+      &lt;PublicEditorialImage imageSize=&quot;half&quot;</div>
+<div class="line ">         {...editorialImageFramingProps(&quot;wide&quot;)}</div>
+<div class="line ">         src={data.imageUrl}</div>
+<div class="line ">         alt=&quot;&quot;</div>
+<div class="line hunk">@@ -975,7 +1006,7 @@ export function PublicComplementaryBlock({</div>
+<div class="line ">   );</div>
+<div class="line "> }</div>
+<div class="line "> </div>
+<div class="line del">-function PublicHighlightsSection({ data }: { data: PublicBelowHeadlineData }) {</div>
+<div class="line add">+function PublicHighlightsSection({ data, imageTitleOnly = false }: { data: PublicBelowHeadlineData; imageTitleOnly?: boolean }) {</div>
+<div class="line ">   if (data.highlights.length === 0) {</div>
+<div class="line ">     return null;</div>
+<div class="line ">   }</div>
+<div class="line hunk">@@ -997,7 +1028,7 @@ function PublicHighlightsSection({ data }: { data: PublicBelowHeadlineData }) {</div>
+<div class="line ">           &lt;/span&gt;</div>
+<div class="line ">         &lt;/div&gt;</div>
+<div class="line ">       ) : null}</div>
+<div class="line del">-      &lt;PublicHighlightsBlock highlights={data.highlights} /&gt;</div>
+<div class="line add">+      &lt;PublicHighlightsBlock highlights={data.highlights} imageTitleOnly={imageTitleOnly} /&gt;</div>
+<div class="line ">     &lt;/section&gt;</div>
+<div class="line ">   );</div>
+<div class="line "> }</div>
+<div class="line hunk">@@ -1065,10 +1096,12 @@ export function PublicEditorialLayout({</div>
+<div class="line ">       aria-label={ariaLabel}</div>
+<div class="line ">     &gt;</div>
+<div class="line ">       &lt;style&gt;{publicEditorialLayoutPolishStyles}&lt;/style&gt;</div>
+<div class="line add">+      {scope === &quot;matchday&quot; ? &lt;style&gt;{publicLiveOpeningStyles}&lt;/style&gt; : null}</div>
+<div class="line ">       &lt;div className=&quot;public-matchday-cover&quot;&gt;</div>
+<div class="line ">         {topColumnCount &gt; 0 ? (</div>
+<div class="line ">           &lt;div</div>
+<div class="line ">             className=&quot;public-matchday-lead-grid&quot;</div>
+<div class="line add">+            data-live-opening={scope === &quot;matchday&quot; ? &quot;true&quot; : undefined}</div>
+<div class="line ">             data-top-columns={topColumnCount}</div>
+<div class="line ">             data-has-latest={hasLatestNews ? &quot;true&quot; : &quot;false&quot;}</div>
+<div class="line ">             data-has-context={hasSideBlock ? &quot;true&quot; : &quot;false&quot;}</div>
+<div class="line hunk">@@ -1076,7 +1109,7 @@ export function PublicEditorialLayout({</div>
+<div class="line ">             {hasMainColumn ? (</div>
+<div class="line ">               &lt;div className=&quot;public-matchday-main-column&quot;&gt;</div>
+<div class="line ">                 {showHeadline ? &lt;PublicHeadlineBlock data={headline} /&gt; : null}</div>
+<div class="line del">-                &lt;PublicHighlightsSection data={belowHeadline} /&gt;</div>
+<div class="line add">+                &lt;PublicHighlightsSection data={belowHeadline} imageTitleOnly={scope === &quot;matchday&quot;} /&gt;</div>
+<div class="line ">               &lt;/div&gt;</div>
+<div class="line ">             ) : null}</div>
+<div class="line ">             {hasLatestNews ? (</div>
+<div class="line ">diff --git a/components/public/PublicHierarchicalComposition.tsx b/components/public/PublicHierarchicalComposition.tsx</div>
+<div class="line ">index 7a8e8d65..dccbcc38 100644</div>
+<div class="line del">--- a/components/public/PublicHierarchicalComposition.tsx</div>
+<div class="line add">+++ b/components/public/PublicHierarchicalComposition.tsx</div>
+<div class="line hunk">@@ -1,3 +1,4 @@</div>
+<div class="line add">+import PublicEditorialImage from &quot;./PublicEditorialImage&quot;;</div>
+<div class="line "> ﻿import type { ReactNode } from &quot;react&quot;;</div>
+<div class="line "> </div>
+<div class="line "> import {</div>
+<div class="line hunk">@@ -21,6 +22,7 @@ type PublicHierarchicalCompositionProps = {</div>
+<div class="line ">   blockOrder?: HistoricalCompositionBlockKey[] | null;</div>
+<div class="line ">   editorial?: HierarchicalCompositionEditorial | null;</div>
+<div class="line ">   editorialHref?: string | null;</div>
+<div class="line add">+  afterOpeningNews?: ReactNode;</div>
+<div class="line ">   editorialAfter?: ReactNode;</div>
+<div class="line ">   slots: HierarchicalCompositionSlot[];</div>
+<div class="line ">   roundupItems?: RoundupVideoItem[];</div>
+<div class="line hunk">@@ -205,6 +207,7 @@ const hierarchicalCompositionStyles = `</div>
+<div class="line ">   .composition-interpretive-news {</div>
+<div class="line ">     display: grid;</div>
+<div class="line ">     grid-column: span 9;</div>
+<div class="line add">+    align-content: start;</div>
+<div class="line ">     gap: 34px;</div>
+<div class="line ">     min-width: 0;</div>
+<div class="line ">   }</div>
+<div class="line hunk">@@ -316,23 +319,16 @@ const hierarchicalCompositionStyles = `</div>
+<div class="line ">     text-underline-offset: 3px;</div>
+<div class="line ">   }</div>
+<div class="line "> </div>
+<div class="line del">-  .composition-interpretive-editorial-ad-slot {</div>
+<div class="line del">-    margin-top: 24px;</div>
+<div class="line del">-    padding-top: 20px;</div>
+<div class="line del">-    border-top: 1px solid #dfe5eb;</div>
+<div class="line add">+  .composition-interpretive-news &gt; .public-horizontal-advertisement {</div>
+<div class="line add">+    margin-top: 0;</div>
+<div class="line ">   }</div>
+<div class="line "> </div>
+<div class="line ">   .composition-interpretive-editorial-ad-slot {</div>
+<div class="line del">-    position: absolute;</div>
+<div class="line del">-    top: 100%;</div>
+<div class="line del">-    right: 0;</div>
+<div class="line del">-    left: 24px;</div>
+<div class="line ">     display: flex;</div>
+<div class="line ">     justify-content: center;</div>
+<div class="line ">     margin-top: 20px;</div>
+<div class="line ">     padding-top: 20px;</div>
+<div class="line ">     border-top: 1px solid #dfe5eb;</div>
+<div class="line del">-    pointer-events: auto;</div>
+<div class="line ">   }</div>
+<div class="line "> </div>
+<div class="line ">   .composition-interpretive-editorial-ad-slot &gt; a {</div>
+<div class="line hunk">@@ -350,6 +346,39 @@ const hierarchicalCompositionStyles = `</div>
+<div class="line ">     height: auto;</div>
+<div class="line ">   }</div>
+<div class="line "> </div>
+<div class="line add">+  @media (min-width: 981px) {</div>
+<div class="line add">+    .composition-interpretive-editorial:has(.composition-interpretive-editorial-ad-slot) {</div>
+<div class="line add">+      display: flex;</div>
+<div class="line add">+      flex-direction: column;</div>
+<div class="line add">+      align-self: stretch;</div>
+<div class="line add">+    }</div>
+<div class="line add">+</div>
+<div class="line add">+    /* Only the creative adapts to the space left by the natural editorial height. */</div>
+<div class="line add">+    .composition-interpretive-editorial-ad-slot {</div>
+<div class="line add">+      flex: 1;</div>
+<div class="line add">+      min-height: 0;</div>
+<div class="line add">+      contain: size;</div>
+<div class="line add">+    }</div>
+<div class="line add">+</div>
+<div class="line add">+    .composition-interpretive-editorial-ad-slot &gt; a {</div>
+<div class="line add">+      display: flex;</div>
+<div class="line add">+      justify-content: center;</div>
+<div class="line add">+      align-items: flex-start;</div>
+<div class="line add">+      height: 100%;</div>
+<div class="line add">+      max-height: 320px;</div>
+<div class="line add">+      background: transparent;</div>
+<div class="line add">+      overflow: visible;</div>
+<div class="line add">+    }</div>
+<div class="line add">+</div>
+<div class="line add">+    .composition-interpretive-editorial-ad-slot img {</div>
+<div class="line add">+      width: auto;</div>
+<div class="line add">+      height: auto;</div>
+<div class="line add">+      max-width: min(100%, 120px);</div>
+<div class="line add">+      max-height: 100%;</div>
+<div class="line add">+      object-fit: contain;</div>
+<div class="line add">+    }</div>
+<div class="line add">+  }</div>
+<div class="line add">+</div>
+<div class="line ">   .composition-interpretive-dominant {</div>
+<div class="line ">     display: grid;</div>
+<div class="line ">     grid-template-columns: minmax(0, 5fr) minmax(0, 4fr);</div>
+<div class="line hunk">@@ -992,7 +1021,7 @@ function InterpretiveMedia({</div>
+<div class="line ">           media={inlineMedia}</div>
+<div class="line ">         /&gt;</div>
+<div class="line ">       ) : slot?.image_url_snapshot ? (</div>
+<div class="line del">-        &lt;img</div>
+<div class="line add">+        &lt;PublicEditorialImage imageSize={slotKey === &quot;dominant_main&quot; ? &quot;headline&quot; : &quot;card&quot;}</div>
+<div class="line ">           {...hierarchicalEditorialImageFramingProps(slotKey)}</div>
+<div class="line ">           alt=&quot;&quot;</div>
+<div class="line ">           src={slot.image_url_snapshot}</div>
+<div class="line hunk">@@ -1296,6 +1325,7 @@ export default function PublicHierarchicalComposition({</div>
+<div class="line ">   blockOrder = null,</div>
+<div class="line ">   editorial = null,</div>
+<div class="line ">   editorialHref = null,</div>
+<div class="line add">+  afterOpeningNews = null,</div>
+<div class="line ">   editorialAfter = null,</div>
+<div class="line ">   slots,</div>
+<div class="line ">   roundupItems = [],</div>
+<div class="line hunk">@@ -1343,6 +1373,7 @@ export default function PublicHierarchicalComposition({</div>
+<div class="line ">             );</div>
+<div class="line ">           })}</div>
+<div class="line ">         &lt;/div&gt;</div>
+<div class="line add">+        {afterOpeningNews}</div>
+<div class="line ">       &lt;/div&gt;</div>
+<div class="line "> </div>
+<div class="line ">       {hasEditorial ? (</div>
+<div class="line ">diff --git a/components/public/PublicLatestNewsBlock.tsx b/components/public/PublicLatestNewsBlock.tsx</div>
+<div class="line ">index 5a2c6cbc..a40f06cf 100644</div>
+<div class="line del">--- a/components/public/PublicLatestNewsBlock.tsx</div>
+<div class="line add">+++ b/components/public/PublicLatestNewsBlock.tsx</div>
+<div class="line hunk">@@ -1,8 +1,53 @@</div>
+<div class="line "> &quot;use client&quot;;</div>
+<div class="line "> </div>
+<div class="line add">+import PublicEditorialImage from &quot;./PublicEditorialImage&quot;;</div>
+<div class="line add">+</div>
+<div class="line "> import { useEffect, useRef } from &quot;react&quot;;</div>
+<div class="line "> import { editorialImageFramingProps } from &quot;@/lib/editorial-image-framing&quot;;</div>
+<div class="line "> </div>
+<div class="line add">+// One responsive policy for every public placement of the shared latest feed.</div>
+<div class="line add">+// Hide its layout owners too; adjacent editorial content and ads remain visible.</div>
+<div class="line add">+export const publicLatestNewsMobileStyles = `</div>
+<div class="line add">+  @media (max-width: 760px) {</div>
+<div class="line add">+    .public-matchday-news[data-public-latest-news],</div>
+<div class="line add">+    .public-latest-companion-news:has(&gt; [data-public-latest-news]),</div>
+<div class="line add">+    .public-four-news-latest-column:has([data-public-latest-news]) {</div>
+<div class="line add">+      display: none;</div>
+<div class="line add">+    }</div>
+<div class="line add">+</div>
+<div class="line add">+    .public-editorial-layout-panel .public-matchday-lead-grid:has(&gt; [data-public-latest-news]) {</div>
+<div class="line add">+      grid-template-areas: none;</div>
+<div class="line add">+    }</div>
+<div class="line add">+</div>
+<div class="line add">+    .public-matchday-lead-grid:has(&gt; [data-public-latest-news]:only-child),</div>
+<div class="line add">+    .public-editorial-layout-panel:has(&gt; .public-matchday-cover &gt; .public-matchday-lead-grid:only-child &gt; [data-public-latest-news]:only-child),</div>
+<div class="line add">+    [data-public-editorial-section-frame=&quot;latest&quot;]:has(&gt; .public-thematic-latest-only-layout):not(:has(.public-thematic-latest-only-ad-column)) {</div>
+<div class="line add">+      display: none;</div>
+<div class="line add">+    }</div>
+<div class="line add">+</div>
+<div class="line add">+    .public-latest-companion-grid:has(.public-latest-companion-news) &gt; .public-latest-companion-ad,</div>
+<div class="line add">+    .public-four-news-latest-grid:has(.public-four-news-latest-column) &gt; .public-four-news-ad-column {</div>
+<div class="line add">+      grid-column: 1 / -1;</div>
+<div class="line add">+    }</div>
+<div class="line add">+</div>
+<div class="line add">+    /* A latest-only frame can still contain an active advertisement. */</div>
+<div class="line add">+    [data-public-editorial-section-frame=&quot;latest&quot;]:has(&gt; .public-thematic-latest-only-layout) {</div>
+<div class="line add">+      margin-top: 0;</div>
+<div class="line add">+      padding-top: 0;</div>
+<div class="line add">+    }</div>
+<div class="line add">+</div>
+<div class="line add">+    [data-public-editorial-section-frame=&quot;latest&quot;]:has(&gt; .public-thematic-latest-only-layout)::before {</div>
+<div class="line add">+      display: none;</div>
+<div class="line add">+    }</div>
+<div class="line add">+</div>
+<div class="line add">+    .public-thematic-latest-only-ad-column {</div>
+<div class="line add">+      margin-top: 0;</div>
+<div class="line add">+      padding-top: 0;</div>
+<div class="line add">+      border-top: 0;</div>
+<div class="line add">+    }</div>
+<div class="line add">+  }</div>
+<div class="line add">+`;</div>
+<div class="line add">+</div>
+<div class="line "> export type PublicLatestNewsItem = {</div>
+<div class="line ">   id: string;</div>
+<div class="line ">   timeLabel?: string | null;</div>
+<div class="line hunk">@@ -180,9 +225,11 @@ export default function PublicLatestNewsBlock({</div>
+<div class="line ">   return (</div>
+<div class="line ">     &lt;aside</div>
+<div class="line ">       className=&quot;public-matchday-news&quot;</div>
+<div class="line add">+      data-public-latest-news</div>
+<div class="line ">       aria-label={visibleTitle || &quot;Notícias&quot;}</div>
+<div class="line ">       ref={rootRef}</div>
+<div class="line ">     &gt;</div>
+<div class="line add">+      &lt;style&gt;{publicLatestNewsMobileStyles}&lt;/style&gt;</div>
+<div class="line ">       {visibleTitle ? (</div>
+<div class="line ">         &lt;h3</div>
+<div class="line ">           style={</div>
+<div class="line hunk">@@ -203,7 +250,7 @@ export default function PublicLatestNewsBlock({</div>
+<div class="line ">           &gt;</div>
+<div class="line ">             {item.imageUrl ? (</div>
+<div class="line ">               &lt;div className=&quot;public-news-thumb&quot;&gt;</div>
+<div class="line del">-                &lt;img</div>
+<div class="line add">+                &lt;PublicEditorialImage imageSize=&quot;latest&quot;</div>
+<div class="line ">                   {...editorialImageFramingProps(&quot;wide&quot;)}</div>
+<div class="line ">                   alt=&quot;&quot;</div>
+<div class="line ">                   src={item.imageUrl}</div>
+<div class="line "></div>

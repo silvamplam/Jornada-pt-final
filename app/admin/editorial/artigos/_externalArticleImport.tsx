@@ -169,6 +169,9 @@ export default function ExternalArticleImport({
   const [imageCandidates, setImageCandidates] = useState<readonly EditorialExternalArticleImageCandidate[]>([]);
   const [importingImagePosition, setImportingImagePosition] = useState<number | null>(null);
   const [selectedImagePosition, setSelectedImagePosition] = useState<number | null>(null);
+  const [frozenImageUrl, setFrozenImageUrl] = useState<string | null>(null);
+  const [pendingImagePosition, setPendingImagePosition] = useState<number | null>(null);
+  const [frozenImageLoaded, setFrozenImageLoaded] = useState(false);
 
   const editorForm = (): HTMLFormElement | null => (
     rootRef.current?.closest("form") ?? null
@@ -179,6 +182,9 @@ export default function ExternalArticleImport({
     setImageCandidates([]);
     setImportingImagePosition(null);
     setSelectedImagePosition(null);
+    setPendingImagePosition(null);
+    setFrozenImageUrl(null);
+    setFrozenImageLoaded(false);
   };
 
   const importArticle = (
@@ -221,6 +227,7 @@ export default function ExternalArticleImport({
     candidate: EditorialExternalArticleImageCandidate,
     packageLocation: EditorialExternalArticleSourcePackage,
     automatic = false,
+    fresh = false,
   ): Promise<void> => {
     const form = editorForm();
     if (!form) {
@@ -234,11 +241,17 @@ export default function ExternalArticleImport({
     }
 
     setImportingImagePosition(candidate.position);
+    if (pendingImagePosition !== candidate.position) { setFrozenImageUrl(null); setFrozenImageLoaded(false); }
+    setPendingImagePosition(candidate.position);
     setStatus(automatic
-      ? "A aplicar automaticamente a imagem do pacote…"
-      : "A aplicar a imagem escolhida…");
+      ? "A preparar a imagem do pacote para revisão…"
+      : "A congelar a candidata para revisão…");
 
     try {
+      const key = `jornada:package-image:${packageLocation.packageId}:${candidate.position}`;
+      const acquisitionId = fresh ? crypto.randomUUID() : localStorage.getItem(key);
+      if (acquisitionId) localStorage.setItem(key, acquisitionId);
+      if (fresh) { setFrozenImageUrl(null); setFrozenImageLoaded(false); }
       const response = await fetch("/api/admin/editorial/artigos/import-source-image", {
         method: "POST",
         cache: "no-store",
@@ -248,6 +261,7 @@ export default function ExternalArticleImport({
           month: packageLocation.month,
           packageId: packageLocation.packageId,
           position: candidate.position,
+          acquisitionId,
         }),
       });
       const payload = await response.json().catch(() => null) as SourceImageImportResponse | null;
@@ -256,11 +270,10 @@ export default function ExternalArticleImport({
         throw new Error(payload?.error || "image-import-failed");
       }
 
-      setFieldValue(formField(form, "image_url"), payload.publicUrl);
-      setSelectedImagePosition(candidate.position);
-      setStatus(automatic
-        ? "Notícia preenchida e imagem do pacote aplicada automaticamente. Revê antes de guardar em revisão."
-        : "Imagem aplicada ao artigo. Revê antes de guardar em revisão.");
+      setPendingImagePosition(candidate.position);
+      if (frozenImageUrl !== payload.publicUrl) setFrozenImageLoaded(false);
+      setFrozenImageUrl(payload.publicUrl);
+      setStatus("Cópia congelada preparada. Confirma a imagem abaixo para a aplicar ao artigo.");
     } catch (error) {
       const code = error instanceof Error ? error.message : undefined;
       setStatus(`${sourceImageErrorMessage(code)} Podes escolher outra imagem ou usar o carregamento manual.`);
@@ -438,7 +451,7 @@ export default function ExternalArticleImport({
             <strong>Imagem do pacote</strong>
             <small>
               {imageCandidates.length === 1
-                ? "A única imagem disponível é aplicada automaticamente."
+                ? "Revê e confirma a cópia congelada da imagem disponível."
                 : "Escolhe uma imagem. Nenhuma é selecionada arbitrariamente."}
             </small>
           </div>
@@ -456,14 +469,28 @@ export default function ExternalArticleImport({
                   onClick={() => void importSourceImage(candidate, sourcePackage)}
                   disabled={importingImagePosition !== null}
                 >
-                  <img src={candidate.imageUrl} alt="" />
+                  <img src={pendingImagePosition === candidate.position && frozenImageUrl ? frozenImageUrl : candidate.imageUrl} alt="" />
                   <span>{candidate.sourceCode}</span>
                   <strong>{candidate.articleTitle}</strong>
-                  <small>{isLoading ? "A aplicar…" : isSelected ? "Aplicada" : "Usar esta imagem"}</small>
+                  <small>{isLoading ? "A preparar…" : isSelected ? "Aplicada" : "Congelar para rever"}</small>
                 </button>
               );
             })}
           </div>
+          {pendingImagePosition !== null ? <div>
+            {frozenImageUrl ? <img src={frozenImageUrl} alt="Cópia congelada para confirmação" style={{ maxWidth: "100%", maxHeight: 360 }} onLoad={() => setFrozenImageLoaded(true)} onError={() => setFrozenImageLoaded(false)} /> : null}
+            <button type="button" disabled={!frozenImageUrl || !frozenImageLoaded || importingImagePosition !== null} onClick={() => {
+              const form = editorForm();
+              if (!form || !frozenImageUrl) return;
+              setFieldValue(formField(form, "image_url"), frozenImageUrl);
+              setSelectedImagePosition(pendingImagePosition);
+              setStatus("Imagem congelada confirmada e aplicada ao artigo.");
+            }}>Confirmar esta imagem</button>
+            <button type="button" disabled={importingImagePosition !== null} onClick={() => {
+              const candidate = imageCandidates.find(image => image.position === pendingImagePosition);
+              if (candidate) void importSourceImage(candidate, sourcePackage, false, true);
+            }}>Obter novamente da origem e rever</button>
+          </div> : null}
         </section>
       ) : null}
 

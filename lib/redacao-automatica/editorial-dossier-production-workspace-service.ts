@@ -1,4 +1,6 @@
 import "server-only";
+import { editorialImageOriginalPath } from "../editorial-image-authority";
+import { fetchSupabaseAdminTable } from "../supabase";
 
 import {
   getSupabaseServiceConfig,
@@ -105,6 +107,11 @@ const transport = {
   },
 
   async saveArticlePlanState(payload: SaveEditorialDossierArticlePlanStateRpcInput) {
+    if (payload.p_image_choice === "dossier_image") {
+      const [image] = await fetchSupabaseAdminTable<{ frozen_url: string }>(
+        `newsroom_editorial_dossier_images?select=frozen_url&id=eq.${payload.p_dossier_image_id}&dossier_id=eq.${payload.p_dossier_id}&limit=1`);
+      if (!image || !editorialImageOriginalPath(image.frozen_url)) throw new Error("image-materialization-required");
+    }
     const rows = await writeSupabaseAdminReturning<PlanStateRow>(
       "rpc/newsroom_save_dossier_article_plan_state_v3",
       { method: "POST", body: JSON.stringify(payload) },

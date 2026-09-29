@@ -727,14 +727,19 @@ test("a interface recolhe género, título e instruções e expõe as ações fi
   assert.match(articleImporter, /transfer\.imageCandidates\.length === 1/);
   assert.match(articleImporter, /Nenhuma é selecionada arbitrariamente/);
   assert.match(articleImporter, /\/api\/admin\/editorial\/artigos\/import-source-image/);
-  assert.match(articleImporter, /setFieldValue\(formField\(form, "image_url"\), payload\.publicUrl\)/);
+  assert.doesNotMatch(articleImporter, /setFieldValue\(formField\(form, "image_url"\), payload\.publicUrl\)/);
+  assert.match(articleImporter, /setFieldValue\(formField\(form, "image_url"\), frozenImageUrl\)/);
+  assert.match(articleImporter, /Confirmar esta imagem/);
+  assert.match(articleImporter, /!frozenImageLoaded/);
+  assert.match(articleImporter, /Obter novamente da origem e rever/);
   assert.match(articleImporter, /Imagem do pacote/);
   assert.match(articleImporter, /Nada é guardado ou publicado automaticamente/);
   assert.match(articleForm, /article-admin-external-images-grid/);
   assert.match(articleImageImportRoute, /readEditorialSourcePackageManifest/);
-  assert.match(articleImageImportRoute, /downloadEditorialSourceImage/);
-  assert.match(articleImageImportRoute, /const BUCKET = "editorial-images"/);
-  assert.match(articleImageImportRoute, /storage\/v1\/object/);
+  assert.match(articleImageImportRoute, /createImageFreezeStorage\(config\)/);
+  assert.match(articleImageImportRoute, /storage\.freeze/);
+  assert.match(articleImageImportRoute, /storage\.registerLocal\(entry\.imageUrl\)/);
+  assert.match(articleImageImportRoute, /package:\$\{packageId\}:\$\{position\}/);
   assert.match(articleImageImportRoute, /publicUrl/);
 });
 

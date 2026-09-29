@@ -120,7 +120,7 @@ const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3
 const YEAR_PATTERN = /^\d{4}$/;
 const MONTH_PATTERN = /^(0[1-9]|1[0-2])$/;
 const EXTERNAL_IMAGE_FILE_NAME_MAX_LENGTH = 240;
-const EXTERNAL_IMAGE_EXTENSION_PATTERN = /\.(?:jpe?g|png|webp)$/i;
+const EXTERNAL_IMAGE_EXTENSION_PATTERN = /\.(?:jpe?g|png|webp|avif)$/i;
 const EDITORIAL_IMAGE_STORAGE_PATH = "/storage/v1/object/public/editorial-images/";
 
 export type EditorialSourcePackageSelection = Readonly<{

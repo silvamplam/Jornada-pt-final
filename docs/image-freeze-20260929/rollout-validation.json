@@ -1,0 +1,32 @@
+{
+  "observedAt": "2026-09-29T10:19:36.503Z",
+  "branch": "jornada-editorial-images-freeze-egress-20260929",
+  "base": "ccfebdc9c85ec8f6167dcc0768c11496112ecc1a",
+  "foundation": "20260929084410_editorial_image_authority.sql",
+  "activation": "20260929101014_editorial_image_authority_activation.sql",
+  "finalGuardMovedVerbatim": true,
+  "postgresVersion": "17.11",
+  "postgresAssertions": [
+    "PASS A: old application + FOUNDATION; no image guard or receipt requirement",
+    "PASS B: new application + FOUNDATION; real freeze/4 previews/A-B retry, service_role receipts/confirmation, canonical NEW/UPDATE writers, app external guards, preserve, image-only promotion; SQL guard absent",
+    "PASS C: ACTIVATION; external NEW/draft/replacement blocked, registered local accepted, exact legacy preserve, image-only promotion, retry, immutable decisions, rollback, privileges",
+    "PASS remote definitions: actual three functions patched locally, settings preserved, classification unchanged for image-only UPDATE"
+  ],
+  "focusedTests": [
+    "ℹ tests 175",
+    "ℹ suites 0",
+    "ℹ pass 174",
+    "ℹ fail 0",
+    "ℹ cancelled 0",
+    "ℹ skipped 1",
+    "ℹ todo 0",
+    "ℹ duration_ms 4074.695"
+  ],
+  "focusedTypecheck": "passed; includes scripts/verify-editorial-image-foundation.ts",
+  "remoteActions": "read-only function definitions and infrastructure presence",
+  "remoteMigrationsApplied": 0,
+  "storageUploads": 0,
+  "historicalStaging": 0,
+  "historicalPromotions": 0,
+  "a3BaselineChanged": false
+}

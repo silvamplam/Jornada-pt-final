@@ -1,6 +1,7 @@
 import { mesaIntentService } from "./newsroom-mesa-production-intents-service";
 import type { MesaProductionIntentsFrozen } from "./newsroom-mesa-production-intents-contract";
 import "server-only";
+import { requirePublishableEditorialImage } from "../editorial-image-publication.server";
 
 import {
   fetchSupabaseAdminTable,
@@ -512,6 +513,7 @@ export async function publishEditorialMesaOutput(input: Readonly<{
       return {ok:true,...result};
     }
     if (input.article.matchdayId === null) return {ok:false,code:"mesa-publication-update-target-invalid"};
+    await requirePublishableEditorialImage(input.article.imageUrl, input.article.id);
     const rows = await writeSupabaseAdminReturning<{
       editorial_article_id: string;
       article_slug: string;

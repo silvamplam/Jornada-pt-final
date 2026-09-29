@@ -1,11 +1,18 @@
 import "server-only";
+import { requirePublishableEditorialImage } from "../editorial-image-publication.server";
 import { fetchSupabaseAdminTable, writeSupabaseAdminReturning } from "@/lib/supabase";
 import { mesaProductionIntentsService } from "./newsroom-mesa-production-intents-service-internal";
 import { compareMesaArticleSourceCaptureByArticle } from "./newsroom-mesa-production-intents";
 import type { MesaIntentFrozenContext } from "./newsroom-mesa-production-intents-contract";
 
 export const mesaIntentService = mesaProductionIntentsService({
-  post: (name, args) => writeSupabaseAdminReturning<unknown>(`rpc/${name}`, { method: "POST", body: JSON.stringify(args) }),
+  post: async (name, args) => {
+    if (name === "newsroom_publish_mesa_intent_output_v2") {
+      const article = args.p_article as { id: string; imageUrl: string | null };
+      await requirePublishableEditorialImage(article.imageUrl, article.id);
+    }
+    return writeSupabaseAdminReturning<unknown>(`rpc/${name}`, { method: "POST", body: JSON.stringify(args) });
+  },
   get: (name, args) => fetchSupabaseAdminTable<unknown>(`rpc/${name}?${new URLSearchParams(args)}`),
 });
 

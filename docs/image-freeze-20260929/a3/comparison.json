@@ -1,0 +1,281 @@
+[
+  {
+    "file": "components/public/PublicEditorialLayout.tsx",
+    "test": "renderer",
+    "baseline": "2d6628f432d659fa7c4c0314730cd5ed0f183348",
+    "main": "ccfebdc9c85ec8f6167dcc0768c11496112ecc1a",
+    "baselineToMainEqual": false,
+    "mainToBranchEqual": true,
+    "failsA3": true
+  },
+  {
+    "file": "components/public/PublicHierarchicalComposition.tsx",
+    "test": "renderer",
+    "baseline": "2d6628f432d659fa7c4c0314730cd5ed0f183348",
+    "main": "ccfebdc9c85ec8f6167dcc0768c11496112ecc1a",
+    "baselineToMainEqual": false,
+    "mainToBranchEqual": true,
+    "failsA3": true
+  },
+  {
+    "file": "components/public/PublicFourNewsGrid.tsx",
+    "test": "renderer",
+    "baseline": "2d6628f432d659fa7c4c0314730cd5ed0f183348",
+    "main": "ccfebdc9c85ec8f6167dcc0768c11496112ecc1a",
+    "baselineToMainEqual": true,
+    "mainToBranchEqual": true,
+    "failsA3": false
+  },
+  {
+    "file": "components/public/PublicHorizontalNewsStrip.tsx",
+    "test": "renderer",
+    "baseline": "2d6628f432d659fa7c4c0314730cd5ed0f183348",
+    "main": "ccfebdc9c85ec8f6167dcc0768c11496112ecc1a",
+    "baselineToMainEqual": true,
+    "mainToBranchEqual": true,
+    "failsA3": false
+  },
+  {
+    "file": "components/public/PublicLatestNewsBlock.tsx",
+    "test": "renderer",
+    "baseline": "2d6628f432d659fa7c4c0314730cd5ed0f183348",
+    "main": "ccfebdc9c85ec8f6167dcc0768c11496112ecc1a",
+    "baselineToMainEqual": false,
+    "mainToBranchEqual": true,
+    "failsA3": true
+  },
+  {
+    "file": "components/public/PublicBeyondMatchdayNews.tsx",
+    "test": "renderer",
+    "baseline": "2d6628f432d659fa7c4c0314730cd5ed0f183348",
+    "main": "ccfebdc9c85ec8f6167dcc0768c11496112ecc1a",
+    "baselineToMainEqual": false,
+    "mainToBranchEqual": true,
+    "failsA3": true
+  },
+  {
+    "file": "app/noticias/[slug]/page.tsx",
+    "test": "renderer",
+    "baseline": "2d6628f432d659fa7c4c0314730cd5ed0f183348",
+    "main": "ccfebdc9c85ec8f6167dcc0768c11496112ecc1a",
+    "baselineToMainEqual": false,
+    "mainToBranchEqual": true,
+    "failsA3": true
+  },
+  {
+    "file": "app/conteudos/[slug]/page.tsx",
+    "test": "renderer",
+    "baseline": "2d6628f432d659fa7c4c0314730cd5ed0f183348",
+    "main": "ccfebdc9c85ec8f6167dcc0768c11496112ecc1a",
+    "baselineToMainEqual": true,
+    "mainToBranchEqual": true,
+    "failsA3": false
+  },
+  {
+    "file": "app/competicoes/[competitionSlug]/[seasonLabel]/jornadas/[matchdayNumber]/jogos/page.tsx",
+    "test": "renderer",
+    "baseline": "2d6628f432d659fa7c4c0314730cd5ed0f183348",
+    "main": "ccfebdc9c85ec8f6167dcc0768c11496112ecc1a",
+    "baselineToMainEqual": false,
+    "mainToBranchEqual": true,
+    "failsA3": true
+  },
+  {
+    "file": "components/public/PublicTeamBadge.tsx",
+    "test": "grouped",
+    "baseline": "2d6628f432d659fa7c4c0314730cd5ed0f183348",
+    "main": "ccfebdc9c85ec8f6167dcc0768c11496112ecc1a",
+    "baselineToMainEqual": true,
+    "mainToBranchEqual": true,
+    "failsA3": false
+  },
+  {
+    "file": "components/public/PublicTeamBadge.module.css",
+    "test": "grouped",
+    "baseline": "2d6628f432d659fa7c4c0314730cd5ed0f183348",
+    "main": "ccfebdc9c85ec8f6167dcc0768c11496112ecc1a",
+    "baselineToMainEqual": true,
+    "mainToBranchEqual": true,
+    "failsA3": false
+  },
+  {
+    "file": "components/public/BroadcastChannelLogo.tsx",
+    "test": "grouped",
+    "baseline": "2d6628f432d659fa7c4c0314730cd5ed0f183348",
+    "main": "ccfebdc9c85ec8f6167dcc0768c11496112ecc1a",
+    "baselineToMainEqual": true,
+    "mainToBranchEqual": true,
+    "failsA3": false
+  },
+  {
+    "file": "components/public/BroadcastChannelLogo.module.css",
+    "test": "grouped",
+    "baseline": "2d6628f432d659fa7c4c0314730cd5ed0f183348",
+    "main": "ccfebdc9c85ec8f6167dcc0768c11496112ecc1a",
+    "baselineToMainEqual": true,
+    "mainToBranchEqual": true,
+    "failsA3": false
+  },
+  {
+    "file": "components/public/PublicMatchStrip.tsx",
+    "test": "grouped",
+    "baseline": "2d6628f432d659fa7c4c0314730cd5ed0f183348",
+    "main": "ccfebdc9c85ec8f6167dcc0768c11496112ecc1a",
+    "baselineToMainEqual": true,
+    "mainToBranchEqual": true,
+    "failsA3": false
+  },
+  {
+    "file": "lib/public-matchday.ts",
+    "test": "grouped",
+    "baseline": "2d6628f432d659fa7c4c0314730cd5ed0f183348",
+    "main": "ccfebdc9c85ec8f6167dcc0768c11496112ecc1a",
+    "baselineToMainEqual": true,
+    "mainToBranchEqual": true,
+    "failsA3": false
+  },
+  {
+    "file": "lib/public-matchday-structural-context.ts",
+    "test": "grouped",
+    "baseline": "2d6628f432d659fa7c4c0314730cd5ed0f183348",
+    "main": "ccfebdc9c85ec8f6167dcc0768c11496112ecc1a",
+    "baselineToMainEqual": true,
+    "mainToBranchEqual": true,
+    "failsA3": false
+  },
+  {
+    "file": "lib/public-article-matchday-context.ts",
+    "test": "grouped",
+    "baseline": "2d6628f432d659fa7c4c0314730cd5ed0f183348",
+    "main": "ccfebdc9c85ec8f6167dcc0768c11496112ecc1a",
+    "baselineToMainEqual": true,
+    "mainToBranchEqual": true,
+    "failsA3": false
+  },
+  {
+    "file": "lib/editorial-image-framing.ts",
+    "test": "grouped",
+    "baseline": "2d6628f432d659fa7c4c0314730cd5ed0f183348",
+    "main": "ccfebdc9c85ec8f6167dcc0768c11496112ecc1a",
+    "baselineToMainEqual": true,
+    "mainToBranchEqual": true,
+    "failsA3": false
+  },
+  {
+    "file": "lib/editorial-image-preview-upload.ts",
+    "test": "grouped",
+    "baseline": "2d6628f432d659fa7c4c0314730cd5ed0f183348",
+    "main": "ccfebdc9c85ec8f6167dcc0768c11496112ecc1a",
+    "baselineToMainEqual": true,
+    "mainToBranchEqual": true,
+    "failsA3": false
+  },
+  {
+    "file": "lib/editorial-image-preview-ticket.server.ts",
+    "test": "grouped",
+    "baseline": "2d6628f432d659fa7c4c0314730cd5ed0f183348",
+    "main": "ccfebdc9c85ec8f6167dcc0768c11496112ecc1a",
+    "baselineToMainEqual": true,
+    "mainToBranchEqual": true,
+    "failsA3": false
+  },
+  {
+    "file": "app/competicoes/[competitionSlug]/[seasonLabel]/jornadas/[matchdayNumber]/page.tsx",
+    "test": "grouped",
+    "baseline": "2d6628f432d659fa7c4c0314730cd5ed0f183348",
+    "main": "ccfebdc9c85ec8f6167dcc0768c11496112ecc1a",
+    "baselineToMainEqual": false,
+    "mainToBranchEqual": true,
+    "failsA3": true
+  },
+  {
+    "file": "app/page.tsx",
+    "test": "grouped",
+    "baseline": "2d6628f432d659fa7c4c0314730cd5ed0f183348",
+    "main": "ccfebdc9c85ec8f6167dcc0768c11496112ecc1a",
+    "baselineToMainEqual": false,
+    "mainToBranchEqual": true,
+    "failsA3": true
+  },
+  {
+    "file": "components/admin/BackofficeImage.tsx",
+    "test": "grouped",
+    "baseline": "2d6628f432d659fa7c4c0314730cd5ed0f183348",
+    "main": "ccfebdc9c85ec8f6167dcc0768c11496112ecc1a",
+    "baselineToMainEqual": true,
+    "mainToBranchEqual": true,
+    "failsA3": false
+  },
+  {
+    "file": "app/api/admin/editorial/artigos/route.ts",
+    "test": "grouped",
+    "baseline": "2d6628f432d659fa7c4c0314730cd5ed0f183348",
+    "main": "ccfebdc9c85ec8f6167dcc0768c11496112ecc1a",
+    "baselineToMainEqual": true,
+    "mainToBranchEqual": true,
+    "failsA3": false
+  },
+  {
+    "file": "app/admin/editorial/artigos/_articleForm.tsx",
+    "test": "grouped",
+    "baseline": "2d6628f432d659fa7c4c0314730cd5ed0f183348",
+    "main": "ccfebdc9c85ec8f6167dcc0768c11496112ecc1a",
+    "baselineToMainEqual": true,
+    "mainToBranchEqual": false,
+    "failsA3": true
+  },
+  {
+    "file": "app/admin/editorial/conteudos/_contentForm.tsx",
+    "test": "grouped",
+    "baseline": "2d6628f432d659fa7c4c0314730cd5ed0f183348",
+    "main": "ccfebdc9c85ec8f6167dcc0768c11496112ecc1a",
+    "baselineToMainEqual": true,
+    "mainToBranchEqual": true,
+    "failsA3": false
+  },
+  {
+    "file": "app/admin/editorial/redacao-automatica/_dossierImageBank.tsx",
+    "test": "grouped",
+    "baseline": "2d6628f432d659fa7c4c0314730cd5ed0f183348",
+    "main": "ccfebdc9c85ec8f6167dcc0768c11496112ecc1a",
+    "baselineToMainEqual": true,
+    "mainToBranchEqual": true,
+    "failsA3": false
+  },
+  {
+    "file": "app/admin/editorial/redacao-automatica/_sourcePackageOutputPlanner.tsx",
+    "test": "grouped",
+    "baseline": "2d6628f432d659fa7c4c0314730cd5ed0f183348",
+    "main": "ccfebdc9c85ec8f6167dcc0768c11496112ecc1a",
+    "baselineToMainEqual": true,
+    "mainToBranchEqual": true,
+    "failsA3": false
+  },
+  {
+    "file": "app/admin/editorial/redacao-automatica/_manualNewsEntryForm.tsx",
+    "test": "grouped",
+    "baseline": "2d6628f432d659fa7c4c0314730cd5ed0f183348",
+    "main": "ccfebdc9c85ec8f6167dcc0768c11496112ecc1a",
+    "baselineToMainEqual": true,
+    "mainToBranchEqual": true,
+    "failsA3": false
+  },
+  {
+    "file": "app/admin/editorial/redacao-automatica/publicacao-lote/_batchPreflightClient.tsx",
+    "test": "grouped",
+    "baseline": "2d6628f432d659fa7c4c0314730cd5ed0f183348",
+    "main": "ccfebdc9c85ec8f6167dcc0768c11496112ecc1a",
+    "baselineToMainEqual": false,
+    "mainToBranchEqual": false,
+    "failsA3": true
+  },
+  {
+    "file": "app/admin/editorial/redacao-automatica/mesa/producao/[dossierId]/_workspace-client.tsx",
+    "test": "grouped",
+    "baseline": "2d6628f432d659fa7c4c0314730cd5ed0f183348",
+    "main": "ccfebdc9c85ec8f6167dcc0768c11496112ecc1a",
+    "baselineToMainEqual": false,
+    "mainToBranchEqual": false,
+    "failsA3": true
+  }
+]

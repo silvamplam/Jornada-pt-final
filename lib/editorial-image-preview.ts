@@ -8,9 +8,10 @@ export type EditorialPreviewWidth = typeof PUBLIC_EDITORIAL_PREVIEW_WIDTHS[numbe
 // These are immutable paths issued by the existing upload/import routes:
 // timestamp + UUID, never a title alone. Unknown/legacy naming stays original.
 const originalPattern = /^editorial\/20\d{2}\/(?:0[1-9]|1[0-2])\/\d{13}-[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}-[a-z0-9-]{1,120}\.(?:jpe?g|png|webp|avif)$/;
+const contentAddressedPattern = /^editorial\/sha256\/[a-f0-9]{64}\.(?:jpg|png|webp|avif)$/;
 
 export function isEditorialPreviewOriginalPath(path: unknown): path is string {
-  return typeof path === "string" && path.length <= 240 && originalPattern.test(path);
+  return typeof path === "string" && path.length <= 240 && (originalPattern.test(path) || contentAddressedPattern.test(path));
 }
 
 export function editorialPreviewPath(path: string, width: EditorialPreviewWidth): string | null {
