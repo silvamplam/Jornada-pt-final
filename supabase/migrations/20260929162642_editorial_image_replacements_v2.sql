@@ -1,5 +1,25 @@
 begin;
 
+-- Bind each explicit decision to the exact article reference reviewed at registration.
+create table public.editorial_image_replacement_bindings (
+  replacement_decision_key text primary key references public.editorial_image_decisions(decision_key),
+  article_id uuid not null references public.editorial_articles(id),
+  expected_current_image_url text not null
+);
+alter table public.editorial_image_replacement_bindings enable row level security;
+revoke all on public.editorial_image_replacement_bindings from public, anon, authenticated, service_role;
+grant select, insert on public.editorial_image_replacement_bindings to service_role;
+
+create function public.editorial_image_replacement_binding_immutable_v1()
+returns trigger language plpgsql security invoker set search_path='' as $$
+begin
+  raise exception 'image-replacement-binding-immutable';
+end $$;
+revoke all on function public.editorial_image_replacement_binding_immutable_v1() from public,anon,authenticated;
+create trigger editorial_image_replacement_binding_immutable
+  before update or delete on public.editorial_image_replacement_bindings
+  for each row execute function public.editorial_image_replacement_binding_immutable_v1();
+
 -- Additive audit: leave the v1 function and every historical promotion untouched.
 create table public.editorial_image_replacement_promotions (
   article_id uuid not null references public.editorial_articles(id),
@@ -69,6 +89,14 @@ begin
   if d.source_url is distinct from p_source_url or d.image is distinct from frozen or d.state<>'ready' then
     raise exception 'image-replacement-decision-conflict';
   end if;
+  insert into public.editorial_image_replacement_bindings
+    (replacement_decision_key,article_id,expected_current_image_url)
+    values(p_replacement_decision_key,p_article_id,p_expected_current_image_url) on conflict do nothing;
+  if not exists(select 1 from public.editorial_image_replacement_bindings
+    where replacement_decision_key=p_replacement_decision_key and article_id=p_article_id
+      and expected_current_image_url=p_expected_current_image_url) then
+    raise exception 'image-replacement-binding-conflict';
+  end if;
   return case when inserted=1 then 'registered' else 'reused' end;
 end $$;
 
@@ -88,6 +116,11 @@ begin
   if d.image is distinct from jsonb_build_object('path',asset.storage_path,'publicUrl',asset.public_url,
     'sha256',asset.sha256,'byteSize',asset.byte_size,'contentType',asset.content_type) then
     raise exception 'image-replacement-decision-asset-mismatch';
+  end if;
+  if not exists(select 1 from public.editorial_image_replacement_bindings
+    where replacement_decision_key=p_replacement_decision_key and article_id=p_article_id
+      and expected_current_image_url=p_expected_current_image_url) then
+    raise exception 'image-replacement-binding-conflict';
   end if;
   select * into receipt from public.editorial_image_replacement_promotions
     where article_id=p_article_id and replacement_decision_key=p_replacement_decision_key;

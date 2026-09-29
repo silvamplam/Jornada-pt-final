@@ -52,6 +52,10 @@ do $$ begin
  assert not has_function_privilege('anon','editorial_promote_image_v2(uuid,text,text,text)','EXECUTE');
  assert not has_function_privilege('authenticated','editorial_register_image_replacement_v1(uuid,text,text,text,text)','EXECUTE');
  assert not has_table_privilege('authenticated','editorial_image_replacement_promotions','INSERT');
+ assert not has_table_privilege('authenticated','editorial_image_replacement_bindings','INSERT');
+ assert not has_table_privilege('service_role','editorial_image_replacement_bindings','UPDATE');
+ assert not has_table_privilege('service_role','editorial_image_replacement_bindings','DELETE');
+ assert not has_table_privilege('service_role','editorial_image_replacement_bindings','TRUNCATE');
 end $$;
 create function pg_temp.fails(command text, expected text) returns void language plpgsql as $$
 begin
@@ -86,11 +90,16 @@ do $$ declare candidate text; before_row jsonb; begin
  'replacement:aaaaaaaa-aaaa-4aaa-8aaa-000000000001:B','https://real-source.example/B.jpg',candidate)='registered';
  assert editorial_register_image_replacement_v1('aaaaaaaa-aaaa-4aaa-8aaa-000000000001','https://old.example/A.jpg',
  'replacement:aaaaaaaa-aaaa-4aaa-8aaa-000000000001:B','https://real-source.example/B.jpg',candidate)='reused';
+ assert (select count(*) from editorial_image_replacement_bindings where replacement_decision_key='replacement:aaaaaaaa-aaaa-4aaa-8aaa-000000000001:B'
+   and article_id='aaaaaaaa-aaaa-4aaa-8aaa-000000000001' and expected_current_image_url='https://old.example/A.jpg')=1;
+ insert into editorial_image_decisions(decision_key,source_url,state,image) select 'replacement:aaaaaaaa-aaaa-4aaa-8aaa-000000000001:unbound',source_url,state,image
+   from editorial_image_decisions where decision_key='replacement:aaaaaaaa-aaaa-4aaa-8aaa-000000000001:B';
+ perform pg_temp.fails($q$select editorial_promote_image_v2('aaaaaaaa-aaaa-4aaa-8aaa-000000000001','https://old.example/A.jpg','replacement:aaaaaaaa-aaaa-4aaa-8aaa-000000000001:unbound','reviewer')$q$,'binding-conflict');
  perform pg_temp.fails(format('select editorial_register_image_replacement_v1(%L,%L,%L,%L,%L)',
  'aaaaaaaa-aaaa-4aaa-8aaa-000000000001','https://old.example/A.jpg','migration:rejected','https://real-source.example/B.jpg',candidate),'decision-invalid');
  perform pg_temp.fails(format('select editorial_register_image_replacement_v1(%L,%L,%L,%L,%L)',
  'aaaaaaaa-aaaa-4aaa-8aaa-000000000001','https://old.example/A.jpg','replacement:aaaaaaaa-aaaa-4aaa-8aaa-000000000001:B','https://wrong.example/C.jpg',candidate),'decision-conflict');
- perform pg_temp.fails($q$select editorial_promote_image_v2('aaaaaaaa-aaaa-4aaa-8aaa-000000000001','stale','replacement:aaaaaaaa-aaaa-4aaa-8aaa-000000000001:B','reviewer')$q$,'reference-conflict');
+ perform pg_temp.fails($q$select editorial_promote_image_v2('aaaaaaaa-aaaa-4aaa-8aaa-000000000001','stale','replacement:aaaaaaaa-aaaa-4aaa-8aaa-000000000001:B','reviewer')$q$,'binding-conflict');
  perform pg_temp.fails($q$select editorial_promote_image_v2('aaaaaaaa-aaaa-4aaa-8aaa-000000000001','https://old.example/A.jpg','replacement:aaaaaaaa-aaaa-4aaa-8aaa-000000000001:B',' ')$q$,'reviewer-required');
  select to_jsonb(a)-'image_url' into before_row from editorial_articles a where id='aaaaaaaa-aaaa-4aaa-8aaa-000000000001';
  assert editorial_promote_image_v2('aaaaaaaa-aaaa-4aaa-8aaa-000000000001','https://old.example/A.jpg',
@@ -103,7 +112,7 @@ do $$ declare candidate text; before_row jsonb; begin
  assert not exists((select * from old_history) except (select * from editorial_image_promotions));
  assert editorial_promote_image_v2('aaaaaaaa-aaaa-4aaa-8aaa-000000000001','https://old.example/A.jpg',
  'replacement:aaaaaaaa-aaaa-4aaa-8aaa-000000000001:B','reviewer')='reused';
- perform pg_temp.fails($q$select editorial_promote_image_v2('aaaaaaaa-aaaa-4aaa-8aaa-000000000001','stale','replacement:aaaaaaaa-aaaa-4aaa-8aaa-000000000001:B','reviewer')$q$,'retry-conflict');
+ perform pg_temp.fails($q$select editorial_promote_image_v2('aaaaaaaa-aaaa-4aaa-8aaa-000000000001','stale','replacement:aaaaaaaa-aaaa-4aaa-8aaa-000000000001:B','reviewer')$q$,'binding-conflict');
  perform pg_temp.fails($q$update editorial_image_decisions set source_url='https://mutated.example/x' where decision_key='replacement:aaaaaaaa-aaaa-4aaa-8aaa-000000000001:B'$q$,'immutable');
  -- Missing preview and corrupt metadata must block both association and promotion.
  update storage.objects set name=name||'.missing' where name like '%/w960.webp' and name like '%'||repeat('f',64)||'%';
@@ -133,6 +142,35 @@ do $$ declare candidate text; before_row jsonb; begin
  assert editorial_promote_image_v1('aaaaaaaa-aaaa-4aaa-8aaa-000000000005','https://old.example/A.jpg',candidate,repeat('f',64),'v1 reviewer')='promoted';
 end $$;
 reset role;
+-- A reviewed A -> B cannot be repurposed to C -> B, even by supplying the current C.
+insert into editorial_image_assets(public_url,storage_path,sha256,byte_size,content_type)
+ values('https://fixture.example/storage/v1/object/public/editorial-images/editorial/sha256/'||repeat('c',64)||'.jpg',
+ 'editorial/sha256/'||repeat('c',64)||'.jpg',repeat('c',64),200,'image/jpeg');
+insert into storage.objects(bucket_id,name,metadata)
+ values('editorial-images','editorial/sha256/'||repeat('c',64)||'.jpg','{"size":200,"mimetype":"image/jpeg"}'::jsonb);
+set local role service_role;
+do $$ declare candidate text; current_c text; begin
+ select public_url into candidate from editorial_image_assets where sha256=repeat('f',64);
+ select public_url into current_c from editorial_image_assets where sha256=repeat('c',64);
+ assert editorial_register_image_replacement_v1('aaaaaaaa-aaaa-4aaa-8aaa-000000000006','https://old.example/A.jpg',
+ 'replacement:aaaaaaaa-aaaa-4aaa-8aaa-000000000006:B','https://real-source.example/B.jpg',candidate)='registered';
+ update editorial_articles set image_url=current_c where id='aaaaaaaa-aaaa-4aaa-8aaa-000000000006';
+ perform pg_temp.fails(format('select editorial_promote_image_v2(%L,%L,%L,%L)',
+ 'aaaaaaaa-aaaa-4aaa-8aaa-000000000006',current_c,'replacement:aaaaaaaa-aaaa-4aaa-8aaa-000000000006:B','reviewer'),'binding-conflict');
+ perform pg_temp.fails($q$select editorial_promote_image_v2('aaaaaaaa-aaaa-4aaa-8aaa-000000000006','https://old.example/A.jpg','replacement:aaaaaaaa-aaaa-4aaa-8aaa-000000000006:B','reviewer')$q$,'reference-conflict');
+ perform pg_temp.fails(format('select editorial_register_image_replacement_v1(%L,%L,%L,%L,%L)',
+ 'aaaaaaaa-aaaa-4aaa-8aaa-000000000006',current_c,'replacement:aaaaaaaa-aaaa-4aaa-8aaa-000000000006:B','https://real-source.example/B.jpg',candidate),'binding-conflict');
+ assert (select image_url from editorial_articles where id='aaaaaaaa-aaaa-4aaa-8aaa-000000000006')=current_c;
+ assert not exists(select 1 from editorial_image_replacement_promotions where article_id='aaaaaaaa-aaaa-4aaa-8aaa-000000000006');
+ assert (select expected_current_image_url from editorial_image_replacement_bindings where replacement_decision_key='replacement:aaaaaaaa-aaaa-4aaa-8aaa-000000000006:B')='https://old.example/A.jpg';
+end $$;
+reset role;
+-- The trigger also rejects mutations by a role with UPDATE/DELETE privileges.
+select pg_temp.fails($q$update editorial_image_replacement_bindings set expected_current_image_url='https://changed.example/C.jpg'$q$,'binding-immutable');
+select pg_temp.fails($q$update editorial_image_replacement_bindings set article_id='aaaaaaaa-aaaa-4aaa-8aaa-000000000003'$q$,'binding-immutable');
+select pg_temp.fails($q$update editorial_image_replacement_bindings set replacement_decision_key=replacement_decision_key||':changed'$q$,'binding-immutable');
+select pg_temp.fails($q$delete from editorial_image_replacement_bindings$q$,'binding-immutable');
+select 'PASS immutable binding: A -> B, retry, A -> C rejects both expected URLs, re-registration and mutations rejected' result;
 ${realBatch}
 -- An unexpected article-field mutation is detected and rolled back together with audit.
 create function pg_temp.corrupt_article() returns trigger language plpgsql as $$begin new.title:='CORRUPTED';return new;end $$;
