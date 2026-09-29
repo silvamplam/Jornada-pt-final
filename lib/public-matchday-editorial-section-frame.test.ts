@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
+import { runInNewContext } from "node:vm";
+import ts from "typescript";
 
 function source(relativePath: string) {
   return readFileSync(relativePath, "utf8");
@@ -265,4 +267,121 @@ test("a integração de vídeo não introduz ordem, antecessor, família nem J04
     /historical-(?:video-index|video-previous|video-family)|J04/,
   );
   assert.doesNotMatch(frameStyles, /nth-child|first-child|last-child/);
+});
+
+// Execute the component's real layout effect against controlled rectangles.
+// Browser verification separately covers CSS layout and ResizeObserver delivery.
+function mountFrameGeometry(authority: string | null, heights: number[], tops = heights.map(() => 0)) {
+  const makeStyle = () => {
+    const values = new Map<string, string>();
+    return {
+      getPropertyValue: (name: string) => values.get(name) ?? "",
+      getPropertyPriority: () => "",
+      setProperty: (name: string, value: string) => { values.set(name, value); },
+      removeProperty: (name: string) => { values.delete(name); },
+    };
+  };
+  let cleanup: (() => void) | undefined;
+  let resize = () => {};
+  const frame = {
+    style: makeStyle(),
+    querySelectorAll: (): object[] => headings,
+    closest: () => authority === "editorial_snapshot" ? {} : null,
+    getBoundingClientRect: () => ({ top: 0 }),
+  };
+  const latest = { style: makeStyle() };
+  const headings = heights.map((height, index) => {
+    const style = makeStyle();
+    const defaultMargin = index === 0 ? 16 : 0;
+    const intrinsicGap = index === 0 ? 0 : 12;
+    return {
+      style, defaultMargin, textContent: `Title ${index}`,
+      getClientRects: () => [true],
+      getBoundingClientRect: () => ({ top: tops[index], bottom: tops[index] + height }),
+      closest: (selector: string): object | null => selector === "[data-public-editorial-section-frame]"
+        ? frame : selector === "[data-public-latest-news]" && index === 1 ? latest : null,
+      nextElementSibling: {
+        matches: () => false,
+        getBoundingClientRect: () => ({
+          top: tops[index] + height + intrinsicGap +
+            Number.parseFloat(style.getPropertyValue("margin-bottom") || String(defaultMargin)),
+        }),
+      },
+    };
+  });
+  const exports: { default?: (props: object) => unknown } = {};
+  runInNewContext(ts.transpileModule(frameComponent, {
+    compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX, esModuleInterop: true },
+  }).outputText, {
+    exports,
+    require: (name: string) => name === "react" ? {
+      useRef: () => ({ current: frame }),
+      useLayoutEffect: (effect: () => () => void) => { cleanup = effect(); },
+    } : name === "react/jsx-runtime" ? { jsx: () => null } : { frame: "frame" },
+    getComputedStyle: (element: object, pseudo?: string) => ({
+      height: pseudo ? "1px" : "0px",
+      marginBottom: headings.find((title) => title === element)?.style.getPropertyValue("margin-bottom") ||
+        String(headings.find((title) => title === element)?.defaultMargin ?? 0),
+      getPropertyValue: (name: string) => name === "--public-editorial-section-title-rule-gap" ? "12px" : "24px",
+    }),
+    ResizeObserver: class {
+      constructor(callback: () => void) { resize = callback; }
+      observe() {}
+      disconnect() {}
+    },
+    window: { addEventListener() {}, removeEventListener() {} },
+  });
+  exports.default!({ kind: "latest", children: null });
+  return {
+    headings, latest, tops,
+    ruleTop: () => Number.parseFloat(frame.style.getPropertyValue("--public-editorial-section-rule-top")),
+    contentTops: () => headings.map((title) => title.nextElementSibling.getBoundingClientRect().top),
+    resize: () => resize(),
+    cleanup: () => cleanup?.(),
+  };
+}
+
+test("Viva deixa 12/24px abaixo do título mais alto sem sobrepor conteúdo", () => {
+  for (const heights of [[18, 61.6], [61.6, 18], [18, 39.6, 61.6]]) {
+    const geometry = mountFrameGeometry("editorial_snapshot", heights);
+    const bottom = Math.max(...heights);
+    assert.equal(geometry.ruleTop(), bottom + 12);
+    assert.ok(geometry.contentTops().every((top) => Math.abs(top - bottom - 37) < 0.001));
+    geometry.resize();
+    geometry.resize();
+    assert.ok(geometry.contentTops().every((top) => Math.abs(top - bottom - 37) < 0.001));
+    geometry.cleanup();
+    assert.ok(geometry.headings.every((title) => title.style.getPropertyValue("margin-bottom") === ""));
+  }
+});
+
+test("Viva conserva baseline e reserva de Últimas quando cabeçalhos não colidem", () => {
+  const live = mountFrameGeometry("editorial_snapshot", [18, 15.4]);
+  const before = mountFrameGeometry(null, [18, 15.4]);
+  assert.equal(live.ruleTop(), before.ruleTop());
+  assert.deepEqual(live.contentTops(), before.contentTops());
+  assert.equal(live.latest.style.getPropertyValue("--public-latest-header-reserve"),
+    before.latest.style.getPropertyValue("--public-latest-header-reserve"));
+});
+
+test("títulos que passam a outra linha deixam de participar na divisória comum", () => {
+  const geometry = mountFrameGeometry("editorial_snapshot", [18, 61.6]);
+  geometry.tops[1] = 200;
+  geometry.resize();
+  assert.equal(geometry.ruleTop(), 30);
+  assert.equal(geometry.contentTops()[0], 55);
+  assert.equal(geometry.headings[1].style.getPropertyValue("margin-bottom"), "");
+  assert.equal(geometry.latest.style.getPropertyValue("--public-latest-header-reserve"), "");
+  geometry.tops[1] = 0;
+  geometry.resize();
+  assert.deepEqual(geometry.contentTops(), [98.6, 98.6]);
+});
+
+test("Histórica e frames sem autoridade Viva mantêm cálculo anterior", () => {
+  for (const authority of [null, "published_reference_composition"]) {
+    const geometry = mountFrameGeometry(authority, [18, 61.6]);
+    assert.equal(geometry.ruleTop(), 30);
+    assert.deepEqual(geometry.contentTops(), [55, 55]);
+  }
+  assert.match(page, /data-public-editorial-authority=\{publicEditorialAuthority\}/);
 });

@@ -4133,7 +4133,7 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
     : normalizeHistoricalCompositionBlockOrder(context.referenceComposition.hierarchical_block_order);
 
   return (
-    <main className="public-matchday-shell">
+    <main className="public-matchday-shell" data-public-editorial-authority={publicEditorialAuthority}>
       <style>{publicMatchdayStyles}</style>
       {showLogoDiagnostic ? <LogoDiagnosticPanel context={context} /> : null}
       <PublicMatchdayHeader context={context} competitions={publicCompetitionMenuBase} />
