@@ -5,6 +5,12 @@ export type PreparedImageChoice = { publicUrl: string; decisionKey: string | nul
 export type ProductionImageSelection = { value: string; decisionKey: string | null; automatic: boolean; publicUrl: string | null };
 export type ProductionImageConfirmation = { value: string; decisionKey: string | null; destination: "new" | "update" };
 
+export function productionSaveDisabled(
+  saving: boolean, visibleCards: readonly { key: string }[], preparingByCard: Readonly<Record<string, boolean>>,
+) {
+  return saving || visibleCards.some(card => preparingByCard[card.key] === true);
+}
+
 export function productionImageNeedsSave(selection: ProductionImageSelection, confirmed: ProductionImageConfirmation | null) {
   return !confirmed || selection.value !== confirmed.value || selection.decisionKey !== confirmed.decisionKey;
 }

@@ -4,6 +4,7 @@ import BackofficeImage from "@/components/admin/BackofficeImage";
 import { completeEditorialImagePreviews } from "@/lib/editorial-image-preview-upload";
 import {
   useEffect,
+  useLayoutEffect,
   useCallback,
   useMemo,
   useRef,
@@ -32,7 +33,7 @@ import {
   editorialMesaResolvedVisualImageChoice,
 } from "@/lib/redacao-automatica/editorial-mesa-workspace-defaults";
 import { editorialMesaContextualImages } from "@/lib/redacao-automatica/editorial-mesa-workspace-images";
-import { productionImageCandidate, productionImageSelection, productionImageNeedsSave, type ProductionImageSelection, type ProductionImageConfirmation } from "@/lib/editorial-production-image-choice";
+import { productionImageCandidate, productionImageSelection, productionImageNeedsSave, productionSaveDisabled, type ProductionImageSelection, type ProductionImageConfirmation } from "@/lib/editorial-production-image-choice";
 import { useProductionImagePreparation } from "./_production-image-preparation";
 import {
   EDITORIAL_BATCH_TRANSFER_SOURCE_PACKAGE_STORAGE_KEY,
@@ -449,6 +450,7 @@ function PlanEditor({
   onClassificationDecision,
   imageChoiceConfirmed,
   savedImageConfirmation,
+  onImagePreparationChange,
 }: Readonly<{
   dossier: WorkspaceDossier;
   plan: EditorialDossierProductionArticlePlan | null;
@@ -468,6 +470,7 @@ function PlanEditor({
   onClassificationDecision: () => void;
   imageChoiceConfirmed: boolean;
   savedImageConfirmation: ProductionImageConfirmation | null;
+  onImagePreparationChange: (cardKey: string, preparing: boolean) => void;
 }>) {
   const [destination, setDestination] = useState<"new" | "update">(
     continuitySlot?.kind === "existing" ? "update" : continuitySlot ? "new" : plan?.destination ?? "new",
@@ -486,6 +489,10 @@ function PlanEditor({
     : assignedClassificationSourceIds;
   const candidate = productionImageCandidate(images, focusSourceIds, imageChoices[destination], destination);
   const preparation = useProductionImagePreparation(dossier.id, candidate, !hidden && !plan?.editorialArticleId);
+  useLayoutEffect(() => {
+    onImagePreparationChange(cardKey, preparation.busy);
+    return () => onImagePreparationChange(cardKey, false);
+  }, [cardKey, preparation.busy, onImagePreparationChange]);
   const [lastReadyImage, setLastReadyImage] = useState<Record<"new" | "update", ProductionImageSelection>>(() => ({
     new: productionImageSelection({ candidate: productionImageCandidate(images, [], imageChoices.new, "new"), explicitChoice: imageChoices.new, destination: "new" }),
     update: productionImageSelection({ candidate: productionImageCandidate(images, [], imageChoices.update, "update"), explicitChoice: imageChoices.update, destination: "update" }),
@@ -775,14 +782,14 @@ function ProductionActions({
   articleCount,
   imageCount,
   disabled,
-  saving,
+  saveDisabled,
   packageVersion,
 }: Readonly<{
   dossierId: string;
   articleCount: number;
   imageCount: number;
   disabled: boolean;
-  saving: boolean;
+  saveDisabled: boolean;
   packageVersion: number;
 }>) {
   const [status, setStatus] = useState("");
@@ -933,8 +940,8 @@ function ProductionActions({
         <p>Guarda a produção antes de preparar o pacote para o ChatGPT.</p>
       </header>
       <div className={styles.productionActionButtons}>
-        <button className={styles.primaryAction} type="submit" form={PRODUCTION_FORM_ID} disabled={saving}>
-          {saving ? "A guardar…" : "Guardar artigos e imagens"}
+        <button className={styles.primaryAction} type="submit" form={PRODUCTION_FORM_ID} disabled={saveDisabled}>
+          Guardar artigos e imagens
         </button>
         <button type="button" onClick={downloadImages} disabled={disabled || !prepared}>
           Descarregar imagens (.zip) — {prepared?.imageSourceCount ?? imageCount}
@@ -1096,6 +1103,11 @@ export function MesaProductionWorkspaceClient({
     Record<string, ArticlePlanClassificationDecision>
   >({});
   const [savingProduction, setSavingProduction] = useState(false);
+  const [imagePreparationByCard, setImagePreparationByCard] = useState<Readonly<Record<string, boolean>>>({});
+  const handleImagePreparationChange = useCallback((cardKey: string, preparing: boolean) => {
+    setImagePreparationByCard(current => current[cardKey] === preparing
+      ? current : { ...current, [cardKey]: preparing });
+  }, []);
   const savingProductionRef = useRef(false);
   const [expectedState, setExpectedState] = useState(saveState.stateToken);
   const saveAttempt = useRef<{ fingerprint: string; requestId: string } | null>(null);
@@ -1520,6 +1532,7 @@ export function MesaProductionWorkspaceClient({
               assignedClassificationSourceIds={card.assignedClassificationSourceIds}
               classificationSources={classificationSources}
               onClassificationDecision={markProductionDirty}
+              onImagePreparationChange={handleImagePreparationChange}
             />
           ))}
         </div>
@@ -1532,7 +1545,7 @@ export function MesaProductionWorkspaceClient({
         articleCount={effectiveOutputCount}
         imageCount={workspaceImages.length}
         disabled={packageDisabled}
-        saving={savingProduction}
+        saveDisabled={productionSaveDisabled(savingProduction, visibleCards, imagePreparationByCard)}
         packageVersion={packageVersion}
       />
       </>}
