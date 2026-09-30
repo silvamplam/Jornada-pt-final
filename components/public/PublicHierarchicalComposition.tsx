@@ -570,7 +570,7 @@ const hierarchicalCompositionStyles = `
     grid-column: span 5;
     grid-template-rows: repeat(3, auto);
     align-content: space-between;
-    gap: 12px;
+    gap: 18px;
     height: 100%;
   }
 
@@ -579,7 +579,7 @@ const hierarchicalCompositionStyles = `
     grid-template-columns: minmax(156px, 1.08fr) minmax(0, 1.72fr);
     gap: 14px;
     align-items: stretch;
-    padding-bottom: 12px;
+    padding-bottom: 18px;
     border-bottom: 1px solid #dfe5eb;
   }
 
@@ -627,7 +627,7 @@ const hierarchicalCompositionStyles = `
     grid-column: span 3;
     grid-template-rows: repeat(2, auto);
     align-content: space-between;
-    gap: 12px;
+    gap: 18px;
     height: 100%;
   }
 
@@ -635,7 +635,7 @@ const hierarchicalCompositionStyles = `
     display: grid;
     align-content: start;
     gap: 6px;
-    padding-bottom: 12px;
+    padding-bottom: 18px;
     border-bottom: 1px solid #dfe5eb;
   }
 
