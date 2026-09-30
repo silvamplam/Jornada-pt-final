@@ -130,7 +130,7 @@ export default function PublicLatestNewsBlock({
     }
 
     const collapseBreakpoint = constrainToCompanionZone
-      ? "(max-width: 1100px)"
+      ? "(max-width: 760px)"
       : constrainToFourNewsGrid
       ? "(max-width: 1100px)"
       : "(max-width: 1180px)";
