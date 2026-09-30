@@ -39,13 +39,13 @@ export const horizontalAdvertisingStyles = `
   }
   .public-horizontal-advertisement[data-format="slim"] img {
     max-width: 100%;
-    max-height: clamp(120px, 30vw, 360px);
+    max-height: 120px;
   }
   .public-horizontal-advertisement[data-format="tall"] img {
     max-height: 320px;
   }
   .public-horizontal-advertisement[data-format="slim"] img[data-ad-measured] {
-    width: min(100%, var(--ad-natural-width), clamp(var(--ad-slim-min-width), var(--ad-slim-fluid-width), var(--ad-slim-max-width)));
+    width: min(100%, var(--ad-natural-width), var(--ad-slim-desktop-width));
   }
   .public-horizontal-advertisement[data-format="tall"] img[data-ad-measured] {
     width: min(100%, var(--ad-natural-width), var(--ad-tall-desktop-width));
@@ -57,8 +57,14 @@ export const horizontalAdvertisingStyles = `
       max-width: min(100%, 320px);
       max-height: 100px;
     }
+    .public-horizontal-advertisement[data-format="slim"] img {
+      max-height: 100px;
+    }
     .public-horizontal-advertisement[data-format="tall"] img {
       max-height: 180px;
+    }
+    .public-horizontal-advertisement[data-format="slim"] img[data-ad-measured] {
+      width: min(100%, var(--ad-natural-width), var(--ad-slim-mobile-width));
     }
     .public-horizontal-advertisement[data-format="tall"] img[data-ad-measured] {
       width: min(100%, var(--ad-natural-width), var(--ad-tall-mobile-width));
@@ -74,9 +80,8 @@ export default async function PublicHorizontalAdvertisement() {
   const measuredStyle: MeasuredAdStyle | undefined = ratio
     ? {
         "--ad-natural-width": `${width}px`,
-        "--ad-slim-min-width": `${120 * ratio}px`,
-        "--ad-slim-fluid-width": `${30 * ratio}vw`,
-        "--ad-slim-max-width": `${360 * ratio}px`,
+        "--ad-slim-desktop-width": `${120 * ratio}px`,
+        "--ad-slim-mobile-width": `${100 * ratio}px`,
         "--ad-tall-desktop-width": `${320 * ratio}px`,
         "--ad-tall-mobile-width": `${180 * ratio}px`,
         aspectRatio: `${width} / ${height}`,

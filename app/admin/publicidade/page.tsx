@@ -142,8 +142,13 @@ const styles = `
   .campaign-preview-horizontal img {
     width: auto;
     max-width: 100%;
-    max-height: 320px;
+    max-height: 120px;
     object-fit: contain;
+  }
+
+  .campaign-form:has(select[name="display_format"] option[value="tall"]:checked)
+    .campaign-preview-horizontal img {
+    max-height: 320px;
   }
 
   .campaign-active {
