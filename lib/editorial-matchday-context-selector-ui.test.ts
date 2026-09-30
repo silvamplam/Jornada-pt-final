@@ -27,7 +27,7 @@ test("Mesa inclui seletor compacto de Competicao, Epoca e Jornada", () => {
   assert.match(selector, /Abrir Mesa editorial/u);
   assert.match(
     selector,
-    /grid-template-columns: auto minmax\(180px,.8fr\) minmax\(150px,.65fr\) minmax\(210px,1fr\) auto/u,
+    /grid-template-columns: auto minmax\(170px,1fr\) minmax\(110px,.55fr\) minmax\(160px,.9fr\) auto/u,
   );
   assert.match(thematicClient, /<MatchdayEditorialContextSelector/u);
 });

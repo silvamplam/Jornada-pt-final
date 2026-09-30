@@ -197,44 +197,25 @@ test("Só Abertura é estado local e continua independente do modo foco", () => 
   );
 });
 
-test("composições exclusivas usam a fração restante e o modo empilhado fica natural", () => {
-  const denseZoneCss = sourceBetween(
-    client,
-    "  @media (min-width: 1121px) and (min-height: 800px) {",
-    "\n  @media (max-width: 1120px)",
-  );
+test("composições exclusivas em foco conservam cartões compactos sem esticar imagens", () => {
+  const denseZoneStart = client.lastIndexOf("  @media (min-width: 960px) and (min-height: 800px) {");
+  const denseZoneEnd = client.indexOf("\n  }", denseZoneStart);
+  assert.ok(denseZoneStart >= 0 && denseZoneEnd > denseZoneStart);
+  const denseZoneCss = client.slice(denseZoneStart, denseZoneEnd);
 
   assert.match(
     client,
     /const compositionMode = openingVisible\s*\? openingOnly \? "opening-only" : "stacked"\s*: activeZone \? "zone-only" : "other";/,
   );
   assert.doesNotMatch(client, /data-fit-zone/);
-  assert.match(
-    denseZoneCss,
-    /\.thematic-workspace-stack\[data-composition-mode\$=\\?"-only\\?"\] \{ display: flex; flex-direction: column; \}/,
-  );
-  assert.match(
-    denseZoneCss,
-    /\[data-composition-mode\$=\\?"-only\\?"\] > \.thematic-workspace-section \{ display: flex; flex: 1; flex-direction: column; min-height: 0; \}/,
-  );
-  assert.match(
-    denseZoneCss,
-    /\[data-composition-mode\$=\\?"-only\\?"\] \.thematic-workspace-body \{ display: flex; flex: 1; flex-direction: column; min-height: 0; \}/,
-  );
-  assert.match(
-    denseZoneCss,
-    /\[data-composition-mode\$=\\?"-only\\?"\] \.thematic-slots \{ flex: 1; min-height: 0; grid-auto-rows: minmax\(0,1fr\); \}/,
-  );
-  assert.match(
-    denseZoneCss,
-    /\[data-composition-mode\$=\\?"-only\\?"\] \.thematic-card \{ min-height: 0; grid-template-rows: minmax\(0,1fr\) auto; \}/,
-  );
-  assert.match(
-    denseZoneCss,
-    /\.thematic-image-placeholder \{ height: 100%; min-height: 0; aspect-ratio: auto; \}/,
-  );
+  assert.match(denseZoneCss, /\.thematic-shell\[data-focus-mode="true"\] \.thematic-workspace-stack\[data-composition-mode\$="-only"\]/);
+  assert.match(denseZoneCss, /\[data-composition-mode\$="-only"\] > \.thematic-workspace-section,/);
+  assert.match(denseZoneCss, /\[data-composition-mode\$="-only"\] \.thematic-workspace-body,/);
+  assert.match(denseZoneCss, /\[data-composition-mode\$="-only"\] \.thematic-slots \{ flex: 0 0 auto; \}/);
+  assert.match(denseZoneCss, /\[data-composition-mode\$="-only"\] \.thematic-slots \{ grid-auto-rows: auto; \}/);
+  assert.match(denseZoneCss, /\[data-composition-mode\$="-only"\] \.thematic-card \{ grid-template-rows: auto; \}/);
+  assert.match(denseZoneCss, /:is\(\.thematic-image, \.thematic-image-placeholder\) \{ height: 144px; \}/);
   assert.doesNotMatch(denseZoneCss, /data-composition-mode[^\n]*(?:stacked|other)/);
-  assert.doesNotMatch(denseZoneCss, /[;{]\s*height:\s*\d+px/);
 });
 
 test("modo foco não entra no reducer nem no payload de Apply", () => {

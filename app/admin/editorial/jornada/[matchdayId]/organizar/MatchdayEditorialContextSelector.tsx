@@ -23,16 +23,18 @@ export type MatchdayEditorialContextSelectorData = Readonly<{
 }>;
 
 const styles = `
-  .thematic-context-selector { min-width: 0; padding: 4px 6px; border: 1px solid #d7e0e9; border-radius: 7px; background: #fff; box-shadow: 0 3px 10px rgba(12,22,34,.03); }
-  .thematic-context-selector form { display: grid; grid-template-columns: auto minmax(180px,.8fr) minmax(150px,.65fr) minmax(210px,1fr) auto; gap: 5px; align-items: center; }
-  .thematic-context-selector h2 { margin: 0 5px 0 0; font-size: 10px; letter-spacing: .06em; text-transform: uppercase; white-space: nowrap; }
-  .thematic-context-selector label { display: flex; min-width: 0; align-items: center; gap: 4px; color: #64748b; font-size: 8px; font-weight: 850; text-transform: uppercase; }
-  .thematic-context-selector select { min-width: 0; width: 100%; min-height: 28px; padding: 0 6px; border: 1px solid #cbd5df; border-radius: 5px; background: #fff; color: #10151b; font: inherit; font-size: 10px; text-transform: none; }
-  .thematic-context-selector button { min-height: 28px; padding: 3px 8px; border: 1px solid #101820; border-radius: 5px; background: #101820; color: #fff; font: inherit; font-size: 9px; font-weight: 900; cursor: pointer; white-space: nowrap; }
-  .thematic-context-selector button:disabled { cursor: default; opacity: .4; }
-  .thematic-context-selector-message { grid-column: 1 / -1; margin: 0; padding: 4px 6px; border-radius: 4px; background: #fff5e8; color: #7c4a03; font-size: 9px; font-weight: 750; }
-  @media (max-width: 1050px) { .thematic-context-selector form { grid-template-columns: repeat(2,minmax(0,1fr)); } .thematic-context-selector h2, .thematic-context-selector button { grid-column: 1 / -1; } }
-  @media (max-width: 620px) { .thematic-context-selector form { grid-template-columns: 1fr; } .thematic-context-selector h2, .thematic-context-selector button { grid-column: auto; } .thematic-context-selector label { align-items: stretch; flex-direction: column; } }
+  .thematic-context-selector { min-width: 0; padding: 4px 0 6px; border: 0; border-bottom: 1px solid #cbd4d9; border-radius: 0; background: transparent; }
+  .thematic-context-selector form { display: grid; grid-template-columns: auto minmax(170px,1fr) minmax(110px,.55fr) minmax(160px,.9fr) auto; gap: 12px; align-items: end; }
+  .thematic-context-selector h2 { align-self: center; margin: 0 8px 0 0; color: #526571; font-size: 10px; line-height: 1.4; letter-spacing: .07em; text-transform: uppercase; white-space: nowrap; }
+  .thematic-context-selector label { display: grid; min-width: 0; gap: 4px; color: #526571; font-size: 10px; font-weight: 700; letter-spacing: .035em; text-transform: uppercase; }
+  .thematic-context-selector select { min-width: 0; width: 100%; min-height: 30px; padding: 5px 8px; border: 1px solid #b8c5ce; border-radius: 3px; background: #fff; color: #243c4c; font: inherit; font-size: 12px; font-weight: 500; letter-spacing: 0; text-transform: none; }
+  .thematic-context-selector button { min-height: 30px; padding: 6px 12px; border: 1px solid #9eafbb; border-radius: 3px; background: #fff; color: #2a4e65; font: inherit; font-size: 11px; font-weight: 700; cursor: pointer; white-space: nowrap; }
+  .thematic-context-selector button:hover:not(:disabled) { background: #e6eff5; }
+  .thematic-context-selector button:disabled { cursor: default; opacity: .48; }
+  .thematic-context-selector :is(button,select):focus-visible { outline: 2px solid #245575; outline-offset: 3px; }
+  .thematic-context-selector-message { grid-column: 1 / -1; margin: 0; padding: 8px 10px; border-left: 3px solid #a87927; background: #fff8e9; color: #725017; font-size: 12px; }
+  @media (max-width: 959px) { .thematic-context-selector form { grid-template-columns: minmax(0,1fr) minmax(0,.6fr) minmax(0,.8fr) auto; gap: 8px; } .thematic-context-selector h2 { grid-column: 1 / -1; margin: 0; } }
+  @media (max-width: 620px) { .thematic-context-selector form { grid-template-columns: repeat(2,minmax(0,1fr)); } .thematic-context-selector button { align-self: end; } }
 `;
 
 export default function MatchdayEditorialContextSelector({

@@ -14,8 +14,9 @@ const source = readFileSync(
 test("menu fica fisicamente encostado ao botão dos três pontos", () => {
   assert.match(
     source,
-    /\.thematic-card-actions \{ position: absolute; top: 22px;/,
+    /\.thematic-card-actions \{ position: absolute; top: 44px;/,
   );
+  assert.match(source, /\.thematic-card-menu summary \{[^}]*width: 32px; height: 32px;/);
 });
 
 test("mouseleave tem tolerância para permitir chegar ao painel", () => {

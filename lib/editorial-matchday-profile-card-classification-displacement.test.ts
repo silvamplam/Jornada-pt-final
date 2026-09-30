@@ -24,7 +24,7 @@ const articleCard = sourceBetween("function ArticleCard", "function Diagnostics"
 const cardFor = sourceBetween("function cardFor", "function renderOpeningWorkspace");
 const placeInDisplaced = sourceBetween("function placeInDisplaced", "function placeInBank");
 
-test("cartão apresenta a classificação no cabeçalho compacto sem criar uma nova linha", () => {
+test("cartão apresenta a classificação legível num cabeçalho que pode quebrar linha", () => {
   assert.match(articleCard, /classificationKey: ArticleClassificationKey \| null/u);
   assert.match(
     articleCard,
@@ -40,12 +40,13 @@ test("cartão apresenta a classificação no cabeçalho compacto sem criar uma n
   );
   assert.match(
     client,
-    /\.thematic-card-top \{[^}]*flex-wrap: nowrap;[^}]*\}/u,
+    /\.thematic-card-top \{[^}]*flex-wrap: wrap;[^}]*\}/u,
   );
   assert.match(
     client,
-    /\.thematic-classification-badge \{[^}]*display: inline-flex;[^}]*flex: 0 0 auto;[^}]*height: 13px;[^}]*white-space: nowrap;[^}]*\}/u,
+    /\.thematic-classification-badge \{[^}]*display: inline-flex;[^}]*flex: 0 0 auto;[^}]*height: 19px;[^}]*white-space: nowrap;[^}]*\}/u,
   );
+  assert.match(client, /\.thematic-workspace-stack \.thematic-classification-badge \{ height: 17px;/u);
 });
 
 test("badge usa a paleta central sem contaminar o resto do cartão", () => {

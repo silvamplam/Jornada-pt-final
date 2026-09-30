@@ -26,7 +26,9 @@ test("todos os cartões partilham imagem larga e controlos sobrepostos com contr
   assert.match(checkbox, /grid-row:\s*1;/);
   assert.match(checkbox, /z-index:\s*1;/);
   assert.match(checkbox, /outline:\s*2px solid #fff;/);
-  assert.match(checkbox, /box-shadow:\s*0 0 0 4px rgba\(15,23,42,\.45\);/);
+  assert.match(checkbox, /width:\s*24px;\s*height:\s*24px;/);
+  assert.match(checkbox, /outline-offset:\s*1px;/);
+  assert.match(checkbox, /box-shadow:\s*none;/);
 
   const menu = cssRule(/^\s*\.thematic-card-menu\s*$/).declarations;
   assert.match(menu, /grid-column:\s*3;/);
@@ -44,13 +46,13 @@ test("checkboxes de Faixa e candidatas conservam o foco nativo de teclado", () =
   assert.match(focus.declarations, /outline:\s*revert;/);
 });
 
-test("só Faixa e candidatas conservam a altura da antiga coluna da imagem", () => {
+test("candidatas reservam a largura completa da imagem e a Faixa usa a altura do workspace", () => {
   const spacer = cssRule(/\.thematic-card::before/);
   assert.match(spacer.selector, /\.thematic-faixa-slots/);
   assert.match(spacer.selector, /\.thematic-candidates-grid/);
   assert.doesNotMatch(spacer.selector, /thematic-workspace-section|thematic-opening-workspace|data-zone-id/);
   assert.match(spacer.declarations, /content:\s*"";/);
-  assert.match(spacer.declarations, /grid-column:\s*2;/);
+  assert.match(spacer.declarations, /grid-column:\s*1\s*\/\s*-1;/);
   assert.match(spacer.declarations, /grid-row:\s*1;/);
   assert.match(spacer.declarations, /width:\s*100%;/);
   assert.match(spacer.declarations, /aspect-ratio:\s*16\s*\/\s*9;/);
@@ -62,13 +64,20 @@ test("só Faixa e candidatas conservam a altura da antiga coluna da imagem", () 
   assert.match(image.declarations, /grid-row:\s*1\s*\/\s*2;/);
   assert.match(image.declarations, /inset:\s*0;/);
   assert.match(image.declarations, /height:\s*100%;/);
+  assert.match(
+    source,
+    /\.thematic-workspace-stack \.thematic-faixa-slots \.thematic-card::before \{ content: none; \}/,
+  );
 });
 
-test("Abertura e zonas mantêm a geometria e não recebem a reserva de altura", () => {
+test("Abertura e zonas mantêm cartões compactos com imagem de 144px em largura completa", () => {
   const scope = String.raw`\.thematic-workspace-section:is\(\[data-zone-id\], #thematic-opening-workspace\)`;
-  assert.match(cssRule(new RegExp(`^\\s*${scope} \\.thematic-card\\s*$`)).declarations, /gap: 4px; padding: 6px;/);
-  assert.match(cssRule(new RegExp(`^\\s*${scope} \\.thematic-card > \\.thematic-card-copy\\s*$`)).declarations, /gap: 3px;/);
+  assert.match(cssRule(/^\s*\.thematic-workspace-stack \.thematic-workspace-section \.thematic-card\s*$/).declarations, /gap: 5px; padding: 6px;/);
+  assert.match(cssRule(/^\s*\.thematic-workspace-stack \.thematic-workspace-section \.thematic-card > \.thematic-card-copy\s*$/).declarations, /gap: 4px;/);
   assert.match(cssRule(new RegExp(`^\\s*${scope} \\.thematic-card-title\\s*$`)).declarations, /-webkit-line-clamp: 3;/);
+  const workspaceImage = cssRule(/^\s*\.thematic-shell \.thematic-workspace-stack \.thematic-workspace-section:is\(\[data-zone-id\], #thematic-opening-workspace, :has\(\.thematic-faixa-slots\)\) :is\(\.thematic-image, \.thematic-image-placeholder\)\s*$/).declarations;
+  assert.match(workspaceImage, /position: static; grid-column: 1 \/ -1; grid-row: 1;/);
+  assert.match(workspaceImage, /width: 100%; height: 144px; min-height: 0; aspect-ratio: auto;/);
 });
 
 test("Mesa deixou de distribuir clubes por colunas ou chaves hardcoded", () => {
@@ -138,7 +147,7 @@ test("reorder seleciona uma zona ou Destaque e usa duas setas externas", () => {
 test("zonas aparecem numa coluna vertical à esquerda do workspace", () => {
   assert.match(
     source,
-    /\.thematic-workspace \{ display: grid; grid-template-columns: 178px minmax\(0,1fr\);/,
+    /\.thematic-workspace \{ display: grid; grid-template-columns: 184px minmax\(0,1fr\);/,
   );
   assert.match(source, /\.thematic-zone-list \{ display: grid;/);
   assert.match(source, /aria-label="Lista vertical de zonas"/);
@@ -148,7 +157,7 @@ test("zonas aparecem numa coluna vertical à esquerda do workspace", () => {
 test("composição e candidatas ocupam duas colunas com scroll independente no desktop", () => {
   assert.match(
     source,
-    /\.thematic-desk-grid \{ display: grid; grid-template-columns: minmax\(0,1\.15fr\) minmax\(460px,\.85fr\);/,
+    /\.thematic-desk-grid \{ display: grid; grid-template-columns: minmax\(0,1fr\) clamp\(320px,29vw,480px\);/,
   );
   assert.match(source, /\.thematic-workspace-stack \{ display: grid;/);
   assert.match(
@@ -157,9 +166,9 @@ test("composição e candidatas ocupam duas colunas com scroll independente no d
   );
   assert.match(source, /\.thematic-workspace-section \{[^}]*overflow: visible;/);
 
-  const desktopStart = source.indexOf("  @media (min-width: 1121px) {");
+  const desktopStart = source.indexOf("  @media (min-width: 960px) {");
   const desktopEnd = source.indexOf(
-    "  @media (min-width: 1121px) and (min-height: 800px) {",
+    "  @media (min-width: 960px) and (min-height: 800px) {",
     desktopStart,
   );
   assert.ok(desktopStart >= 0 && desktopEnd > desktopStart);
@@ -208,14 +217,15 @@ const candidates = source.slice(
   source.indexOf("function isZoneWorkspaceKey"),
 );
 
-test("cabeçalho das candidatas tem tabs e uma única linha de filtros e ações", () => {
+test("cabeçalho das candidatas reúne tabs e ações acima dos filtros", () => {
   assert.match(candidates, /className="thematic-sources-toolbar">\s*<nav className="thematic-candidate-tabs"/u);
   assert.match(candidates, /<\/nav>\s*<div className="thematic-candidate-filters">/u);
   assert.match(candidates, /className="thematic-candidate-actions"[\s\S]*Pesquisar artigos candidatos[\s\S]*Selecionar visíveis/u);
   assert.match(candidates, /visibleCandidateEntries\.map\(\(entry\) => entry\.bankItemId\)/u);
   assert.doesNotMatch(candidates, /<h2>|A mostrar|Largar aqui|thematic-candidate-results|thematic-sources-toolbar-top/u);
-  assert.match(source, /\.thematic-candidate-filters \{ display: flex; min-width: 0; gap: 4px; align-items: center; \}/u);
-  assert.match(source, /\.thematic-candidate-actions \{ display: flex; flex: 0 0 auto;/u);
+  assert.match(source, /\.thematic-candidate-filters \{ display: contents; \}/u);
+  assert.match(source, /\.thematic-candidate-actions \{ display: flex; grid-column: 2; grid-row: 1;/u);
+  assert.match(source, /\.thematic-candidate-filters nav \{ display: grid; grid-column: 1 \/ -1; grid-row: 2;/u);
   assert.match(source, /\.thematic-candidate-filters nav button \{[^}]*white-space: nowrap;/u);
 });
 
