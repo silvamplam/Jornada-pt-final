@@ -207,6 +207,10 @@ function errorMessage(code?: string) {
     "missing-image": "Uma publicidade ativa precisa de uma imagem.",
     "missing-target": "Uma publicidade ativa precisa de um link.",
     "invalid-image": "O endereço da imagem é inválido.",
+    "image-unavailable":
+      "Não foi possível validar a imagem neste momento. Confirma o URL e tenta novamente; a publicidade anterior não foi alterada.",
+    "missing-dimensions":
+      "A atualização da base de dados para dimensões da publicidade ainda não está disponível.",
     "invalid-target": "O link de destino é inválido.",
     "invalid-image-format": "A imagem deve ser JPG, PNG, WebP ou AVIF.",
     "image-too-large": "A imagem é demasiado grande.",
@@ -267,6 +271,19 @@ export default async function AdvertisingPage({ searchParams }: Props) {
                 apresentada no site.
               </p>
             ) : null}
+            {result.storageReady && !result.dimensionsReady ? (
+              <p className="campaign-message warning">
+                A atualização da base de dados para dimensões ainda não está
+                disponível. A publicidade atual continua visível, mas a edição
+                fica temporariamente bloqueada.
+              </p>
+            ) : null}
+            {result.dimensionsReady && ad.imageUrl && !ad.imageWidth ? (
+              <p className="campaign-message warning">
+                Este anúncio ainda não tem dimensões registadas. Se o URL da
+                imagem mudar, a nova imagem será medida antes da atualização.
+              </p>
+            ) : null}
 
             {error && selected ? (
               <p className="campaign-message error">{error}</p>
@@ -287,7 +304,7 @@ export default async function AdvertisingPage({ searchParams }: Props) {
               <input type="hidden" name="slot_key" value={slotKey} />
               <fieldset
                 className="campaign-fields"
-                disabled={!result.storageReady}
+                disabled={!result.storageReady || !result.dimensionsReady}
               >
                 <label className="campaign-field">
                   <span>Nome</span>

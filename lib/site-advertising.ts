@@ -11,6 +11,8 @@ export type SiteAdvertisingSlotRow = {
   slot_key: string;
   name: string | null;
   image_url: string | null;
+  image_width?: number | null;
+  image_height?: number | null;
   target_url: string | null;
   alt_text: string | null;
   is_active: boolean | null;
@@ -21,6 +23,8 @@ export type PublicSideAdvertisementData = {
   slotKey: AdvertisingSlotKey;
   name: string;
   imageUrl: string;
+  imageWidth: number | null;
+  imageHeight: number | null;
   targetUrl: string;
   altText: string;
   isActive: boolean;
@@ -30,6 +34,7 @@ export type PublicSideAdvertisementData = {
 export type PublicSideAdvertisementReadResult = {
   advertisement: PublicSideAdvertisementData | null;
   storageReady: boolean;
+  dimensionsReady: boolean;
   error: string | null;
 };
 
@@ -69,6 +74,8 @@ export function emptyAdvertisement(
         ? "Publicidade lateral"
         : "Faixa horizontal",
     imageUrl: "",
+    imageWidth: null,
+    imageHeight: null,
     targetUrl: "",
     altText: "",
     isActive: false,
@@ -100,10 +107,17 @@ export function normalizePublicSideAdvertisement(
     ? row.slot_key
     : PRIMARY_SIDE_ADVERTISING_SLOT_KEY;
   const name = row.name?.trim() || emptyAdvertisement(slotKey).name;
+  const hasMeasuredDimensions =
+    Number.isSafeInteger(row.image_width) &&
+    Number.isSafeInteger(row.image_height) &&
+    (row.image_width ?? 0) > 0 &&
+    (row.image_height ?? 0) > 0;
   return {
     slotKey,
     name,
     imageUrl: row.image_url?.trim() ?? "",
+    imageWidth: hasMeasuredDimensions ? row.image_width! : null,
+    imageHeight: hasMeasuredDimensions ? row.image_height! : null,
     targetUrl: row.target_url?.trim() ?? "",
     altText: row.alt_text?.trim() || name,
     isActive: row.is_active === true,
@@ -132,23 +146,41 @@ export async function readAdvertisement(
     // Keep the lateral compatible before the horizontal migration is applied.
     const formatColumn =
       slotKey === HORIZONTAL_ADVERTISING_SLOT_KEY ? ",display_format" : "";
-    const rows = await withAdvertisingReadTimeout(
-      fetchSupabaseAdminTable<SiteAdvertisingSlotRow>(
-        `site_advertising_slots?select=slot_key,name,image_url,target_url,alt_text,is_active${formatColumn}&slot_key=eq.${slotKey}&limit=1`,
-      ),
-    );
+    const basePath = `site_advertising_slots?select=slot_key,name,image_url,target_url,alt_text,is_active${formatColumn}`;
+    let dimensionsReady = true;
+    let rows: SiteAdvertisingSlotRow[];
+    try {
+      rows = await withAdvertisingReadTimeout(
+        fetchSupabaseAdminTable<SiteAdvertisingSlotRow>(
+          `${basePath},image_width,image_height&slot_key=eq.${slotKey}&limit=1`,
+        ),
+      );
+    } catch (error) {
+      if (!(error instanceof Error) || !/image_width|image_height/i.test(error.message)) {
+        throw error;
+      }
+      // A code deploy may precede the migration. Preserve the existing ad.
+      dimensionsReady = false;
+      rows = await withAdvertisingReadTimeout(
+        fetchSupabaseAdminTable<SiteAdvertisingSlotRow>(
+          `${basePath}&slot_key=eq.${slotKey}&limit=1`,
+        ),
+      );
+    }
     return {
       advertisement:
         rows[0]?.slot_key === slotKey
           ? normalizePublicSideAdvertisement(rows[0])
           : null,
       storageReady: true,
+      dimensionsReady,
       error: null,
     };
   } catch (error) {
     return {
       advertisement: null,
       storageReady: false,
+      dimensionsReady: false,
       error:
         error instanceof Error
           ? error.message

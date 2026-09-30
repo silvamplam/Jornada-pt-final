@@ -2,6 +2,9 @@ import {
   isDisplayableSideAdvertisement,
   readHorizontalAdvertisement,
 } from "@/lib/site-advertising";
+import type { CSSProperties } from "react";
+
+type MeasuredAdStyle = CSSProperties & Record<`--ad-${string}`, string>;
 
 export const horizontalAdvertisingStyles = `
   .public-horizontal-advertisement {
@@ -41,6 +44,12 @@ export const horizontalAdvertisingStyles = `
   .public-horizontal-advertisement[data-format="tall"] img {
     max-height: 320px;
   }
+  .public-horizontal-advertisement[data-format="slim"] img[data-ad-measured] {
+    width: min(100%, var(--ad-natural-width), clamp(var(--ad-slim-min-width), var(--ad-slim-fluid-width), var(--ad-slim-max-width)));
+  }
+  .public-horizontal-advertisement[data-format="tall"] img[data-ad-measured] {
+    width: min(100%, var(--ad-natural-width), var(--ad-tall-desktop-width));
+  }
   @media (max-width: 760px) {
     .public-horizontal-advertisement { margin-top: 20px; }
     .public-horizontal-advertisement-label { margin-bottom: 6px; }
@@ -51,12 +60,28 @@ export const horizontalAdvertisingStyles = `
     .public-horizontal-advertisement[data-format="tall"] img {
       max-height: 180px;
     }
+    .public-horizontal-advertisement[data-format="tall"] img[data-ad-measured] {
+      width: min(100%, var(--ad-natural-width), var(--ad-tall-mobile-width));
+    }
   }
 `;
 
 export default async function PublicHorizontalAdvertisement() {
   const { advertisement } = await readHorizontalAdvertisement();
   if (!isDisplayableSideAdvertisement(advertisement)) return null;
+  const { imageWidth: width, imageHeight: height } = advertisement;
+  const ratio = width && height ? width / height : null;
+  const measuredStyle: MeasuredAdStyle | undefined = ratio
+    ? {
+        "--ad-natural-width": `${width}px`,
+        "--ad-slim-min-width": `${120 * ratio}px`,
+        "--ad-slim-fluid-width": `${30 * ratio}vw`,
+        "--ad-slim-max-width": `${360 * ratio}px`,
+        "--ad-tall-desktop-width": `${320 * ratio}px`,
+        "--ad-tall-mobile-width": `${180 * ratio}px`,
+        aspectRatio: `${width} / ${height}`,
+      }
+    : undefined;
 
   return (
     <aside
@@ -76,6 +101,10 @@ export default async function PublicHorizontalAdvertisement() {
           src={advertisement.imageUrl}
           alt={advertisement.altText}
           loading="lazy"
+          width={width ?? undefined}
+          height={height ?? undefined}
+          data-ad-measured={ratio ? "" : undefined}
+          style={measuredStyle}
         />
       </a>
     </aside>
