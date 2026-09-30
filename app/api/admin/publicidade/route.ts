@@ -1,5 +1,10 @@
 import { randomUUID } from "crypto";
 import { adminRelativeRedirect } from "@/lib/admin-relative-redirect";
+import {
+  measureAdvertisingImageBytes,
+  measureAdvertisingImageUrl,
+  type AdvertisingImageDimensions,
+} from "@/lib/advertising-image-dimensions.server";
 
 import {
   PRIMARY_SIDE_ADVERTISING_SLOT_KEY,
@@ -10,7 +15,11 @@ import {
   isAdvertisingUrl,
   type AdvertisingSlotKey,
 } from "@/lib/site-advertising";
-import { writeSupabaseAdmin } from "@/lib/supabase";
+import {
+  fetchSupabaseAdminTable,
+  writeSupabaseAdmin,
+  writeSupabaseAdminReturning,
+} from "@/lib/supabase";
 
 const IMAGE_BUCKET = "editorial-images";
 const MAX_UPLOAD_BYTES = 8 * 1024 * 1024;
@@ -58,7 +67,9 @@ function codeFor(error: unknown) {
 
   const detail = error instanceof Error ? error.message : "";
 
-  if (/display_format|42703|PGRST204/i.test(detail)) return "missing-format";
+  if (/image_width|image_height/i.test(detail)) return "missing-dimensions";
+  if (/display_format/i.test(detail)) return "missing-format";
+  if (/42703|PGRST204/i.test(detail)) return "missing-dimensions";
 
   if (/site_advertising_slots|PGRST205|42P01/i.test(detail)) {
     return "missing-table";
@@ -95,10 +106,6 @@ function safeBaseName(filename: string) {
 }
 
 async function uploadAdvertisingImage(file: File) {
-  if (!file.size) {
-    return null;
-  }
-
   const extension = ALLOWED_IMAGE_TYPES.get(file.type.toLowerCase());
 
   if (!extension) {
@@ -107,6 +114,14 @@ async function uploadAdvertisingImage(file: File) {
 
   if (file.size > MAX_UPLOAD_BYTES) {
     throw new AdvertisingError("image-too-large");
+  }
+
+  const bytes = Buffer.from(await file.arrayBuffer());
+  let dimensions: AdvertisingImageDimensions;
+  try {
+    dimensions = await measureAdvertisingImageBytes(bytes, file.type.toLowerCase());
+  } catch {
+    throw new AdvertisingError("invalid-image-format");
   }
 
   const config = storageConfig();
@@ -133,7 +148,7 @@ async function uploadAdvertisingImage(file: File) {
         "Cache-Control": "31536000",
         "x-upsert": "false",
       },
-      body: Buffer.from(await file.arrayBuffer()),
+      body: bytes,
       cache: "no-store",
     },
   );
@@ -142,9 +157,12 @@ async function uploadAdvertisingImage(file: File) {
     throw new AdvertisingError("upload-failed");
   }
 
-  return `${config.url}/storage/v1/object/public/${encodeURIComponent(
-    IMAGE_BUCKET,
-  )}/${encodedPath}`;
+  return {
+    imageUrl: `${config.url}/storage/v1/object/public/${encodeURIComponent(
+      IMAGE_BUCKET,
+    )}/${encodedPath}`,
+    ...dimensions,
+  };
 }
 
 export async function POST(request: Request) {
@@ -168,22 +186,20 @@ export async function POST(request: Request) {
 
     const imageFileValue = form.get("image_file");
 
-    const uploadedImageUrl =
+    const imageFile =
       imageFileValue instanceof File && imageFileValue.size > 0
-        ? await uploadAdvertisingImage(imageFileValue)
+        ? imageFileValue
         : null;
-
-    const imageUrl = uploadedImageUrl
-      ? uploadedImageUrl
+    const requestedImageUrl = imageFile
+      ? null
       : validUrl(clean(form.get("image_url")), "invalid-image");
-
     const targetUrl = validUrl(clean(form.get("target_url")), "invalid-target");
 
     const altText = clean(form.get("alt_text")) || name;
 
     const isActive = clean(form.get("is_active")) === "true";
 
-    if (isActive && !imageUrl) {
+    if (isActive && !imageFile && !requestedImageUrl) {
       throw new AdvertisingError("missing-image");
     }
 
@@ -191,24 +207,88 @@ export async function POST(request: Request) {
       throw new AdvertisingError("missing-target");
     }
 
-    await writeSupabaseAdmin("site_advertising_slots?on_conflict=slot_key", {
-      method: "POST",
-      headers: {
-        Prefer: "resolution=merge-duplicates,return=minimal",
-      },
-      body: JSON.stringify({
-        slot_key: slotKey,
-        ...(slotKey === HORIZONTAL_ADVERTISING_SLOT_KEY
-          ? { display_format: format }
-          : {}),
-        name,
-        image_url: imageUrl,
-        target_url: targetUrl,
-        alt_text: altText,
-        is_active: isActive,
-        updated_at: new Date().toISOString(),
-      }),
+    // Reject a deployment without the migration before uploading a new asset.
+    const existingRows = await fetchSupabaseAdminTable<{
+      image_url: string | null;
+      image_width: number | null;
+      image_height: number | null;
+    }>(
+      `site_advertising_slots?select=image_url,image_width,image_height&slot_key=eq.${slotKey}&limit=1`,
+    );
+
+    const uploadedImage = imageFile
+      ? await uploadAdvertisingImage(imageFile)
+      : null;
+    const imageUrl = uploadedImage?.imageUrl ?? requestedImageUrl;
+    let dimensions: AdvertisingImageDimensions | null = uploadedImage;
+    const existing = existingRows[0];
+    const unchangedLegacyImage = Boolean(
+      !imageFile &&
+      imageUrl &&
+      imageUrl === existing?.image_url &&
+      existing.image_width === null &&
+      existing.image_height === null,
+    );
+    // Metadata-only edits must not depend on an old external image still
+    // responding. The database trigger permits this exact legacy transition.
+    // A versioned /public asset may be served from a CDN and absent from a
+    // serverless function's filesystem. Reuse only dimensions already measured
+    // for this exact unchanged local URL; new URLs are always decoded.
+    if (
+      imageUrl?.startsWith("/") &&
+      imageUrl === existing?.image_url &&
+      Number.isSafeInteger(existing.image_width) &&
+      Number.isSafeInteger(existing.image_height) &&
+      (existing.image_width ?? 0) > 0 &&
+      (existing.image_height ?? 0) > 0
+    ) {
+      dimensions = {
+        imageWidth: existing.image_width!,
+        imageHeight: existing.image_height!,
+      };
+    }
+    if (imageUrl && !dimensions && !unchangedLegacyImage) {
+      try {
+        dimensions = await measureAdvertisingImageUrl(imageUrl);
+      } catch {
+        throw new AdvertisingError("image-unavailable");
+      }
+    }
+
+    const body = JSON.stringify({
+      slot_key: slotKey,
+      ...(slotKey === HORIZONTAL_ADVERTISING_SLOT_KEY
+        ? { display_format: format }
+        : {}),
+      name,
+      image_url: imageUrl,
+      image_width: dimensions?.imageWidth ?? null,
+      image_height: dimensions?.imageHeight ?? null,
+      target_url: targetUrl,
+      alt_text: altText,
+      is_active: isActive,
+      updated_at: new Date().toISOString(),
     });
+
+    if (unchangedLegacyImage) {
+      // An upsert fires INSERT triggers before its conflict UPDATE. Use PATCH
+      // so the database can compare OLD and NEW for this legacy exception.
+      const updated = await writeSupabaseAdminReturning<{ slot_key: string }>(
+        `site_advertising_slots?slot_key=eq.${slotKey}&select=slot_key`,
+        { method: "PATCH", body },
+      );
+      if (updated.length !== 1 || updated[0]?.slot_key !== slotKey) {
+        throw new AdvertisingError("save-failed");
+      }
+    } else {
+      await writeSupabaseAdmin("site_advertising_slots?on_conflict=slot_key", {
+        method: "POST",
+        headers: {
+          Prefer: "resolution=merge-duplicates,return=minimal",
+        },
+        body,
+      });
+    }
 
     return redirect(request, "saved", "1", slotKey);
   } catch (error) {

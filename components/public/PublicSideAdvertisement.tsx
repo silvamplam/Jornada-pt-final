@@ -2,6 +2,9 @@ import {
   isDisplayableSideAdvertisement,
   readPrimarySideAdvertisement,
 } from "@/lib/site-advertising";
+import type { CSSProperties } from "react";
+
+type MeasuredAdStyle = CSSProperties & Record<`--ad-${string}`, string>;
 
 export const sideAdvertisingStyles = `
   a[data-public-side-advertisement] img {
@@ -12,6 +15,9 @@ export const sideAdvertisingStyles = `
     margin: 0 auto;
     object-fit: contain;
     object-position: center;
+  }
+  a[data-public-side-advertisement] img[data-ad-measured] {
+    width: min(100%, var(--ad-natural-width));
   }
 
   @media (max-width: 760px) {
@@ -36,6 +42,9 @@ export const sideAdvertisingStyles = `
       margin: 0 auto;
       object-fit: contain;
       object-position: center;
+    }
+    a[data-public-side-advertisement] img[data-ad-measured] {
+      width: min(100%, var(--ad-natural-width), var(--ad-mobile-cap));
     }
 
     .public-latest-companion-ad:has(> a[data-public-side-advertisement]),
@@ -63,6 +72,14 @@ export default async function PublicSideAdvertisement({
   if (!isDisplayableSideAdvertisement(advertisement)) {
     return null;
   }
+  const { imageWidth: width, imageHeight: height } = advertisement;
+  const measuredStyle: MeasuredAdStyle | undefined = width && height
+    ? {
+        "--ad-natural-width": `${width}px`,
+        "--ad-mobile-cap": `${198 * width / height}px`,
+        aspectRatio: `${width} / ${height}`,
+      }
+    : undefined;
 
   return (
     <a
@@ -78,6 +95,10 @@ export default async function PublicSideAdvertisement({
         src={advertisement.imageUrl}
         alt={advertisement.altText}
         loading="lazy"
+        width={width ?? undefined}
+        height={height ?? undefined}
+        data-ad-measured={measuredStyle ? "" : undefined}
+        style={measuredStyle}
       />
     </a>
   );
