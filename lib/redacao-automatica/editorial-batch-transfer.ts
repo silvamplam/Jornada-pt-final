@@ -66,6 +66,8 @@ export type EditorialBatchTransferDossierImage = Readonly<{
   imageUrl: string;
   label: string;
   newsroomArticleId?: string;
+  // Null identifies a legacy bank entry whose id is an output, not a dossier row.
+  freezeDossierImageId?: string | null;
 }>;
 
 const YEAR_PATTERN = /^\d{4}$/;
@@ -366,6 +368,8 @@ export function parseEditorialBatchTransferSourcePackage(
         || !imageUrl
         || !label
         || (newsroomArticleId !== undefined && !UUID_PATTERN.test(newsroomArticleId))
+        || (candidate.freezeDossierImageId !== undefined && candidate.freezeDossierImageId !== null
+          && (typeof candidate.freezeDossierImageId !== "string" || !UUID_PATTERN.test(candidate.freezeDossierImageId)))
       ) return null;
       dossierImageIds.add(id);
       dossierImages.push({
@@ -373,6 +377,9 @@ export function parseEditorialBatchTransferSourcePackage(
         imageUrl,
         label,
         ...(newsroomArticleId ? { newsroomArticleId } : {}),
+        ...(candidate.freezeDossierImageId === undefined ? {} : {
+          freezeDossierImageId: candidate.freezeDossierImageId === null ? null : String(candidate.freezeDossierImageId).toLowerCase(),
+        }),
       });
     }
 

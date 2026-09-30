@@ -162,11 +162,11 @@ test("origem inválida não cria sequer uma decisão técnica nem dispara downlo
   await assert.rejects(f.prepare());assert.equal(f.decisions.size,0);assert.equal(f.state.downloads.length,0);
 });
 
-test("preparação na rota não pode chamar confirmação; a UI só usa confirm=false",()=>{
+test("preparação de Produção conserva confirm=false; confirmação exige seleção manual distinta",()=>{
   const route=readFileSync("app/api/admin/editorial/images/freeze/route.ts","utf8");
-  const prepareBranch=route.slice(route.indexOf("if (preparation) {"),route.indexOf("let sourceUrl"));
-  assert.doesNotMatch(prepareBranch,/writeSupabaseAdmin|editorial_confirm_dossier_image/);
   assert.match(route,/payload\.confirm !== false/);
+  assert.match(route,/selection && \(preparation \|\| payload\.confirm !== true\)/);
+  assert.match(route,/if \(selection && image\.decisionKey\)/);
   const ui=readFileSync("app/admin/editorial/redacao-automatica/mesa/producao/[dossierId]/_production-image-preparation.ts","utf8");
   assert.match(ui,/confirm: false/);assert.doesNotMatch(ui,/localStorage/);
 });

@@ -28,6 +28,9 @@ type DossierImageChoiceGridProps = Readonly<{
   onAddImage?: () => void;
   addImageControls?: string;
   prepareBeforeSave?: boolean;
+  // Opt-in for batch publication. Other editors retain their confirmation UI.
+  prepareOnSelect?: boolean;
+  preparation?: { imageId: string; status: "pending" | "error" };
 }>;
 
 export default function DossierImageChoiceGrid({
@@ -44,6 +47,8 @@ export default function DossierImageChoiceGrid({
   onAddImage,
   addImageControls,
   prepareBeforeSave = false,
+  prepareOnSelect = false,
+  preparation,
 }: DossierImageChoiceGridProps) {
   const [confirmed, setConfirmed] = useState<Record<string, string>>({});
   return (
@@ -84,6 +89,24 @@ export default function DossierImageChoiceGrid({
         {images.map((image) => {
           const imageValue = `dossier_image:${image.id}`;
           const imageUrl = confirmed[image.id] ?? image.imageUrl;
+          if (prepareOnSelect) {
+            const state = preparation?.imageId === image.id ? preparation.status : null;
+            return (
+              <div key={image.id} className={styles.externalChoice}>
+                <button className={styles.candidateChoice} type="button"
+                  data-selected={value === imageValue} aria-pressed={value === imageValue}
+                  aria-busy={state === "pending"} disabled={disabled || state === "pending"}
+                  aria-label={`Escolher imagem · ${image.label}`} onClick={() => onChange(imageValue)}>
+                  <BackofficeImage previewWidth={320} src={imageUrl} alt="" loading="lazy" referrerPolicy="no-referrer" />
+                  <small>{state === "pending" ? "A preparar…" : image.label}</small>
+                </button>
+                {state === "error" ? <div className={styles.selectionError} role="status">
+                  <span>Imagem indisponível.</span>
+                  <button type="button" disabled={disabled} onClick={() => onChange(imageValue)}>Tentar novamente</button>
+                </div> : null}
+              </div>
+            );
+          }
           if (!editorialImageOriginalPath(imageUrl)) return (
             <div key={image.id} className={styles.externalChoice}>
               <button className={styles.candidateChoice} type="button" disabled={disabled || !prepareBeforeSave}
