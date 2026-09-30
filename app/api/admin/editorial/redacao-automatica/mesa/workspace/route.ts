@@ -323,6 +323,7 @@ function savePlanBatchOutput(
     : uuid(rawProductionContextId);
   const selectedClassification = classificationKey(payload.classificationKey);
   const classificationDecision = parseArticlePlanClassificationDecision(payload.classificationKey, payload.classificationMode);
+  const preparedImageDecisionKey = nullableText(payload.preparedImageDecisionKey);
 
   if (
     !clientKey
@@ -337,6 +338,9 @@ function savePlanBatchOutput(
     || (destination === "new" && rawTarget !== null)
     || (destination === "update" && !target)
     || (destination === "new" && selectedImage.mode === "preserve_published")
+    || preparedImageDecisionKey === undefined
+    || (preparedImageDecisionKey !== null && (!/^[a-zA-Z0-9:_.-]{1,200}$/.test(preparedImageDecisionKey) || selectedImage.mode !== "dossier_image"))
+    || (payload.automaticImage !== undefined && typeof payload.automaticImage !== "boolean")
   ) return null;
 
   return {
@@ -352,6 +356,8 @@ function savePlanBatchOutput(
     productionContextId,
     classificationKey: selectedClassification,
     classificationMode: classificationDecision.classificationMode,
+    preparedImageDecisionKey,
+    automaticImage: payload.automaticImage === true,
   };
 }
 
@@ -360,6 +366,8 @@ function savePlanBatchInput(
 ): SaveEditorialDossierWorkspaceBatchInput | null {
   const payload = objectValue(value);
   const dossierId = uuid(payload?.dossierId);
+  const requestId = uuid(payload?.requestId);
+  const expectedState = textValue(payload?.expectedState);
   const outputCount = typeof payload?.outputCount === "number"
     ? payload.outputCount
     : NaN;
@@ -367,6 +375,7 @@ function savePlanBatchInput(
   const outputs = rawOutputs?.map(savePlanBatchOutput) ?? null;
   if (
     !dossierId
+    || !requestId || !/^[a-f0-9]{64}$/.test(expectedState)
     || !Number.isInteger(outputCount)
     || outputCount < 1
     || outputCount > 30
@@ -377,10 +386,13 @@ function savePlanBatchInput(
     dossierId,
     outputCount,
     outputs: outputs as SaveEditorialDossierWorkspaceBatchOutputInput[],
+    requestId,
+    expectedState,
   };
 }
 
 function commandErrorStatus(code: string, partialPersistence = false): number {
+  if (code === "stale_state") return 409;
   if (partialPersistence) return 409;
   if (code === "input_invalid") return 400;
   if (code === "service_unavailable") return 503;
@@ -961,14 +973,9 @@ export async function POST(request: Request) {
 
     const result = await saveEditorialDossierWorkspaceBatch(input);
     if (!result.ok) {
-      const partialMessage = result.error.stage === "production_state"
-        && result.error.articlePlanId
-        ? `${result.error.message} O planeamento base foi guardado; recarrega para ver exatamente o estado persistido.`
-        : result.error.message;
       return NextResponse.json({
         ok: false,
         ...result.error,
-        message: partialMessage,
       }, {
         status: commandErrorStatus(
           result.error.code,

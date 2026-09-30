@@ -127,32 +127,26 @@ test("upload e save atualizam o estado local sem refresh integral", () => {
   assert.match(batchHandler, /saveEditorialDossierWorkspaceBatch\(input\)/);
   assert.doesNotMatch(batchHandler, /fetchSupabaseAdminTable|newsroom_editorial_dossiers\?select=id/);
   assert.match(batchService, /includePlans:\s*false/);
-  assert.match(batchService, /openArticlePlanSession:\s*createEditorialDossierArticlePlanBatchSession/);
-  assert.match(batchService, /synchronizeOutputs:\s*synchronizeEditorialMesaSharedOutputs/);
+  assert.match(batchService, /rpc\/newsroom_save_production_batch_v1/);
+  assert.doesNotMatch(batchService, /openArticlePlanSession|synchronizeOutputs|saveProductionState/);
 });
 
-test("batch save mantém uma carga de Produção e uma leitura de Dossier state para N outputs", () => {
+test("batch save mantém uma carga de Produção e um RPC atómico para N outputs", () => {
   const client = read("app/admin/editorial/redacao-automatica/mesa/producao/[dossierId]/_workspace-client.tsx");
   const batchService = read("lib/redacao-automatica/editorial-dossier-workspace-batch-service.ts");
   const batchInternal = read("lib/redacao-automatica/editorial-dossier-workspace-batch-service-internal.ts");
-  const articlePlanService = read("lib/redacao-automatica/editorial-dossier-article-plan-service.ts");
   const saveClient = section(client, "async function saveProduction", "  return (");
-  const articlePlanSession = section(
-    articlePlanService,
-    "export async function createEditorialDossierArticlePlanBatchSession",
-    "export async function setEditorialMesaOutputOrigin",
-  );
 
   assert.equal((saveClient.match(/fetch\(WORKSPACE_ROUTE/g) ?? []).length, 1);
   assert.match(saveClient, /action:\s*"save_article_plans_batch"/);
   assert.doesNotMatch(saveClient, /action:\s*"save_article_plan"|action:\s*"update_output_count"/);
-  assert.match(saveClient, /const persistedOutputs = result\?\.ok \? result\.outputs : result\?\.savedOutputs/);
+  assert.match(saveClient, /const persistedOutputs = result\?\.ok \? result\.outputs : \[\]/);
+  assert.match(saveClient, /expectedState,[\s\S]*requestId: saveAttempt\.current\.requestId/);
   assert.match(saveClient, /savingProductionRef\.current = true/);
   assert.match(saveClient, /savingProductionRef\.current = false/);
   assert.equal((batchService.match(/loadEditorialDossierProduction\(/g) ?? []).length, 1);
-  assert.equal((batchService.match(/createEditorialDossierArticlePlanBatchSession/g) ?? []).length, 2);
-  assert.equal((articlePlanSession.match(/await readDossierState\(/g) ?? []).length, 1);
-  assert.match(articlePlanSession, /currentState = stateAfterPlanSave/);
+  assert.equal((batchService.match(/writeSupabaseAdminReturning</g) ?? []).length, 1);
+  assert.equal((batchInternal.match(/await transport\.saveAtomic\(/g) ?? []).length, 1);
   assert.match(batchInternal, /for \(const output of batch\.outputs\)/);
   assert.doesNotMatch(batchInternal, /Promise\.all/);
 });

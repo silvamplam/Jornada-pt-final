@@ -1,9 +1,5 @@
 import { parseMesaProductionIntents, mesaProductionIntentSlots } from "@/lib/redacao-automatica/newsroom-mesa-production-intents-contract";
 import type {
-  EditorialDossierArticlePlanBatchSessionResult,
-  SynchronizeEditorialMesaSharedOutputsResult,
-} from "@/lib/redacao-automatica/editorial-dossier-article-plan-service";
-import type {
   EditorialDossierProductionLoad,
   EditorialDossierProductionLoadResult,
 } from "@/lib/redacao-automatica/editorial-dossier-production-loader";
@@ -13,16 +9,12 @@ import type {
 } from "@/lib/redacao-automatica/editorial-dossier-repository";
 import type {
   EditorialDossierArticlePlanImageChoice,
-  EditorialDossierProductionWorkspaceResult,
-  SavedEditorialDossierArticlePlanState,
-  SaveEditorialDossierArticlePlanStateInput,
 } from "@/lib/redacao-automatica/editorial-dossier-production-workspace-service-internal";
 import {
   editorialMesaWorkspaceOutputWorkingTitle,
   editorialMesaWorkspaceStartingPointSourceIds,
 } from "@/lib/redacao-automatica/editorial-mesa-workspace-defaults";
 import {
-  saveEditorialDossierWorkspaceArticlePlanService,
   type SaveEditorialDossierWorkspaceArticlePlanInput,
 } from "@/lib/redacao-automatica/editorial-dossier-workspace-editor-service-internal";
 import {
@@ -55,12 +47,16 @@ export type SaveEditorialDossierWorkspaceBatchOutputInput = Readonly<{
   productionContextId: string | null;
   classificationKey: ArticleClassificationKey | null;
   classificationMode?: ArticlePlanClassificationMode | null;
+  preparedImageDecisionKey?: string | null;
+  automaticImage?: boolean;
 }>;
 
 export type SaveEditorialDossierWorkspaceBatchInput = Readonly<{
   dossierId: string;
   outputCount: number;
   outputs: readonly SaveEditorialDossierWorkspaceBatchOutputInput[];
+  expectedState: string;
+  requestId: string;
 }>;
 
 export type SavedEditorialDossierWorkspaceBatchOutput = Readonly<{
@@ -88,6 +84,7 @@ export type SaveEditorialDossierWorkspaceBatchResult =
         dossierId: string;
         outputCount: number;
         outputs: readonly SavedEditorialDossierWorkspaceBatchOutput[];
+        stateToken: string;
       }>;
     }>
   | Readonly<{
@@ -97,17 +94,16 @@ export type SaveEditorialDossierWorkspaceBatchResult =
 
 export interface EditorialDossierWorkspaceBatchTransport {
   loadProduction(dossierId: string): Promise<EditorialDossierProductionLoadResult>;
-  openArticlePlanSession(
-    dossierId: string,
-  ): Promise<EditorialDossierArticlePlanBatchSessionResult>;
-  saveProductionState(
-    input: SaveEditorialDossierArticlePlanStateInput,
-  ): Promise<EditorialDossierProductionWorkspaceResult<SavedEditorialDossierArticlePlanState>>;
-  synchronizeOutputs(input: Readonly<{
-    dossierId: string;
-    articlePlanIds: readonly string[];
-  }>): Promise<SynchronizeEditorialMesaSharedOutputsResult>;
+  saveAtomic(input: SaveEditorialDossierWorkspaceBatchInput,
+    outputs: readonly AtomicProductionOutput[]): Promise<Extract<SaveEditorialDossierWorkspaceBatchResult, { ok: true }>["value"]>;
 }
+
+export type AtomicProductionOutput = SaveEditorialDossierWorkspaceBatchOutputInput & Readonly<{
+  workingTitle: string;
+  sourceIds: readonly string[];
+  imageSourceIds: readonly string[];
+  publishedContextIds: readonly string[];
+}>;
 
 function normalizedUuid(value: string | null): string | null {
   const normalized = value?.trim().toLowerCase() ?? "";
@@ -126,6 +122,8 @@ function validatedBatch(
   const dossierId = normalizedUuid(input.dossierId);
   if (
     !dossierId
+    || !normalizedUuid(input.requestId)
+    || !/^[a-f0-9]{64}$/.test(input.expectedState ?? "")
     || !Number.isInteger(input.outputCount)
     || input.outputCount < 1
     || input.outputCount > MAX_OUTPUT_COUNT
@@ -167,6 +165,9 @@ function validatedBatch(
       || (output.imageChoice.mode === "dossier_image" && !dossierImageId)
       || classificationKey === undefined
       || !classification
+      || (output.preparedImageDecisionKey != null && !/^[a-zA-Z0-9:_.-]{1,200}$/.test(output.preparedImageDecisionKey))
+      || (output.preparedImageDecisionKey != null && output.imageChoice.mode !== "dossier_image")
+      || (output.automaticImage !== undefined && typeof output.automaticImage !== "boolean")
     ) return null;
     clientKeys.add(clientKey);
     if (articlePlanId) articlePlanIds.add(articlePlanId);
@@ -183,7 +184,7 @@ function validatedBatch(
       classificationMode: classification.classificationMode,
     });
   }
-  return { dossierId, outputCount: input.outputCount, outputs };
+  return { ...input, dossierId, outputs };
 }
 
 export function deriveEditorialDossierWorkspacePlanInput(
@@ -366,129 +367,32 @@ export function saveEditorialDossierWorkspaceBatchService(
       }
     }
 
-    const sessionResult = await transport.openArticlePlanSession(batch.dossierId);
-    if (!sessionResult.ok) {
-      return batchFailure({
-        stage: "article_plan",
-        code: sessionResult.error.code,
-        message: sessionResult.error.message,
-        partialPersistence: false,
-        articlePlanId: null,
-        failedOutput: { clientKey: batch.outputs[0].clientKey, priority: 1 },
-        savedOutputs: [],
-      });
-    }
-
-    const session = sessionResult.value;
-    const saveWorkspacePlan = saveEditorialDossierWorkspaceArticlePlanService({
-      savePlan: (plan) => session.savePlan(plan, null),
-      saveContextPlan: (plan, productionContextId) => (
-        session.savePlan(plan, productionContextId)
-      ),
-      saveProductionState: transport.saveProductionState,
-    });
-    const savedOutputs: SavedEditorialDossierWorkspaceBatchOutput[] = [];
-    const savedPlanIds = new Set<string>();
-
+    const prepared: AtomicProductionOutput[] = [];
     for (const output of batch.outputs) {
-      const existing = output.articlePlanId
-        ? session.findPlan(output.articlePlanId)
-        : null;
-      if (existing?.editorialArticleId) {
-        savedOutputs.push({
-          clientKey: output.clientKey,
-          priority: output.priority,
-          articlePlanId: existing.id,
-          created: false,
-          materialized: true,
-        });
-        savedPlanIds.add(existing.id);
-        continue;
-      }
-
-      const derived = deriveEditorialDossierWorkspacePlanInput(
-        batch.dossierId,
-        output,
-        productionResult.value,
-      );
-      if (!derived) {
-        return batchFailure({
-          stage: "article_plan",
-          code: "input_invalid",
-          message: "Revê os dados do Article Plan antes de guardar.",
-          partialPersistence: savedOutputs.length > 0,
-          articlePlanId: output.articlePlanId,
-          failedOutput: { clientKey: output.clientKey, priority: output.priority },
-          savedOutputs,
-        });
-      }
-
-      const result = await saveWorkspacePlan(derived);
-      if (!result.ok) {
-        const partiallySavedOutputs = result.error.stage === "production_state"
-          && result.error.articlePlanId
-          ? [
-              ...savedOutputs,
-              {
-                clientKey: output.clientKey,
-                priority: output.priority,
-                articlePlanId: result.error.articlePlanId,
-                created: output.articlePlanId === null,
-                materialized: false,
-              },
-            ]
-          : savedOutputs;
-        return batchFailure({
-          ...result.error,
-          partialPersistence: result.error.partialPersistence || partiallySavedOutputs.length > 0,
-          failedOutput: { clientKey: output.clientKey, priority: output.priority },
-          savedOutputs: partiallySavedOutputs,
-        });
-      }
-      if (savedPlanIds.has(result.value.articlePlanId)) {
-        return batchFailure({
-          stage: "article_plan",
-          code: "article_plan_save_failed",
-          message: "O serviço devolveu um Article Plan repetido no mesmo batch.",
-          partialPersistence: true,
-          articlePlanId: result.value.articlePlanId,
-          failedOutput: { clientKey: output.clientKey, priority: output.priority },
-          savedOutputs,
-        });
-      }
-      savedPlanIds.add(result.value.articlePlanId);
-      savedOutputs.push({
-        clientKey: output.clientKey,
-        priority: output.priority,
-        articlePlanId: result.value.articlePlanId,
-        created: result.value.created,
-        materialized: false,
-      });
+      const derived = deriveEditorialDossierWorkspacePlanInput(batch.dossierId, output, productionResult.value);
+      if (!derived) return batchFailure({ stage: "article_plan", code: "input_invalid",
+        message: "Revê os dados dos artigos antes de guardar.", partialPersistence: false,
+        articlePlanId: output.articlePlanId, failedOutput: { clientKey: output.clientKey, priority: output.priority }, savedOutputs: [] });
+      const sourceIds = derived.plan.sources.map(source => source.dossierSourceId);
+      const slots = parseMesaProductionIntents(rawIntents);
+      const slot = slots ? mesaProductionIntentSlots(slots)[output.priority - 1] : null;
+      // The technical context pool is not proof of membership of one output.
+      // Older workspaces without frozen focus remain manually selectable.
+      const imageSourceIds = slot && "focusSourceIds" in slot ? slot.focusSourceIds ?? [] : [];
+      prepared.push({ ...output, workingTitle: derived.plan.workingTitle, editorialInstructions: derived.plan.editorialInstructions,
+        sourceIds, imageSourceIds, publishedContextIds: derived.production.dossierPublishedContextIds });
     }
-
-    const synchronized = await transport.synchronizeOutputs({
-      dossierId: batch.dossierId,
-      articlePlanIds: savedOutputs.map((output) => output.articlePlanId),
-    });
-    if (!synchronized.ok || synchronized.outputCount !== batch.outputCount) {
-      return batchFailure({
-        stage: "output_count",
-        code: synchronized.ok ? "mesa-shared-outputs-write-failed" : synchronized.code,
-        message: "Os artigos foram guardados, mas falhou o total da produção.",
-        partialPersistence: true,
-        articlePlanId: null,
-        failedOutput: null,
-        savedOutputs,
-      });
+    try {
+      // The only write in this service. PostgreSQL owns validation, confirmation,
+      // plans, selections, count and the retry receipt in one transaction.
+      return { ok: true, value: await transport.saveAtomic(batch, prepared) };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "";
+      const stale = /production-batch-(stale-state|request-conflict)/.test(message);
+      return batchFailure({ stage: "production_state", code: stale ? "stale_state" : "production_batch_failed",
+        message: stale ? "A produção mudou. Recarrega antes de guardar novamente."
+          : "Não foi possível confirmar a gravação do conjunto. Revê as imagens e os artigos; repetir o mesmo pedido é seguro.",
+        partialPersistence: false, articlePlanId: null, failedOutput: null, savedOutputs: [] });
     }
-
-    return {
-      ok: true,
-      value: {
-        dossierId: batch.dossierId,
-        outputCount: synchronized.outputCount,
-        outputs: savedOutputs,
-      },
-    };
   };
 }

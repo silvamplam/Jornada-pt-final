@@ -495,7 +495,7 @@ test("Article Plans aceitam apenas uma sugestão opcional antes da decisão fina
   assert.doesNotMatch(client, /classificationTouchedRef|articlePlanClassificationDefault/);
   assert.match(client, /<option value="update" disabled=\{eligibleTargets\.length === 0\}>/);
   assert.match(client, /Record<"new" \| "update", string \| null>/);
-  assert.match(client, /editorialMesaResolvedVisualImageChoice\(\s*imageChoices\[destination\]/);
+  assert.match(client, /productionImageSelection\(\{ candidate, explicitChoice: imageChoices\[destination\]/);
   assert.match(client, /imageChoices\[destination\] === null/);
   assert.match(imageChoice, /MANTER IMAGEM PUBLICADA/);
   assert.match(client, /destination === "update"/);
