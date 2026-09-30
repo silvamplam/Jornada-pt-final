@@ -57,12 +57,14 @@ import {
 import { editorialMesaContextualImages } from "@/lib/redacao-automatica/editorial-mesa-workspace-images";
 import {
   editorialBatchDossierImages,
+  editorialBatchImageChoicesReady,
   editorialBatchInitialImageChoice,
   editorialBatchOutputImage,
   editorialBatchUpdateImageMessage,
   editorialBatchPublishedImageUrl,
   withEditorialBatchOutputImageChoice,
 } from "@/lib/redacao-automatica/editorial-batch-image-selection";
+import { createBatchImagePreparer, createBatchImageSelector, type BatchImagePreparation } from "@/lib/redacao-automatica/editorial-batch-image-preparation";
 import DossierImageChoiceGrid from "../_dossierImageChoiceGrid";
 import DossierImageBank, {
   openDossierImageBank,
@@ -488,6 +490,8 @@ function ResultSummary({
   onImageChoice,
   onRegisteredImage,
   imageChoiceDisabled,
+  imagePreparations,
+  imageChoicesReady,
   historicalChoices,
   onHistoricalChoice,
   historicalChoiceDisabled,
@@ -513,9 +517,11 @@ function ResultSummary({
   }>>;
   noChangeCount: number;
   sourcePackage: EditorialBatchTransferSourcePackage | null;
-  onImageChoice: (outputId: string, value: string, frozenUrl?: string) => void;
+  onImageChoice: (outputId: string, value: string) => void;
   onRegisteredImage: (outputId: string, image: RegisteredDossierUploadImage) => void;
   imageChoiceDisabled: boolean;
+  imagePreparations: Readonly<Record<string, BatchImagePreparation>>;
+  imageChoicesReady: boolean;
   historicalChoices: EditorialBatchHistoricalChoices;
   onHistoricalChoice: (identity: string, checked: boolean) => void;
   historicalChoiceDisabled: boolean;
@@ -537,7 +543,8 @@ function ResultSummary({
       preservesPublishedImages
       || imagePreflight.ready
     )
-    && authorReady;
+    && authorReady
+    && imageChoicesReady;
   const continuitySlots = sourcePackage?.productionIntents
     ? mesaProductionIntentSlots(sourcePackage.productionIntents)
     : sourcePackage?.themeContinuity?.slots ?? [];
@@ -648,7 +655,8 @@ function ResultSummary({
           <ol>
             {articleRows.map((row) => {
               const errors = row.issues.filter((issue) => issue.severity === "error");
-              const isValid = errors.length === 0;
+              const isValid = errors.length === 0 && (!row.article || editorialBatchImageChoicesReady(sourcePackage, [row.article]))
+                && (!row.article?.outputId || imagePreparations[row.article.outputId]?.status !== "pending");
               const title = firstText(row.article?.title) || "Sem título";
               const imageResult = imageResultByKey.get(row.key);
               const productionImage = productionImagesByKey.get(row.key);
@@ -829,7 +837,8 @@ function ResultSummary({
                                   editorialBatchPublishedImageUrl(sourcePackage, outputId))
                               : productionImage?.label ?? "Escolhe no banco do Dossiê"}</span>
                           </div>
-                          <span>{productionImage ? "SELECIONADA" : existingOutput ? "PRESERVADA" : "EM FALTA"}</span>
+                          <span>{imagePreparations[outputId]?.status === "pending" ? "A PREPARAR…"
+                            : productionImage ? "SELECIONADA" : existingOutput ? "PRESERVADA" : "EM FALTA"}</span>
                         </div>
                         {contextualImages.relevantCount === 0 && !showAllImages ? (
                           <p className={styles.contextualImageNotice}>
@@ -839,15 +848,15 @@ function ResultSummary({
                         <DossierImageChoiceGrid
                           name={`batch_output_image_${outputId}`}
                           value={selectedImageChoice}
-                          images={displayedDossierImages.map(image => ({ ...image,
-                            freezeDossierImageId: sourcePackage?.dossierImages?.some(row => row.id === image.id)
-                              ? image.id : sourcePackage?.outputImages?.find(row => row.dossierImageId === image.id)?.dossierImageId ?? null,
-                          }))}
+                          images={displayedDossierImages}
                           legend="Imagens deste artigo"
                           disabled={imageChoiceDisabled}
                           allowNoImage
                           allowPreservePublished={existingOutput}
-                          onChange={(value, url) => onImageChoice(outputId, value, url)}
+                          preservePublishedImageUrl={editorialBatchPublishedImageUrl(sourcePackage, outputId)}
+                          prepareOnSelect
+                          preparation={imagePreparations[outputId]}
+                          onChange={(value) => onImageChoice(outputId, value)}
                           onAddImage={sourcePackage?.dossierId
                             ? () => openDossierImageBank(`batch-image-bank-${outputId}`)
                             : undefined}
@@ -1169,6 +1178,27 @@ export default function BatchPreflightClient({
   const publicationPlanRef = useRef<readonly BatchPublicationPlanItem[] | null>(null);
   const uploadedImageUrlsRef = useRef<Record<string, string>>({});
   const publishingRef = useRef(false);
+  const sourcePackageRef = useRef(sourcePackage);
+  sourcePackageRef.current = sourcePackage;
+  const [imagePreparations, setImagePreparations] = useState<Record<string, BatchImagePreparation>>({});
+  const imageSelectorRef = useRef<ReturnType<typeof createBatchImageSelector> | null>(null);
+  if (!imageSelectorRef.current) imageSelectorRef.current = createBatchImageSelector({
+    read: () => sourcePackageRef.current,
+    write: (next) => {
+      if (publishingRef.current) return;
+      resetPublicationRun();
+      sourcePackageRef.current = next;
+      setSourcePackage(next);
+      window.sessionStorage.setItem(EDITORIAL_BATCH_TRANSFER_SOURCE_PACKAGE_STORAGE_KEY, JSON.stringify(next));
+    },
+    state: (outputId, state) => setImagePreparations(current => {
+      const next = { ...current };
+      if (state) next[outputId] = state; else delete next[outputId];
+      return next;
+    }),
+    prepare: (image, retry) => createBatchImagePreparer({ fetch, storage: window.localStorage,
+      uuid: () => crypto.randomUUID() })(image, retry),
+  });
   const publicationRequestSequenceRef = useRef(0);
   const latestPublicationFingerprintRef = useRef("");
   const lastRequestedPublicationFingerprintRef = useRef<string | null>(null);
@@ -1297,8 +1327,11 @@ export default function BatchPreflightClient({
       sourcePackage,
     ],
   );
+  const imageChoicesReady = editorialBatchImageChoicesReady(sourcePackage, preflight.articles)
+    && !preflight.articles.some(article => article.outputId && imagePreparations[article.outputId]?.status === "pending");
   const canPublish = Boolean(
     preflight.ready
+      && imageChoicesReady
       && (themeContinuity ? publicationContextComplete : contextComplete)
       && (
         preservesPublishedImages
@@ -1918,9 +1951,7 @@ export default function BatchPreflightClient({
       if (!classificationKey) throw new Error("Escolhe a classificação do artigo.");
       classificationsByOutputId[article.outputId] = classificationKey;
       if (frozen.slot.kind === "existing") {
-        imageUrlsByOutputId[article.outputId] = sourcePackage.outputImages?.find((image) => (
-          image.position === frozen.position
-        ))?.imageUrl ?? null;
+        imageUrlsByOutputId[article.outputId] = editorialBatchOutputImage(sourcePackage, article.outputId)?.imageUrl ?? null;
         continue;
       }
       const image = imageByKey.get(article.key);
@@ -2064,6 +2095,7 @@ export default function BatchPreflightClient({
   async function publishBatch() {
     if (
       publishingRef.current
+      || imageSelectorRef.current?.isPreparing(preflight.articles.flatMap(article => article.outputId ? [article.outputId] : []))
       || !publicationCanPublish
       || !preflight
       || !imagePreflight
@@ -2143,7 +2175,7 @@ export default function BatchPreflightClient({
         try {
           let imageUrl =
             planItem.mode === "update"
-              ? null
+              ? (article.outputId ? editorialBatchOutputImage(sourcePackage, article.outputId)?.imageUrl : null) ?? null
               : uploadedImageUrlsRef.current[planItem.key]
                 ?? image?.imageUrl
                 ?? null;
@@ -2339,68 +2371,27 @@ export default function BatchPreflightClient({
     });
   }
 
-  function handleDossierImageChoice(outputId: string, value: string, frozenUrl?: string) {
+  function handleDossierImageChoice(outputId: string, value: string) {
+    if (publishingRef.current) return;
     resetPublicationRun();
-    setSourcePackage((current) => {
-      const position = (current?.batchContract?.outputIds.indexOf(outputId) ?? -1) + 1;
-      if (!current || position < 1) return current;
-      const dossierImageId = value.startsWith("dossier_image:")
-        ? value.slice("dossier_image:".length)
-        : "";
-      const next = withEditorialBatchOutputImageChoice(
-        frozenUrl ? { ...current, dossierImages: editorialBatchDossierImages(current).map(image =>
-          image.id === dossierImageId ? { ...image, imageUrl: frozenUrl } : image) } : current,
-        outputId,
-        dossierImageId || null,
-      );
-      window.sessionStorage.setItem(
-        EDITORIAL_BATCH_TRANSFER_SOURCE_PACKAGE_STORAGE_KEY,
-        JSON.stringify(next),
-      );
-      return next;
-    });
+    void imageSelectorRef.current!.select(outputId, value);
   }
 
-  function handleRegisteredDossierImage(
-    outputId: string,
-    image: RegisteredDossierUploadImage,
-  ) {
+  function handleRegisteredDossierImage(outputId: string, image: RegisteredDossierUploadImage) {
+    const current = sourcePackageRef.current;
+    if (publishingRef.current || !current?.batchContract?.outputIds.includes(outputId) || current.dossierId !== image.dossierId) return;
+    imageSelectorRef.current!.cancel(outputId);
     resetPublicationRun();
-    setSourcePackage((current) => {
-      const position = (current?.batchContract?.outputIds.indexOf(outputId) ?? -1) + 1;
-      if (!current || position < 1 || current.dossierId !== image.dossierId) return current;
-      const dossierImage = {
-        id: image.id,
-        imageUrl: image.frozenUrl,
-        label: `UPLOAD · ${image.fileName}`,
-      };
-      const retainedImages = (current.outputImages ?? []).filter((candidate) => (
-        candidate.outputId !== outputId
-        && !(!candidate.outputId && candidate.position === position)
-      ));
-      const next: EditorialBatchTransferSourcePackage = {
-        ...current,
-        dossierImages: [
-          ...(current.dossierImages ?? []).filter((candidate) => candidate.id !== image.id),
-          dossierImage,
-        ],
-        outputImages: [
-          ...retainedImages,
-          {
-            position,
-            outputId,
-            dossierImageId: dossierImage.id,
-            imageUrl: dossierImage.imageUrl,
-            label: dossierImage.label,
-          },
-        ].sort((left, right) => left.position - right.position),
-      };
-      window.sessionStorage.setItem(
-        EDITORIAL_BATCH_TRANSFER_SOURCE_PACKAGE_STORAGE_KEY,
-        JSON.stringify(next),
-      );
-      return next;
-    });
+    const next = withEditorialBatchOutputImageChoice({
+      ...current,
+      dossierImages: [
+        ...editorialBatchDossierImages(current).filter(candidate => candidate.id !== image.id),
+        { id: image.id, imageUrl: image.frozenUrl, label: `UPLOAD · ${image.fileName}` },
+      ],
+    }, outputId, image.id);
+    sourcePackageRef.current = next;
+    setSourcePackage(next);
+    window.sessionStorage.setItem(EDITORIAL_BATCH_TRANSFER_SOURCE_PACKAGE_STORAGE_KEY, JSON.stringify(next));
   }
 
   function handleMatchdayChange(nextMatchdayId: string) {
@@ -2641,6 +2632,8 @@ export default function BatchPreflightClient({
           onImageChoice={handleDossierImageChoice}
           onRegisteredImage={handleRegisteredDossierImage}
           imageChoiceDisabled={isPublishing}
+          imagePreparations={imagePreparations}
+          imageChoicesReady={imageChoicesReady}
           historicalChoices={historicalChoices}
           onHistoricalChoice={setHistoricalChoice}
           historicalChoiceDisabled={isPublishing || Boolean(pendingHistorical) || historicalReadState !== "ready"}

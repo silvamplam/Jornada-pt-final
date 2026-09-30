@@ -74,9 +74,10 @@ test("cada artigo prioriza imagens das fontes congeladas e conserva o banco glob
   assert.match(clientSource, /continuitySlots\.find\(\(slot\) => slot\.outputId === outputId\)/);
   assert.match(clientSource, /"focusSourceIds" in continuitySlot/);
   assert.match(clientSource, /editorialMesaContextualImages\([\s\S]*?focusSourceIds,[\s\S]*?selectedImageChoice/);
-  assert.match(clientSource, /images=\{displayedDossierImages\.map/);
-  assert.match(clientSource, /freezeDossierImageId: sourcePackage\?\.dossierImages\?\.some/);
-  assert.match(clientSource, /dossierImageId === image\.id\)\?\.dossierImageId \?\? null/);
+  assert.match(clientSource, /images=\{displayedDossierImages\}/);
+  assert.match(clientSource, /prepareOnSelect/);
+  assert.match(clientSource, /imagePreparations=\{imagePreparations\}/);
+  assert.match(source("lib/redacao-automatica/editorial-batch-image-selection.ts"), /freezeDossierImageId: image\.dossierImageId \?\? null/);
   assert.match(clientSource, /Não há imagens diretamente ligadas ao ponto de partida deste artigo\./);
   assert.match(clientSource, /"Ver todas as imagens"/);
   assert.match(clientSource, /allowPreservePublished=\{existingOutput\}/);
@@ -121,7 +122,7 @@ test("a Publicação em lote preserva o Dossiê até ao sucesso integral", () =>
 test("UPDATE preserva a publicada por defeito e mostra a imagem escolhida na Produção quando existe", () => {
   assert.match(
     publicationRouteSource,
-    /image_url:\s*existing\.image_url/,
+    /image_url:\s*imageUrl \|\| existing\.image_url/,
   );
 
   assert.match(
@@ -156,9 +157,9 @@ test("UPDATE preserva a publicada por defeito e mostra a imagem escolhida na Pro
     /missing-image-url/,
   );
 
-  assert.doesNotMatch(
+  assert.match(
     updateSource,
-    /image_url:\s*imageUrl/,
+    /image_url:\s*imageUrl \|\| existing\.image_url/,
   );
 
   assert.match(
@@ -168,7 +169,7 @@ test("UPDATE preserva a publicada por defeito e mostra a imagem escolhida na Pro
 
   assert.match(
     clientSource,
-    /planItem\.mode === "update"\s*\?\s*null/,
+    /planItem\.mode === "update"\s*\?\s*\(article\.outputId \? editorialBatchOutputImage/,
   );
 
   assert.match(

@@ -2,6 +2,8 @@ import { mesaProductionIntentSlots, sameMesaIntentJson } from "@/lib/redacao-aut
 import { mesaIntentService } from "@/lib/redacao-automatica/newsroom-mesa-production-intents-service";
 import { NextResponse } from "next/server";
 import { requirePublishableEditorialImage } from "@/lib/editorial-image-publication.server";
+import { assertEditorialImageAuthority } from "@/lib/editorial-image-authority";
+import { editorialBatchOutputImage } from "@/lib/redacao-automatica/editorial-batch-image-selection";
 
 import {
   createEditorialArticle,
@@ -795,14 +797,15 @@ async function prepareThemeContinuityPublication(
       plannedPublishedAt: plannedPublishedAt.get(slot.outputId),
       fallbackPublishedAt: editorialPublicationNow,
     });
-    const packageImage = transfer.outputImages?.find((image) => (
-      image.position === output.position
-    ))?.imageUrl ?? null;
+    const packageImage = editorialBatchOutputImage(transfer, slot.outputId)?.imageUrl ?? null;
     const imageUrl = savedArticle ? (typeof savedArticle.imageUrl === "string" ? savedArticle.imageUrl : null) : persistedArticle?.image_url
       ?? imageUrls.get(slot.outputId)
       ?? packageImage
       ?? target?.image_url
       ?? null;
+    // Read-only preflight uses the same authority as publication. The writer
+    // still verifies/registers the local original and previews before persisting.
+    if (imageUrl) assertEditorialImageAuthority(imageUrl, persistedArticle ?? target);
     if (
       !UUID_PATTERN.test(articleId) || !(productionIntents && slot.kind === "existing" && matchdayId === null) && !UUID_PATTERN.test(matchdayId ?? "")
       || !slug || !publishedAt || (requireImages && slot.kind === "new" && !imageUrl)
@@ -1214,7 +1217,7 @@ async function preflightPublication(payload: BatchPublicationPayload) {
       });
     } catch (error) {
       const detail = error instanceof Error ? error.message : "theme-continuity-preflight-failed";
-      const conflict = detail.includes("conflict") || detail.includes("invalid")
+      const conflict = detail.includes("conflict") || detail.includes("invalid") || detail.startsWith("image-")
         || detail.startsWith("mesa-v2-");
       return jsonError(
         "theme-continuity-preflight-failed",
@@ -1299,6 +1302,12 @@ async function preflightPublication(payload: BatchPublicationPayload) {
         Boolean(sourcePackage),
         sourceContext,
       );
+
+    for (const item of prepared) {
+      const selected = item.article.outputId ? editorialBatchOutputImage(transfer, item.article.outputId)
+        : transfer?.outputImages?.find(image => image.position === item.article.index);
+      if (selected) assertEditorialImageAuthority(selected.imageUrl, item.existing);
+    }
 
     return NextResponse.json({
       ok: true,
@@ -1649,7 +1658,7 @@ async function publishItem(payload: BatchPublicationPayload) {
               existing.slug
               ?? slug,
             image_url:
-              existing.image_url,
+              imageUrl || existing.image_url,
             image_caption:
               existing.image_caption
               ?? null,

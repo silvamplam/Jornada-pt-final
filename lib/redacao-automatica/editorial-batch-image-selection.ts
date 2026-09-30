@@ -1,3 +1,4 @@
+import { editorialImageOriginalPath } from "../editorial-image-authority";
 import type {
   EditorialBatchTransferDossierImage,
   EditorialBatchTransferSourcePackage,
@@ -29,6 +30,7 @@ export function editorialBatchDossierImages(
         ?? `output-${image.position}`,
       imageUrl: image.imageUrl,
       label: image.label,
+      freezeDossierImageId: image.dossierImageId ?? null,
     }];
   });
 }
@@ -67,6 +69,8 @@ export function withEditorialBatchOutputImageChoice(
     : null;
   return {
     ...sourcePackage,
+    // Keep the full legacy bank when its only representation was outputImages.
+    dossierImages: editorialBatchDossierImages(sourcePackage),
     outputImages: selected
       ? [...retained, {
           position,
@@ -77,6 +81,37 @@ export function withEditorialBatchOutputImageChoice(
         }].sort((left, right) => left.position - right.position)
       : retained,
   };
+}
+
+/** Materialization changes the resource, never its provenance or other choices. */
+export function withEditorialBatchMaterializedImage(
+  sourcePackage: EditorialBatchTransferSourcePackage, imageId: string, imageUrl: string,
+): EditorialBatchTransferSourcePackage {
+  const bank = editorialBatchDossierImages(sourcePackage);
+  const previous = bank.find(image => image.id === imageId);
+  if (!previous) return sourcePackage;
+  return {
+    ...sourcePackage,
+    dossierImages: bank.map(image => image.id === imageId ? { ...image, imageUrl } : image),
+    outputImages: sourcePackage.outputImages?.map(image => (
+      image.dossierImageId === imageId || (!image.dossierImageId && image.imageUrl === previous.imageUrl)
+        ? { ...image, dossierImageId: imageId, imageUrl } : image
+    )),
+  };
+}
+
+/** URL choices on UPDATE need the same gate as NEW; missing images/files still
+ * follow the existing preflight. No-change outputs are absent from articles. */
+export function editorialBatchImageChoicesReady(
+  sourcePackage: EditorialBatchTransferSourcePackage | null,
+  articles: readonly { outputId?: string | null; index: number }[], origin?: string,
+): boolean {
+  return articles.every(article => {
+    const selected = article.outputId ? editorialBatchOutputImage(sourcePackage, article.outputId)
+      : sourcePackage?.outputImages?.find(image => image.position === article.index);
+    return !selected || Boolean(editorialImageOriginalPath(selected.imageUrl, origin))
+      || selected.imageUrl === editorialBatchPublishedImageUrl(sourcePackage, article.outputId);
+  });
 }
 
 /** Presentation only: this does not select, upload or publish an image. */
