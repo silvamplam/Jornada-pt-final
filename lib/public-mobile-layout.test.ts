@@ -92,11 +92,17 @@ test("side advertisements retain their intrinsic proportion and cannot upscale t
   assert.match(desktopImage, /max-width:\s*100%;/);
 });
 
-test("horizontal slim creative can use the available width with a responsive height cap", () => {
+test("horizontal formats cap measured geometry without cropping or upscaling", () => {
   const mobile = mediaBlock(horizontalAdvertisingStyles, 760);
   const slim = rule(horizontalAdvertisingStyles, '.public-horizontal-advertisement[data-format="slim"] img');
   assert.match(slim, /max-width:\s*100%;/);
-  assert.match(slim, /max-height:\s*clamp\(120px, 30vw, 360px\);/);
+  assert.match(slim, /max-height:\s*120px;/);
+  assert.match(rule(horizontalAdvertisingStyles, '.public-horizontal-advertisement[data-format="slim"] img[data-ad-measured]'), /width:\s*min\(100%, var\(--ad-natural-width\), var\(--ad-slim-desktop-width\)\);/);
+  assert.match(rule(horizontalAdvertisingStyles, '.public-horizontal-advertisement[data-format="tall"] img'), /max-height:\s*320px;/);
+  assert.match(rule(mobile, ".public-horizontal-advertisement img"), /max-height:\s*100px;/);
+  assert.match(rule(mobile, '.public-horizontal-advertisement[data-format="slim"] img'), /max-height:\s*100px;/);
+  assert.match(rule(mobile, '.public-horizontal-advertisement[data-format="tall"] img'), /max-height:\s*180px;/);
+  assert.match(rule(mobile, '.public-horizontal-advertisement[data-format="slim"] img[data-ad-measured]'), /width:\s*min\(100%, var\(--ad-natural-width\), var\(--ad-slim-mobile-width\)\);/);
   const base = rule(horizontalAdvertisingStyles, ".public-horizontal-advertisement img");
   assert.match(base, /width:\s*auto;/);
   assert.match(base, /height:\s*auto;/);
