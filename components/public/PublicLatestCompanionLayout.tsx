@@ -6,6 +6,7 @@ import PublicMatchdayEditorialSectionFrame from "./PublicMatchdayEditorialSectio
 import PublicSideAdvertisement from "./PublicSideAdvertisement";
 import {
   PublicFlexibleZoneContent,
+  PublicFlexibleZoneHeading,
   type PublicFlexibleZone,
 } from "./PublicFlexibleZoneRenderers";
 
@@ -51,6 +52,15 @@ const styles = `
 
   .public-latest-companion-zone {
     min-width: 0;
+  }
+
+  .public-latest-companion-heading > :is(h2, header) {
+    margin-bottom: 0;
+  }
+
+  .public-latest-companion-content {
+    min-width: 0;
+    align-self: start;
   }
 
   .public-latest-companion-news {
@@ -100,7 +110,54 @@ const styles = `
     object-position: top center;
   }
 
+  @media (min-width: 1101px) {
+    .public-latest-companion-grid {
+      grid-template-rows: max-content max-content minmax(0, 1fr);
+      row-gap: 0;
+    }
+
+    .public-latest-companion-grid > .public-latest-companion-zone,
+    .public-latest-companion-news,
+    .public-latest-companion-news > .public-matchday-news {
+      display: grid;
+      grid-row: 1 / 4;
+      grid-template-rows: subgrid;
+      grid-template-columns: minmax(0, 1fr);
+      row-gap: 0;
+      align-self: stretch;
+      min-height: 0;
+    }
+
+    .public-latest-companion-zone { grid-column: 1; }
+    .public-latest-companion-grid > .public-latest-companion-zone::before { display: none; }
+    .public-latest-companion-content { grid-row: 3; }
+    .public-latest-companion-news { grid-column: 2; }
+
+    .public-latest-companion-news > .public-matchday-news {
+      grid-column: 1;
+      height: auto;
+      max-height: none;
+      overflow: hidden;
+    }
+
+    .public-latest-companion-news > .public-matchday-news > h3 {
+      grid-row: 1;
+      align-self: start;
+    }
+
+    .public-latest-companion-news .public-news-list {
+      grid-row: 3;
+      contain: size;
+      min-height: 0;
+      overflow: hidden;
+    }
+
+    .public-latest-companion-ad { grid-column: 3; grid-row: 1 / 4; }
+    .public-latest-companion-grid[data-has-latest="false"] > .public-latest-companion-ad { grid-column: 2; }
+  }
+
   @media (max-width: 1100px) {
+    .public-latest-companion-layout > .public-latest-companion-grid::before { display: none; }
     .public-latest-companion-grid,
     .public-latest-companion-grid:not(:has(.public-latest-companion-ad-slot)),
     .public-latest-companion-grid[data-has-latest="false"]:not(:has(.public-latest-companion-ad-slot)),
@@ -169,13 +226,20 @@ export default async function PublicLatestCompanionLayout({
 
         <div
           className="public-latest-companion-grid"
+          data-public-editorial-flow="shared"
           data-has-latest={visibleLatestNews.length > 0}
         >
-          <div className="public-latest-companion-zone">
-            <PublicFlexibleZoneContent
-              zone={zone}
-              matchdayNumber={matchdayNumber}
-            />
+          <div className="public-latest-companion-zone" data-public-editorial-flow="single">
+            <div className="public-latest-companion-heading" data-public-editorial-heading>
+              <PublicFlexibleZoneHeading zone={zone} />
+            </div>
+            <div className="public-latest-companion-content">
+              <PublicFlexibleZoneContent
+                zone={zone}
+                matchdayNumber={matchdayNumber}
+                showTitle={false}
+              />
+            </div>
           </div>
 
           {visibleLatestNews.length > 0 ? (

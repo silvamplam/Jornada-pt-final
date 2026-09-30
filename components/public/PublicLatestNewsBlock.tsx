@@ -65,6 +65,7 @@ type PublicLatestNewsBlockProps = {
   constrainToMainColumn?: boolean;
   constrainToFourNewsGrid?: boolean;
   constrainToCompanionZone?: boolean;
+  sectionFlow?: boolean;
 };
 
 export default function PublicLatestNewsBlock({
@@ -74,6 +75,7 @@ export default function PublicLatestNewsBlock({
   constrainToMainColumn = false,
   constrainToFourNewsGrid = false,
   constrainToCompanionZone = false,
+  sectionFlow = false,
 }: PublicLatestNewsBlockProps) {
   const rootRef = useRef<HTMLElement | null>(null);
   const visibleTitle = title?.trim() ?? "";
@@ -147,32 +149,31 @@ export default function PublicLatestNewsBlock({
       window.cancelAnimationFrame(frameId);
 
       if (window.matchMedia(collapseBreakpoint).matches) {
-        root.style.removeProperty("height");
-        root.style.removeProperty("max-height");
+        if (!constrainToCompanionZone) {
+          root.style.removeProperty("height");
+          root.style.removeProperty("max-height");
+        }
         resetItems();
         return;
       }
 
-      const rootTop = root.getBoundingClientRect().top;
-      const editorialBottom =
-        editorialBoundary.getBoundingClientRect().bottom;
-      const sharedHeaderReserve = parseFloat(
-        getComputedStyle(root).getPropertyValue("--public-latest-header-reserve"),
-      ) || 0;
-
-      const availableHeight = Math.max(
-        0,
-        Math.floor(editorialBottom - rootTop) + sharedHeaderReserve,
-      );
-
-      root.style.height = `${availableHeight}px`;
-      root.style.maxHeight = `${availableHeight}px`;
+      // Companion geometry is owned by CSS. Only the list's visibility changes.
+      if (!constrainToCompanionZone) {
+        const availableHeight = Math.max(
+          0,
+          Math.floor(editorialBoundary.getBoundingClientRect().bottom - root.getBoundingClientRect().top),
+        );
+        root.style.height = `${availableHeight}px`;
+        root.style.maxHeight = `${availableHeight}px`;
+      }
 
       resetItems();
 
       frameId = window.requestAnimationFrame(() => {
         const limit =
-          editorialBoundary.getBoundingClientRect().bottom + sharedHeaderReserve + 0.5;
+          (constrainToCompanionZone
+            ? list.getBoundingClientRect().bottom
+            : editorialBoundary.getBoundingClientRect().bottom) + 0.5;
 
         let hideFollowing = false;
 
@@ -195,6 +196,7 @@ export default function PublicLatestNewsBlock({
     );
 
     observer.observe(editorialBoundary);
+    if (constrainToCompanionZone) observer.observe(list);
 
     window.addEventListener(
       "resize",
@@ -212,8 +214,10 @@ export default function PublicLatestNewsBlock({
         syncHeightAndVisibleItems,
       );
 
-      root.style.removeProperty("height");
-      root.style.removeProperty("max-height");
+      if (!constrainToCompanionZone) {
+        root.style.removeProperty("height");
+        root.style.removeProperty("max-height");
+      }
 
       resetItems();
     };
@@ -229,12 +233,14 @@ export default function PublicLatestNewsBlock({
     <aside
       className="public-matchday-news"
       data-public-latest-news
+      data-public-editorial-flow={sectionFlow ? "single" : undefined}
       aria-label={visibleTitle || "Notícias"}
       ref={rootRef}
     >
       <style>{publicLatestNewsMobileStyles}</style>
       {visibleTitle ? (
         <h3
+          data-public-editorial-heading={sectionFlow || undefined}
           style={
             titleColor
               ? { color: titleColor }

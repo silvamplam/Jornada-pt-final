@@ -1,6 +1,6 @@
 import PublicEditorialImage from "./PublicEditorialImage";
 import { publicLiveOpeningStyles } from "./publicLiveOpeningStyles";
-import type { ReactNode } from "react";
+import { Fragment, type ReactNode } from "react";
 import { editorialImageFramingProps } from "@/lib/editorial-image-framing";
 import PublicContextPostTitle from "./PublicContextPostTitle";
 import PublicLatestNewsBlock from "./PublicLatestNewsBlock";
@@ -430,6 +430,52 @@ const publicEditorialLayoutPolishStyles = `
     min-width: 0;
     padding-top: 18px;
     border-top: 1px solid #dbe4ee;
+  }
+
+  .public-editorial-layout-panel .public-matchday-depth-row[data-public-editorial-flow] {
+    grid-template-rows: max-content max-content auto;
+    row-gap: 0 !important;
+  }
+  .public-editorial-layout-panel .public-matchday-depth-row[data-public-editorial-flow] > .public-matchday-main-lower,
+  .public-editorial-layout-panel .public-matchday-depth-row[data-public-editorial-flow] > .public-below-headline-side,
+  .public-editorial-layout-panel .public-matchday-depth-row[data-public-editorial-flow] .public-roundup-video-layout {
+    display: grid;
+    grid-template-rows: subgrid;
+    grid-row: 1 / 4;
+    row-gap: 0 !important;
+  }
+  .public-editorial-layout-panel .public-matchday-depth-row[data-public-editorial-flow] > .public-matchday-main-lower { grid-column: 1; }
+  .public-editorial-layout-panel .public-matchday-depth-row[data-public-editorial-flow] > .public-below-headline-side { grid-column: 2; }
+  .public-editorial-layout-panel .public-matchday-depth-row-single[data-public-editorial-flow] > .public-below-headline-side { grid-column: 1; }
+  .public-editorial-layout-panel .public-matchday-depth-row[data-public-editorial-flow] .public-roundup-zone-heading,
+  .public-editorial-layout-panel .public-matchday-depth-row[data-public-editorial-flow] .public-editorial-section-title {
+    grid-row: 1;
+    height: auto !important;
+    min-height: 0 !important;
+    align-self: start;
+    overflow: visible;
+    display: block;
+    margin-bottom: 0;
+  }
+  .public-editorial-layout-panel .public-matchday-depth-row[data-public-editorial-flow] .public-roundup-video-content,
+  .public-complement-section-content {
+    grid-row: 3;
+    align-self: start;
+    min-width: 0;
+  }
+  .public-complement-section-content { display: grid; gap: 12px; }
+
+  @media (max-width: 1180px) {
+    .public-editorial-layout-panel .public-matchday-depth-row[data-public-editorial-flow]:not(.public-matchday-depth-row-single) > .public-below-headline-side {
+      grid-column: 1;
+      grid-row: 4;
+      grid-template-rows: none;
+      row-gap: 12px !important;
+      margin-top: 24px;
+    }
+    .public-editorial-layout-panel .public-matchday-depth-row[data-public-editorial-flow]:not(.public-matchday-depth-row-single) .public-complement-section-content {
+      grid-row: auto;
+    }
   }
 
   .public-editorial-layout-panel[data-owns-section-boundary="false"] .public-matchday-cover {
@@ -940,11 +986,13 @@ export function PublicComplementaryBlock({
   data,
   ariaLabel = "Bloco complementar da jornada",
   reserveHeadingSpace = false,
+  sectionFlow = false,
   sectionTitle
 }: {
   data: PublicComplementaryData;
   ariaLabel?: string;
   reserveHeadingSpace?: boolean;
+  sectionFlow?: boolean;
   sectionTitle?: string;
 }) {
   const inlineMedia = data.inlineMedia;
@@ -973,6 +1021,8 @@ export function PublicComplementaryBlock({
     </div>
   ) : null;
 
+  const Content = sectionFlow ? "div" : Fragment;
+
   return (
     <aside className="public-matchday-cover-side public-editorial-flex-block public-below-headline-side" data-editorial-slot="video-ou-imagem-noticia" aria-label={ariaLabel}>
       {sectionTitle ? (
@@ -989,19 +1039,21 @@ export function PublicComplementaryBlock({
           Vídeo
         </h3>
       ) : null}
-      {media}
-      <div className="public-complement-body">
-        {data.title ? (
-          data.linkUrl ? (
-            <a className="public-complement-title-link" href={data.linkUrl}>
+      <Content {...(sectionFlow ? { className: "public-complement-section-content" } : {})}>
+        {media}
+        <div className="public-complement-body">
+          {data.title ? (
+            data.linkUrl ? (
+              <a className="public-complement-title-link" href={data.linkUrl}>
+                <strong>{data.title}</strong>
+              </a>
+            ) : (
               <strong>{data.title}</strong>
-            </a>
-          ) : (
-            <strong>{data.title}</strong>
-          )
-        ) : null}
-        {data.text ? <p>{data.text}</p> : null}
-      </div>
+            )
+          ) : null}
+          {data.text ? <p>{data.text}</p> : null}
+        </div>
+      </Content>
     </aside>
   );
 }
@@ -1129,12 +1181,14 @@ export function PublicEditorialLayout({
         {!hasRoundupSummary ? midContent : null}
 
         {hasDepthRow ? (
-          <div className={`public-matchday-depth-row${hasRoundupSummary !== hasComplementary ? " public-matchday-depth-row-single" : ""}`}>
+          <div className={`public-matchday-depth-row${hasRoundupSummary !== hasComplementary ? " public-matchday-depth-row-single" : ""}`}
+            data-public-editorial-flow={!ownsSectionBoundary ? "shared" : undefined}>
             <PublicRoundupSummary data={belowHeadline} reserveHeadingSpace={hasRoundupSummary && hasComplementary} />
             <PublicComplementaryBlock
               data={belowHeadline.complementary}
               ariaLabel="Aprofundamento editorial"
               reserveHeadingSpace={hasRoundupSummary && hasComplementary}
+              sectionFlow={!ownsSectionBoundary}
               sectionTitle={
                 belowHeadline.complementary.sectionTitle
                 ?? belowHeadline.complementary.label

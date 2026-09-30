@@ -40,6 +40,7 @@ const horizontalNewsStyles = `
   }
 
   .public-horizontal-news[data-owns-section-boundary="false"] {
+    --public-editorial-heading-grid-gap: 16px;
     margin-top: 0;
     padding-top: 0;
     border-top: 0;
@@ -215,10 +216,11 @@ export default function PublicHorizontalNewsStrip({
       className="public-matchday-panel public-horizontal-news"
       data-editorial-scope={scope}
       data-owns-section-boundary={ownsSectionBoundary ? undefined : "false"}
+      data-public-editorial-flow={!ownsSectionBoundary && title ? "single" : undefined}
       aria-label={ariaLabel}
     >
       <style>{horizontalNewsStyles}</style>
-      {title ? <h2 className="public-horizontal-news-heading">{title}</h2> : null}
+      {title ? <h2 className="public-horizontal-news-heading" data-public-editorial-heading>{title}</h2> : null}
       <div className="public-horizontal-news-stack">
         {rows.map((row, rowIndex) => (
           <div

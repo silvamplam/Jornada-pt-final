@@ -45,3 +45,12 @@ test("mobile removes the list owner and empty frames without hiding neighbouring
   for (const id of ["editorial", "headline", "companion-ad", "four-ad", "thematic-ad", "ad-frame", "mixed-opening"]) assert.ok(!hiddenIds.includes(id), id);
   assert.match(publicLatestNewsMobileStyles, /grid-template-areas:\s*none/);
 });
+
+test("latest-only reserves its heading boundary in SSR without changing the feed", () => {
+  const items = [{ id: "1", title: "Notícia", linkUrl: "/noticias/1" }];
+  const $ = load(renderToStaticMarkup(<PublicLatestNewsBlock items={items} title="Últimas" sectionFlow />));
+  assert.equal($('[data-public-editorial-flow="single"] > h3[data-public-editorial-heading]').text(), "Últimas");
+  assert.equal($(".public-news-item").length, 1);
+  assert.equal($(".public-news-title").attr("href"), "/noticias/1");
+  assert.equal($("[data-public-latest-news]").attr("style"), undefined);
+});
