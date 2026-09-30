@@ -27,6 +27,7 @@ type DossierImageChoiceGridProps = Readonly<{
   onChange: (value: string, frozenUrl?: string) => void;
   onAddImage?: () => void;
   addImageControls?: string;
+  prepareBeforeSave?: boolean;
 }>;
 
 export default function DossierImageChoiceGrid({
@@ -42,6 +43,7 @@ export default function DossierImageChoiceGrid({
   onChange,
   onAddImage,
   addImageControls,
+  prepareBeforeSave = false,
 }: DossierImageChoiceGridProps) {
   const [confirmed, setConfirmed] = useState<Record<string, string>>({});
   return (
@@ -82,14 +84,22 @@ export default function DossierImageChoiceGrid({
         {images.map((image) => {
           const imageValue = `dossier_image:${image.id}`;
           const imageUrl = confirmed[image.id] ?? image.imageUrl;
-          if (!editorialImageOriginalPath(imageUrl)) return <div key={image.id}>
-            <BackofficeImage previewWidth={320} src={image.imageUrl} alt="Candidata da fonte" loading="lazy" referrerPolicy="no-referrer" />
-            <small>{image.label}</small>
-            {!disabled ? <FreezeEditorialImage sourceUrl={image.imageUrl} dossierImageId={image.freezeDossierImageId === null ? undefined : image.freezeDossierImageId ?? image.id} onConfirm={(url) => {
-              setConfirmed(current => ({ ...current, [image.id]: url }));
-              onChange(imageValue, url);
-            }} /> : null}
-          </div>;
+          if (!editorialImageOriginalPath(imageUrl)) return (
+            <div key={image.id} className={styles.externalChoice}>
+              <button className={styles.candidateChoice} type="button" disabled={disabled || !prepareBeforeSave}
+                aria-label={`Escolher imagem · ${image.label}`} onClick={() => onChange(imageValue)}>
+                <BackofficeImage previewWidth={320} src={imageUrl} alt="Candidata da fonte" loading="lazy" referrerPolicy="no-referrer" />
+                <small>{image.label}</small>
+              </button>
+              {!prepareBeforeSave && !disabled ? <details className={styles.imageReview}>
+                <summary>Rever imagem</summary>
+                <FreezeEditorialImage sourceUrl={image.imageUrl} dossierImageId={image.freezeDossierImageId === null ? undefined : image.freezeDossierImageId ?? image.id} onConfirm={(url) => {
+                  setConfirmed(current => ({ ...current, [image.id]: url }));
+                  onChange(imageValue, url);
+                }} />
+              </details> : null}
+            </div>
+          );
           return (
             <label key={image.id} data-selected={value === imageValue}>
               <input

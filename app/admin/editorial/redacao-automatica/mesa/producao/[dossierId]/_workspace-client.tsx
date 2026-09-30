@@ -4,6 +4,7 @@ import BackofficeImage from "@/components/admin/BackofficeImage";
 import { completeEditorialImagePreviews } from "@/lib/editorial-image-preview-upload";
 import {
   useEffect,
+  useCallback,
   useMemo,
   useRef,
   useState,
@@ -31,6 +32,8 @@ import {
   editorialMesaResolvedVisualImageChoice,
 } from "@/lib/redacao-automatica/editorial-mesa-workspace-defaults";
 import { editorialMesaContextualImages } from "@/lib/redacao-automatica/editorial-mesa-workspace-images";
+import { productionImageCandidate, productionImageSelection, productionImageNeedsSave, type ProductionImageSelection, type ProductionImageConfirmation } from "@/lib/editorial-production-image-choice";
+import { useProductionImagePreparation } from "./_production-image-preparation";
 import {
   EDITORIAL_BATCH_TRANSFER_SOURCE_PACKAGE_STORAGE_KEY,
   EDITORIAL_BATCH_TRANSFER_STORAGE_KEY,
@@ -107,6 +110,7 @@ type SavedBatchOutput = Readonly<{
 }>;
 
 type CommandResponse = Readonly<{
+  stateToken?: string;
   ok?: boolean;
   code?: string;
   stage?: "article_plan" | "production_state" | "output_count";
@@ -443,6 +447,8 @@ function PlanEditor({
   classificationSources,
   assignedClassificationSourceIds,
   onClassificationDecision,
+  imageChoiceConfirmed,
+  savedImageConfirmation,
 }: Readonly<{
   dossier: WorkspaceDossier;
   plan: EditorialDossierProductionArticlePlan | null;
@@ -460,6 +466,8 @@ function PlanEditor({
   classificationSources: readonly ArticlePlanClassificationSource[];
   assignedClassificationSourceIds: readonly string[];
   onClassificationDecision: () => void;
+  imageChoiceConfirmed: boolean;
+  savedImageConfirmation: ProductionImageConfirmation | null;
 }>) {
   const [destination, setDestination] = useState<"new" | "update">(
     continuitySlot?.kind === "existing" ? "update" : continuitySlot ? "new" : plan?.destination ?? "new",
@@ -468,19 +476,42 @@ function PlanEditor({
     continuitySlot?.targetEditorialArticleId ?? plan?.updateTargetEditorialArticleId ?? "",
   );
   const selectedProductionContext = productionContexts.find((context) => context.id === productionContextId) ?? null;
-  const automaticImageId = plan?.editorialArticleId
-    ? null
-    : visualSeed?.image?.id ?? null;
-  const initialExplicitImage = explicitImageSelectValue(plan);
-  const [confirmedImages, setConfirmedImages] = useState<Record<string, string>>({});
+  const initialExplicitImage = explicitImageSelectValue(plan) ?? (imageChoiceConfirmed ? "unselected" : null);
   const [imageChoices, setImageChoices] = useState<Readonly<Record<"new" | "update", string | null>>>({
     new: initialExplicitImage === "preserve_published" ? "unselected" : initialExplicitImage,
     update: initialExplicitImage,
   });
-  const selectedImage = editorialMesaResolvedVisualImageChoice(
-    imageChoices[destination],
-    automaticImageId,
-  );
+  const focusSourceIds = continuitySlot && "focusSourceIds" in continuitySlot
+    ? continuitySlot.focusSourceIds ?? []
+    : assignedClassificationSourceIds;
+  const candidate = productionImageCandidate(images, focusSourceIds, imageChoices[destination], destination);
+  const preparation = useProductionImagePreparation(dossier.id, candidate, !hidden && !plan?.editorialArticleId);
+  const [lastReadyImage, setLastReadyImage] = useState<Record<"new" | "update", ProductionImageSelection>>(() => ({
+    new: productionImageSelection({ candidate: productionImageCandidate(images, [], imageChoices.new, "new"), explicitChoice: imageChoices.new, destination: "new" }),
+    update: productionImageSelection({ candidate: productionImageCandidate(images, [], imageChoices.update, "update"), explicitChoice: imageChoices.update, destination: "update" }),
+  }));
+  const selection = productionImageSelection({ candidate, explicitChoice: imageChoices[destination], destination,
+    prepared: preparation.result, fallback: lastReadyImage[destination] });
+  const selectedImage = selection.value;
+  useEffect(() => {
+    if (savedImageConfirmation) {
+      setImageChoices(previous => ({ ...previous, [savedImageConfirmation.destination]: savedImageConfirmation.value }));
+    }
+  }, [savedImageConfirmation]);
+  useEffect(() => {
+    setLastReadyImage(previous => {
+      const current = previous[destination];
+      return current.value === selection.value && current.decisionKey === selection.decisionKey
+        && current.publicUrl === selection.publicUrl && current.automatic === selection.automatic
+        ? previous : { ...previous, [destination]: selection };
+    });
+  }, [destination, selection.value, selection.decisionKey, selection.publicUrl, selection.automatic]);
+  useEffect(() => {
+    if (productionImageNeedsSave(selection, savedImageConfirmation)
+      && (selection.decisionKey || (selection.automatic && selectedImage !== explicitImageSelectValue(plan)))) {
+      onClassificationDecision();
+    }
+  }, [selection.decisionKey, selection.automatic, selectedImage, plan, onClassificationDecision, savedImageConfirmation]);
   const [showAllImages, setShowAllImages] = useState(false);
   const visualSeedImage = editorialMesaResolvedVisualImageChoice(
     null,
@@ -500,7 +531,7 @@ function PlanEditor({
       }
     : null;
   const selectedImageUrl = selectedImage.startsWith("dossier_image:")
-    ? confirmedImages[selectedImage] ?? images.find((image) => image.id === selectedImage.slice("dossier_image:".length))?.frozenUrl ?? null
+    ? selection.publicUrl
     : selectedImage === "preserve_published"
       ? selectedTarget?.currentImageUrl ?? null
       : null;
@@ -508,12 +539,7 @@ function PlanEditor({
     && selectedImage === visualSeedImage
     ? visualSeed?.source ?? null
     : null;
-  const focusSourceIds = continuitySlot && "focusSourceIds" in continuitySlot
-    ? continuitySlot.focusSourceIds ?? []
-    : null;
-  const contextualImages = focusSourceIds === null
-    ? { images, allImages: images, relevantCount: images.length }
-    : editorialMesaContextualImages(images, focusSourceIds, selectedImage);
+  const contextualImages = editorialMesaContextualImages(images, focusSourceIds, selectedImage);
   const displayedImages = showAllImages ? contextualImages.allImages : contextualImages.images;
   const hasAdditionalImages = focusSourceIds !== null
     && contextualImages.images.length < images.length;
@@ -685,26 +711,43 @@ function PlanEditor({
         ) : null}
 
         <DossierImageChoiceGrid
+          prepareBeforeSave
           compact
           name={planField(cardKey, "image_control")}
           value={selectedImage}
           legend="Imagens deste artigo"
           images={displayedImages.map((image) => ({
             id: image.id,
-            imageUrl: image.frozenUrl,
+            imageUrl: image.id === candidate?.id ? preparation.result?.publicUrl ?? image.frozenUrl : image.frozenUrl,
             label: imageOriginLabel(image),
           }))}
           disabled={saving}
           allowNoImage
           allowPreservePublished={destination === "update"}
           preservePublishedImageUrl={selectedTarget?.currentImageUrl}
-          onChange={(value, url) => {
-            if (url) setConfirmedImages(current => ({ ...current, [value]: url }));
+          onChange={(value) => {
             setImageChoices(current => ({ ...current, [destination]: value }));
+            onClassificationDecision();
           }}
           onAddImage={() => openDossierImageBank("workspace-image-bank")}
           addImageControls="workspace-image-bank"
         />
+        <input type="hidden" name={planField(cardKey, "prepared_image_decision_key")} value={selection.decisionKey ?? ""} />
+        <input type="hidden" name={planField(cardKey, "automatic_image")} value={selection.automatic ? "true" : "false"} />
+        <input type="hidden" name={planField(cardKey, "image_preparing")} value={preparation.busy ? "true" : "false"} />
+        {preparation.busy || preparation.error ? <p className={styles.contextualImagesEmpty} role="status">
+          {preparation.busy ? "A preparar a imagem deste artigo…" : preparation.error}
+          {preparation.error ? <> <button type="button" disabled={saving} onClick={preparation.retry}>Tentar novamente</button></> : null}
+        </p> : null}
+        {candidate ? <details className={styles.contextualImagesEmpty}>
+          <summary>Rever imagem e proveniência</summary>
+          <a href={candidate.sourceUrl ?? candidate.frozenUrl} target="_blank" rel="noreferrer">Referência da imagem</a>
+          {preparation.result?.sha256 ? <p style={{ overflowWrap: "anywhere" }}>SHA-256: {preparation.result.sha256}</p> : null}
+          {candidate.origin !== "upload" ? <button type="button" disabled={saving || preparation.busy} onClick={() => {
+            setImageChoices(previous => ({ ...previous, [destination]: `dossier_image:${candidate.id}` }));
+            preparation.reacquire();
+          }}>Obter novamente da origem</button> : null}
+        </details> : null}
         {focusSourceIds !== null && contextualImages.relevantCount === 0 && !showAllImages ? (
           <p className={styles.contextualImagesEmpty}>
             Não há imagens diretamente ligadas ao ponto de partida deste artigo.
@@ -1004,6 +1047,7 @@ export function MesaProductionWorkspaceClient({
   productionIntents = null,
   newOutputGrouping = null,
   newOutputGroupingFixture = false,
+  saveState,
 }: Readonly<{
   dossier: WorkspaceDossier;
   sources: readonly WorkspaceSource[];
@@ -1017,6 +1061,7 @@ export function MesaProductionWorkspaceClient({
   productionIntents?: MesaProductionIntentsFrozen | null;
   newOutputGrouping?: MesaNewOutputGrouping | null;
   newOutputGroupingFixture?: boolean;
+  saveState: Readonly<{ stateToken: string; confirmedImagePlanIds: readonly string[] }>;
 }>) {
   const frozenSlots = productionIntents ? mesaProductionIntentSlots(productionIntents) : themeContinuity?.slots;
   const [suppressedPlanIds, setSuppressedPlanIds] = useState<readonly string[]>([]);
@@ -1046,13 +1091,20 @@ export function MesaProductionWorkspaceClient({
   const effectiveCardCapacity = frozenSlots?.length ?? editableCardCapacity;
   const [productionContextOverrides, setProductionContextOverrides] = useState<Record<string, string>>({});
   const [savedPlanIds, setSavedPlanIds] = useState<Record<string, string>>({});
+  const [savedImageConfirmations, setSavedImageConfirmations] = useState<Record<string, ProductionImageConfirmation>>({});
   const [confirmedClassifications, setConfirmedClassifications] = useState<
     Record<string, ArticlePlanClassificationDecision>
   >({});
   const [savingProduction, setSavingProduction] = useState(false);
   const savingProductionRef = useRef(false);
+  const [expectedState, setExpectedState] = useState(saveState.stateToken);
+  const saveAttempt = useRef<{ fingerprint: string; requestId: string } | null>(null);
   const [productionMessage, setProductionMessage] = useState("");
   const [dirty, setDirty] = useState(false);
+  const markProductionDirty = useCallback(() => {
+    setDirty(true);
+    setProductionMessage("");
+  }, []);
   const [packageVersion, setPackageVersion] = useState(0);
   const [persistedOutputCount, setPersistedOutputCount] = useState(dossier.outputCount);
   const [workspaceImages, setWorkspaceImages] = useState<readonly EditorialDossierImage[]>(
@@ -1200,6 +1252,10 @@ export function MesaProductionWorkspaceClient({
     }
 
     const data = new FormData(event.currentTarget);
+    if (visibleCards.some(card => data.get(planField(card.key, "image_preparing")) === "true")) {
+      setProductionMessage("As imagens ainda estão a ser preparadas. Aguarda a conclusão para guardar.");
+      return;
+    }
     const nextSavedPlanIds = { ...savedPlanIds };
     savingProductionRef.current = true;
     setSavingProduction(true);
@@ -1250,6 +1306,8 @@ export function MesaProductionWorkspaceClient({
           classificationMode: String(
             data.get(planField(card.key, "classification_mode")) ?? "",
           ) || null,
+          preparedImageDecisionKey: String(data.get(planField(card.key, "prepared_image_decision_key")) ?? "") || null,
+          automaticImage: data.get(planField(card.key, "automatic_image")) === "true",
           ...(dossier.contextMode === "contexts" ? {
             productionContextId: String(
               data.get(planField(card.key, "context_id"))
@@ -1258,6 +1316,10 @@ export function MesaProductionWorkspaceClient({
           } : {}),
         };
       });
+      const fingerprint = JSON.stringify({ expectedState, outputs });
+      if (saveAttempt.current?.fingerprint !== fingerprint) {
+        saveAttempt.current = { fingerprint, requestId: crypto.randomUUID() };
+      }
       const response = await fetch(WORKSPACE_ROUTE, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -1266,10 +1328,12 @@ export function MesaProductionWorkspaceClient({
           dossierId: dossier.id,
           outputCount: effectiveOutputCount,
           outputs,
+          expectedState,
+          requestId: saveAttempt.current.requestId,
         }),
       });
       const result = await response.json().catch(() => null) as CommandResponse | null;
-      const persistedOutputs = result?.ok ? result.outputs : result?.savedOutputs;
+      const persistedOutputs = result?.ok ? result.outputs : [];
       for (const output of persistedOutputs ?? []) {
         nextSavedPlanIds[output.clientKey] = output.articlePlanId;
       }
@@ -1280,6 +1344,7 @@ export function MesaProductionWorkspaceClient({
         || !result?.ok
         || result.outputCount !== effectiveOutputCount
         || !nextConfirmedClassifications
+        || !result.stateToken
       ) {
         const failedPosition = result?.failedOutput?.priority;
         throw new Error(
@@ -1302,6 +1367,12 @@ export function MesaProductionWorkspaceClient({
         Object.entries(nextSavedPlanIds).filter(([key]) => visibleCardKeys.has(key)),
       ));
       setConfirmedClassifications(nextConfirmedClassifications);
+      setSavedImageConfirmations(Object.fromEntries(outputs.map(output => [output.clientKey, {
+        value: output.imageChoice.mode === "dossier_image" ? `dossier_image:${output.imageChoice.dossierImageId}` : output.imageChoice.mode,
+        decisionKey: output.preparedImageDecisionKey,
+        destination: output.destination === "update" ? "update" : "new",
+      }])));
+      setExpectedState(result.stateToken);
       setPersistedOutputCount(result.outputCount);
       setDirty(false);
       setPackageVersion((current) => current + 1);
@@ -1311,7 +1382,7 @@ export function MesaProductionWorkspaceClient({
       setDirty(true);
       setProductionMessage(
         error instanceof Error
-          ? `${error.message} Os artigos anteriores desta tentativa mantêm-se guardados.`
+          ? error.message
           : "Não foi possível guardar toda a produção.",
       );
     } finally {
@@ -1443,13 +1514,12 @@ export function MesaProductionWorkspaceClient({
               }}
               images={workspaceImages}
               saving={savingProduction}
+              imageChoiceConfirmed={Boolean(card.plan && saveState.confirmedImagePlanIds.includes(card.plan.id))}
+              savedImageConfirmation={savedImageConfirmations[card.key] ?? null}
               continuitySlot={frozenSlots?.find((slot) => slot.outputId === card.key) ?? null}
               assignedClassificationSourceIds={card.assignedClassificationSourceIds}
               classificationSources={classificationSources}
-              onClassificationDecision={() => {
-                setDirty(true);
-                setProductionMessage("");
-              }}
+              onClassificationDecision={markProductionDirty}
             />
           ))}
         </div>

@@ -13,6 +13,7 @@ import {
   parseThemeContinuityFrozenContract,
 } from "@/lib/redacao-automatica/newsroom-theme-continuity-contract";
 import { listRegisteredSources } from "@/lib/redacao-automatica/source-registry";
+import { readProductionSaveState } from "@/lib/redacao-automatica/editorial-dossier-workspace-batch-service";
 import { readMesaNewOutputGrouping } from "@/lib/redacao-automatica/newsroom-mesa-new-output-groups-repository";
 import type { MesaNewOutputGrouping } from "@/lib/redacao-automatica/newsroom-mesa-new-output-groups";
 import {
@@ -50,6 +51,8 @@ export default async function ProductionWorkspacePage({
 }: ProductionWorkspacePageProps) {
   const { dossierId } = await params;
   const query = await searchParams;
+  const saveState = await readProductionSaveState(dossierId).catch(() => null);
+  if (!saveState) return <ReadError message="A confirmação de artigos e imagens está indisponível. O estado guardado foi preservado." />;
   const productionResult = await loadEditorialDossierProduction(dossierId, {
     includeParentTheme: true,
   });
@@ -200,6 +203,11 @@ export default async function ProductionWorkspacePage({
     }),
   } : null;
 
+  const finalSaveState = await readProductionSaveState(dossierId).catch(() => null);
+  if (finalSaveState?.stateToken !== saveState.stateToken) {
+    return <ReadError message="A produção mudou durante a leitura. Recarrega para editar o estado atual." />;
+  }
+
   return (
     <main className={styles.shell}>
       <div className={styles.container}>
@@ -236,6 +244,8 @@ export default async function ProductionWorkspacePage({
           </p>
         ) : null}
         <MesaProductionWorkspaceClient
+          key={dossier.id}
+          saveState={saveState}
           dossier={{
             id: dossier.id,
             articleKind: dossier.articleKind,

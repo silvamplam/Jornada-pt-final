@@ -153,12 +153,28 @@ test("batch validates every frozen slot before opening a write session",async()=
   let writes=0;
   const save=saveEditorialDossierWorkspaceBatchService({
     loadProduction:async()=>({ok:true,value:workspace()}),
-    openArticlePlanSession:async()=>{writes++;throw new Error("must not write");},
-    saveProductionState:async()=>{writes++;throw new Error("must not write");},
-    synchronizeOutputs:async()=>{writes++;throw new Error("must not write");},
+    saveAtomic:async()=>{writes++;throw new Error("must not write");},
   });
-  const result=await save({dossierId:plan.dossierId,outputCount:2,outputs:[output(0),{...output(1),articlePlanId:null}]});
+  const result=await save({dossierId:plan.dossierId,outputCount:2,expectedState:"a".repeat(64),requestId:plan.dossierId,outputs:[output(0),{...output(1),articlePlanId:null}]});
   assert.equal(result.ok,false);assert.equal(writes,0);
+});
+test("atomic image scope comes from each frozen output, never the technical context pool",async()=>{
+  const focused={...plan,outputs:plan.outputs.map(o=>o.kind!=="new" ? o : ({...o,focusSourceIds: o.focusSourceIds ??
+    plan.contexts.find(c=>c.productionContextId===o.productionContextId)!.sources.slice(0,1).map(s=>s.newsroomArticleId)}))};
+  assert.ok(parseMesaProductionIntents(focused));
+  const production=workspace();
+  const save=saveEditorialDossierWorkspaceBatchService({
+    loadProduction:async()=>({ok:true,value:{...production,workspace:{...production.workspace,
+      mesaContext:{...production.workspace.mesaContext!,selectionPayload:{productionIntents:focused}}}}}),
+    async saveAtomic(input,outputs){
+      assert.deepEqual(outputs.map(o=>o.imageSourceIds),focused.outputs.map(o=>o.focusSourceIds ?? []));
+      return {dossierId:plan.dossierId,outputCount:outputs.length,stateToken:"b".repeat(64),outputs:outputs.map(o=>({
+        clientKey:o.clientKey,priority:o.priority,articlePlanId:o.articlePlanId!,created:false,materialized:false}))};
+    },
+  });
+  const result=await save({dossierId:plan.dossierId,outputCount:plan.outputs.length,expectedState:"a".repeat(64),
+    requestId:plan.dossierId,outputs:plan.outputs.map((_,i)=>output(i))});
+  assert.equal(result.ok,true);
 });
 test("receipt reader rejects another Theme or a NEW disguised as an existing review",()=>{
   const c=plan.contexts[theme],o=plan.outputs[0];

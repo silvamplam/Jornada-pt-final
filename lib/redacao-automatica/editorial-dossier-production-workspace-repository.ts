@@ -80,6 +80,7 @@ type DossierImageRow = {
   dossier_id: string;
   origin_kind: string;
   frozen_url: string;
+  source_url: string | null;
   newsroom_article_id: string | null;
   editorial_article_id: string | null;
   storage_bucket: string | null;
@@ -131,6 +132,7 @@ type EditorialDossierImageBase = Readonly<{
   id: string;
   dossierId: string;
   frozenUrl: string;
+  sourceUrl?: string | null;
   createdAt: string;
 }>;
 
@@ -260,6 +262,7 @@ function dossierImage(row: DossierImageRow): EditorialDossierImage | null {
     id: row.id,
     dossierId: row.dossier_id,
     frozenUrl: row.frozen_url,
+    sourceUrl: row.source_url ?? null,
     createdAt: row.created_at,
   };
 
@@ -363,7 +366,7 @@ export async function getEditorialDossierProductionWorkspace(
       ) : Promise.resolve([]),
       includeImages ? readAllRows<DossierImageRow>(
         "newsroom_editorial_dossier_images"
-        + "?select=id,dossier_id,origin_kind,frozen_url,newsroom_article_id,editorial_article_id,storage_bucket,storage_path,file_name,created_at"
+        + "?select=id,dossier_id,origin_kind,frozen_url,source_url,newsroom_article_id,editorial_article_id,storage_bucket,storage_path,file_name,created_at"
         + `&dossier_id=eq.${encodeURIComponent(dossierId)}`
         + "&order=created_at.asc,id.asc",
       ) : Promise.resolve([]),
