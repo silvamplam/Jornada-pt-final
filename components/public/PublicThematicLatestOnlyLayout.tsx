@@ -19,6 +19,8 @@ const styles = `
 
   .public-thematic-latest-only-layout
     > .public-matchday-news {
+    grid-template-rows: max-content max-content minmax(0, 1fr);
+    row-gap: 0;
     min-height: 0;
     padding: 0;
     border: 0;
@@ -94,6 +96,7 @@ export default async function PublicThematicLatestOnlyLayout({
         <style>{styles}</style>
 
         <PublicLatestNewsBlock
+          sectionFlow
           items={visibleItems}
           title={title}
           titleColor={titleColor}

@@ -161,6 +161,7 @@ function HierarchicalZoneRenderer({
   return (
     <section
       className="public-flexible-zone"
+      data-public-editorial-flow={publicTitle ? "single" : undefined}
       aria-label={ariaLabel}
       data-public-flexible-zone={zoneKey}
       data-public-visual-family={visualFamily}
@@ -168,7 +169,7 @@ function HierarchicalZoneRenderer({
       <style>{styles}</style>
 
       {publicTitle ? (
-        <h2 className="public-flexible-zone-heading">
+        <h2 className="public-flexible-zone-heading" data-public-editorial-heading>
           {publicTitle}
         </h2>
       ) : null}
@@ -198,6 +199,7 @@ function SecondaryNewsZoneRenderer({
   return (
     <div
       className="public-flexible-zone"
+      data-public-editorial-flow={!hasItems && publicTitle ? "single" : undefined}
       data-public-flexible-zone={zoneKey}
       data-public-visual-family={visualFamily}
     >
@@ -224,7 +226,7 @@ function SecondaryNewsZoneRenderer({
           })}
         />
       ) : publicTitle ? (
-        <h2 className="public-flexible-zone-heading">
+        <h2 className="public-flexible-zone-heading" data-public-editorial-heading>
           {publicTitle}
         </h2>
       ) : null}
@@ -242,6 +244,7 @@ function FourNewsZoneRenderer({
   return (
     <section
       className="public-flexible-zone"
+      data-public-editorial-flow={publicTitle ? "single" : undefined}
       aria-label={ariaLabel}
       data-public-flexible-zone={zoneKey}
       data-public-visual-family={visualFamily}
@@ -249,7 +252,7 @@ function FourNewsZoneRenderer({
       <style>{styles}</style>
 
       {publicTitle ? (
-        <h2 className="public-flexible-zone-heading">
+        <h2 className="public-flexible-zone-heading" data-public-editorial-heading>
           {publicTitle}
         </h2>
       ) : null}
@@ -308,12 +311,31 @@ function assertPublicFlexibleZoneSlots(
   return definition;
 }
 
+// Shared header rows reuse each family's existing heading typography.
+export function PublicFlexibleZoneHeading({ zone }: { zone: PublicFlexibleZone }) {
+  const title = zone.publicTitle.trim();
+  if (!title) return null;
+  const renderer = editorialVisualFamilyDefinition(zone.visualFamily)?.rendererKey;
+  if (renderer === "secondary_news") {
+    return <header className="public-beyond-matchday-header"><h2>{title}</h2></header>;
+  }
+  const className = renderer === "six_news_tiered"
+    ? "public-six-news-tiered-heading"
+    : renderer === "five_news_column"
+      ? "public-five-news-column-heading"
+      : "public-flexible-zone-heading";
+  return <h2 className={className}
+    style={renderer === "five_news_column" && zone.publicTitleColor ? { color: zone.publicTitleColor } : undefined}>{title}</h2>;
+}
+
 export function PublicFlexibleZoneContent({
   zone,
   matchdayNumber,
+  showTitle = true,
 }: Readonly<{
   zone: PublicFlexibleZone;
   matchdayNumber: number;
+  showTitle?: boolean;
 }>) {
   const definition =
     assertPublicFlexibleZoneSlots(zone);
@@ -331,7 +353,7 @@ export function PublicFlexibleZoneContent({
     <Renderer
       ariaLabel={publicTitle || "Bloco editorial"}
       matchdayNumber={matchdayNumber}
-      publicTitle={publicTitle}
+      publicTitle={showTitle ? publicTitle : ""}
       publicTitleColor={zone.publicTitleColor}
       slots={zone.slots}
       visualFamily={zone.visualFamily}

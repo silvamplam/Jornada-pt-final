@@ -338,10 +338,11 @@ export default function PublicBeyondMatchdayNews({
       className="public-beyond-matchday"
       aria-label={ariaLabel}
       data-owns-section-boundary={ownsSectionBoundary}
+      data-public-editorial-flow={!ownsSectionBoundary && showHeader ? "single" : undefined}
     >
       <style>{styles}</style>
       {showHeader ? (
-        <header className="public-beyond-matchday-header">
+        <header className="public-beyond-matchday-header" data-public-editorial-heading>
           {visibleHeading ? <h2>{visibleHeading}</h2> : null}
           {visibleContextLabel ? <p>{visibleContextLabel}</p> : null}
         </header>

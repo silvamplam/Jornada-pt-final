@@ -170,9 +170,10 @@ export default function PublicSixNewsTiered({
 
   return (
     <section className="public-six-news-tiered" aria-label={ariaLabel}
+      data-public-editorial-flow={publicTitle ? "single" : undefined}
       data-public-flexible-zone={zoneKey} data-public-visual-family={visualFamily}>
       <style>{styles}</style>
-      {publicTitle ? <h2 className="public-six-news-tiered-heading">{publicTitle}</h2> : null}
+      {publicTitle ? <h2 className="public-six-news-tiered-heading" data-public-editorial-heading>{publicTitle}</h2> : null}
       {tiers.filter((tier) => tier.slots.some((slot) => slot.item)).map((tier) => (
         <div className="public-six-news-tiered-row" data-editorial-tier={tier.key} key={tier.key}>
           {tier.slots.map((slot) => slot.item ? (

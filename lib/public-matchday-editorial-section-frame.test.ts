@@ -3,6 +3,13 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 import { runInNewContext } from "node:vm";
 import ts from "typescript";
+import React from "react";
+import * as jsxRuntime from "react/jsx-runtime";
+import { renderToStaticMarkup } from "react-dom/server";
+import { load } from "cheerio";
+import { createPublicFlexibleZone, PublicFlexibleZoneContent, PublicFlexibleZoneHeading } from "../components/public/PublicFlexibleZoneRenderers";
+
+Object.assign(globalThis, { React });
 
 function source(relativePath: string) {
   return readFileSync(relativePath, "utf8");
@@ -107,7 +114,7 @@ test("o frame é o único proprietário da transição, entrada e separador", ()
   assert.match(frame, /padding-top: var\(--public-editorial-section-entry\)/);
   assert.match(
     frameStyles,
-    /\.frame::before \{[\s\S]*?height: 1px;[\s\S]*?linear-gradient/,
+    /\[data-public-editorial-flow\]::before \{[\s\S]*?height: 1px;[\s\S]*?linear-gradient/,
   );
   assert.doesNotMatch(frameStyles, /\.frame::after|border-(?:top|bottom)/);
   assert.doesNotMatch(
@@ -269,119 +276,160 @@ test("a integração de vídeo não introduz ordem, antecessor, família nem J04
   assert.doesNotMatch(frameStyles, /nth-child|first-child|last-child/);
 });
 
-// Execute the component's real layout effect against controlled rectangles.
-// Browser verification separately covers CSS layout and ResizeObserver delivery.
-function mountFrameGeometry(authority: string | null, heights: number[], tops = heights.map(() => 0)) {
-  const makeStyle = () => {
-    const values = new Map<string, string>();
-    return {
-      getPropertyValue: (name: string) => values.get(name) ?? "",
-      getPropertyPriority: () => "",
-      setProperty: (name: string, value: string) => { values.set(name, value); },
-      removeProperty: (name: string) => { values.delete(name); },
-    };
-  };
-  let cleanup: (() => void) | undefined;
-  let resize = () => {};
-  const frame = {
-    style: makeStyle(),
-    querySelectorAll: (): object[] => headings,
-    closest: () => authority === "editorial_snapshot" ? {} : null,
-    getBoundingClientRect: () => ({ top: 0 }),
-  };
-  const latest = { style: makeStyle() };
-  const headings = heights.map((height, index) => {
-    const style = makeStyle();
-    const defaultMargin = index === 0 ? 16 : 0;
-    const intrinsicGap = index === 0 ? 0 : 12;
-    return {
-      style, defaultMargin, textContent: `Title ${index}`,
-      getClientRects: () => [true],
-      getBoundingClientRect: () => ({ top: tops[index], bottom: tops[index] + height }),
-      closest: (selector: string): object | null => selector === "[data-public-editorial-section-frame]"
-        ? frame : selector === "[data-public-latest-news]" && index === 1 ? latest : null,
-      nextElementSibling: {
-        matches: () => false,
-        getBoundingClientRect: () => ({
-          top: tops[index] + height + intrinsicGap +
-            Number.parseFloat(style.getPropertyValue("margin-bottom") || String(defaultMargin)),
-        }),
-      },
-    };
-  });
-  const exports: { default?: (props: object) => unknown } = {};
-  runInNewContext(ts.transpileModule(frameComponent, {
-    compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX, esModuleInterop: true },
+// Run the real component without window/document: SSR must own the boundary.
+function evaluateComponent(code: string, dependencies: Record<string, unknown>, globals = {}) {
+  const exports: Record<string, (...args: any[]) => any> = {};
+  runInNewContext(ts.transpileModule(code, {
+    compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX },
   }).outputText, {
     exports,
-    require: (name: string) => name === "react" ? {
-      useRef: () => ({ current: frame }),
-      useLayoutEffect: (effect: () => () => void) => { cleanup = effect(); },
-    } : name === "react/jsx-runtime" ? { jsx: () => null } : { frame: "frame" },
-    getComputedStyle: (element: object, pseudo?: string) => ({
-      height: pseudo ? "1px" : "0px",
-      marginBottom: headings.find((title) => title === element)?.style.getPropertyValue("margin-bottom") ||
-        String(headings.find((title) => title === element)?.defaultMargin ?? 0),
-      getPropertyValue: (name: string) => name === "--public-editorial-section-title-rule-gap" ? "12px" : "24px",
-    }),
-    ResizeObserver: class {
-      constructor(callback: () => void) { resize = callback; }
-      observe() {}
-      disconnect() {}
+    require: (id: string) => {
+      if (id === "react/jsx-runtime") return jsxRuntime;
+      if (id in dependencies) return dependencies[id];
+      throw new Error("Unexpected dependency: " + id);
     },
-    window: { addEventListener() {}, removeEventListener() {} },
+    ...globals,
   });
-  exports.default!({ kind: "latest", children: null });
-  return {
-    headings, latest, tops,
-    ruleTop: () => Number.parseFloat(frame.style.getPropertyValue("--public-editorial-section-rule-top")),
-    contentTops: () => headings.map((title) => title.nextElementSibling.getBoundingClientRect().top),
-    resize: () => resize(),
-    cleanup: () => cleanup?.(),
-  };
+  return exports;
 }
 
-test("Viva deixa 12/24px abaixo do título mais alto sem sobrepor conteúdo", () => {
-  for (const heights of [[18, 61.6], [61.6, 18], [18, 39.6, 61.6]]) {
-    const geometry = mountFrameGeometry("editorial_snapshot", heights);
-    const bottom = Math.max(...heights);
-    assert.equal(geometry.ruleTop(), bottom + 12);
-    assert.ok(geometry.contentTops().every((top) => Math.abs(top - bottom - 37) < 0.001));
-    geometry.resize();
-    geometry.resize();
-    assert.ok(geometry.contentTops().every((top) => Math.abs(top - bottom - 37) < 0.001));
-    geometry.cleanup();
-    assert.ok(geometry.headings.every((title) => title.style.getPropertyValue("margin-bottom") === ""));
+test("frame SSR emite a mesma fronteira sem browser, efeitos ou medição", () => {
+  const Frame = evaluateComponent(frameComponent, {
+    "./PublicMatchdayEditorialSectionFrame.module.css": { default: { frame: "frame" } },
+  }).default;
+  for (const kind of ["zone", "latest", "video", "faixa"]) {
+    const html = renderToStaticMarkup(React.createElement(Frame, { kind, children: "Conteúdo" }));
+    const $ = load(html);
+    assert.equal($("[data-public-editorial-section-frame]").attr("data-public-editorial-section-frame"), kind);
+    assert.equal($("[data-public-editorial-section-frame]").text(), "Conteúdo");
+    assert.equal($("[style]").length, 0);
   }
+  assert.doesNotMatch(frameComponent, /use client|useLayoutEffect|useEffect|ResizeObserver|getBoundingClientRect|setProperty/);
+  assert.doesNotMatch(frameComponent + frameStyles, /public-editorial-section-rule-top|public-latest-header-reserve/);
 });
 
-test("Viva conserva baseline e reserva de Últimas quando cabeçalhos não colidem", () => {
-  const live = mountFrameGeometry("editorial_snapshot", [18, 15.4]);
-  const before = mountFrameGeometry(null, [18, 15.4]);
-  assert.equal(live.ruleTop(), before.ruleTop());
-  assert.deepEqual(live.contentTops(), before.contentTops());
-  assert.equal(live.latest.style.getPropertyValue("--public-latest-header-reserve"),
-    before.latest.style.getPropertyValue("--public-latest-header-reserve"));
+test("separador ocupa a segunda linha em fluxo e reserva 12/1/24 no CSS inicial", () => {
+  const rule = cssRule(frameStyles, ".frame [data-public-editorial-flow]::before");
+  assert.match(rule, /grid-row: 2/);
+  assert.match(rule, /grid-column: 1 \/ -1/);
+  assert.match(rule, /height: 1px/);
+  assert.match(rule, /margin-top: calc\(var\(--public-editorial-section-title-rule-gap\)/);
+  assert.match(rule, /margin-bottom: calc\(var\(--public-editorial-section-rule-content-gap\)/);
+  assert.match(frameStyles, /--public-editorial-section-title-rule-gap: 12px/);
+  assert.match(frameStyles, /--public-editorial-section-rule-content-gap: 24px/);
+  assert.doesNotMatch(frameStyles, /position: absolute|\btop: 5px/);
+  assert.match(cssRule(frameStyles, '.frame [data-public-editorial-flow="single"]'), /display: grid/);
+  assert.match(cssRule(frameStyles, ".frame [data-public-editorial-flow] > [data-public-editorial-heading]"), /grid-row: 1/);
 });
 
-test("títulos que passam a outra linha deixam de participar na divisória comum", () => {
-  const geometry = mountFrameGeometry("editorial_snapshot", [18, 61.6]);
-  geometry.tops[1] = 200;
-  geometry.resize();
-  assert.equal(geometry.ruleTop(), 30);
-  assert.equal(geometry.contentTops()[0], 55);
-  assert.equal(geometry.headings[1].style.getPropertyValue("margin-bottom"), "");
-  assert.equal(geometry.latest.style.getPropertyValue("--public-latest-header-reserve"), "");
-  geometry.tops[1] = 0;
-  geometry.resize();
-  assert.deepEqual(geometry.contentTops(), [98.6, 98.6]);
+test("cabeçalhos partilham altura natural e publicidade não expande a linha de títulos", () => {
+  const companion = source("components/public/PublicLatestCompanionLayout.tsx");
+  assert.match(companion, /grid-template-rows: max-content max-content minmax\(0, 1fr\)/);
+  assert.match(companion, /grid-template-rows: subgrid/);
+  assert.match(companion, /public-latest-companion-content \{ grid-row: 3/);
+  assert.match(companion, /<PublicFlexibleZoneHeading zone=\{zone\}/);
+  assert.match(companion, /showTitle=\{false\}/);
+  const heading = cssRule(companion, ".public-latest-companion-heading > :is(h2, header)");
+  assert.doesNotMatch(heading, /height|clamp|line-clamp/);
+  assert.match(companion, /@media \(max-width: 1100px\)[\s\S]*?public-latest-companion-grid::before \{ display: none/);
+  assert.match(companion, /public-latest-companion-zone" data-public-editorial-flow="single"/);
 });
 
-test("Histórica e frames sem autoridade Viva mantêm cálculo anterior", () => {
-  for (const authority of [null, "published_reference_composition"]) {
-    const geometry = mountFrameGeometry(authority, [18, 61.6]);
-    assert.equal(geometry.ruleTop(), 30);
-    assert.deepEqual(geometry.contentTops(), [55, 55]);
+test("cinco colunas sem título global partilham só os cabeçalhos da primeira linha responsive", () => {
+  const columns = source("components/public/PublicEditorialColumnRunLayout.tsx");
+  const Component = evaluateComponent(columns, {
+    "./PublicMatchdayEditorialSectionFrame": { default: ({ children }: { children: React.ReactNode }) => children },
+    "./PublicFlexibleZoneRenderers": { PublicFlexibleZoneContent: ({ zone }: { zone: { key: string; publicTitle: string } }) =>
+      React.createElement("section", { "data-column": zone.key },
+        React.createElement("h2", null, zone.publicTitle), React.createElement("article", null, "Artigo")) },
+  }).default;
+  const zones = Array.from({ length: 5 }, (_, i) => ({ key: String(i), publicTitle: "Título ".repeat(i + 1), slots: [{ item: {} }] }));
+  for (const publicTitle of [undefined, "Histórias"]) {
+    const $ = load(renderToStaticMarkup(React.createElement(Component, { zones, publicTitle, matchdayNumber: 7 })));
+    assert.equal($("[data-public-editorial-flow]").length, 1);
+    assert.equal($("[data-public-editorial-flow]").attr("data-public-editorial-flow"), publicTitle ? "single" : "shared");
+    assert.equal($("[data-column]").length, 5);
+    assert.equal($("article").length, 5);
+    assert.equal($(".public-column-group-heading").length, publicTitle ? 1 : 0);
   }
-  assert.match(page, /data-public-editorial-authority=\{publicEditorialAuthority\}/);
+  assert.match(columns, /@media \(min-width: 1101px\)[\s\S]*?nth-of-type\(-n \+ 5\)/);
+  assert.match(columns, /@media \(min-width: 681px\) and \(max-width: 1100px\)[\s\S]*?nth-of-type\(-n \+ 3\)/);
+  assert.match(columns, /@media \(max-width: 680px\)[\s\S]*?first-of-type/);
+  assert.match(columns, /grid-template-rows: subgrid/);
+  assert.match(columns, /gap: 40px 36px/);
+  assert.doesNotMatch(columns, /getBoundingClientRect|ResizeObserver/);
+});
+
+test("Últimas recorta apenas itens completos sem escrever nem medir a geometria exterior", () => {
+  let resize = () => {};
+  let collapsed = false;
+  let limit = 700;
+  let effect: (() => (() => void) | undefined) | undefined;
+  const writes: string[] = [];
+  const items = Array.from({ length: 10 }, (_, i) => ({
+    style: { display: "", removeProperty() { this.display = ""; } },
+    getBoundingClientRect: () => ({ bottom: (i + 1) * 100 }),
+  }));
+  const list = { getBoundingClientRect: () => ({ bottom: limit }), querySelectorAll: () => items };
+  const boundary = { getBoundingClientRect: () => { throw new Error("Exterior must not be measured"); } };
+  const root = {
+    style: new Proxy({ removeProperty(name: string) { writes.push(name); } }, {
+      set: (_, key) => { writes.push(String(key)); return true; },
+    }),
+    getBoundingClientRect: () => { throw new Error("Exterior must not be measured"); },
+    closest: () => ({ querySelector: () => boundary }),
+    querySelector: () => list,
+  };
+  const Latest = evaluateComponent(source("components/public/PublicLatestNewsBlock.tsx"), {
+    react: { useRef: () => ({ current: root }), useEffect: (fn: typeof effect) => { effect = fn; } },
+    "./PublicEditorialImage": { default: () => null },
+    "@/lib/editorial-image-framing": { editorialImageFramingProps: () => ({}) },
+  }, {
+    ResizeObserver: class { constructor(fn: () => void) { resize = fn; } observe() {} disconnect() {} },
+    window: {
+      matchMedia: () => ({ matches: collapsed }),
+      requestAnimationFrame: (fn: () => void) => { fn(); return 1; },
+      cancelAnimationFrame() {}, addEventListener() {}, removeEventListener() {},
+    },
+  }).default;
+  Latest({ items: [], title: "Últimas", constrainToCompanionZone: true });
+  const cleanup = effect?.();
+  assert.equal(items.filter(i => i.style.display !== "none").length, 7);
+  limit = 800;
+  resize();
+  assert.equal(items.filter(i => i.style.display !== "none").length, 8);
+  limit = 750;
+  resize();
+  assert.equal(items.filter(i => i.style.display !== "none").length, 7);
+  collapsed = true;
+  resize();
+  assert.equal(items.filter(i => i.style.display !== "none").length, 10);
+  cleanup?.();
+  assert.deepEqual(writes, []);
+  const companion = source("components/public/PublicLatestCompanionLayout.tsx");
+  assert.match(cssRule(companion, ".public-latest-companion-news .public-news-list"), /contain: size/);
+});
+
+test("separar o cabeçalho preserva título, tipografia declarada e cartões de todas as famílias anfitriãs", () => {
+  for (const [visualFamily, count] of [
+    ["four_news", 4], ["six_news", 6], ["six_news_1_2_3", 6],
+    ["five_news_balanced", 5], ["five_news_secondary", 5],
+  ] as const) {
+    const zone = createPublicFlexibleZone({
+      key: visualFamily, publicTitle: "Título público", visualFamily,
+      items: Array.from({ length: count }, (_, i) => ({
+        id: String(i), sourceId: String(i), sortOrder: i + 1,
+        label: "Contexto", title: "Notícia " + i, subtitle: "Pós-título",
+        imageUrl: "/imagem.jpg", linkUrl: "/noticias/" + i, publishedAt: null,
+      })),
+    });
+    const before = load(renderToStaticMarkup(React.createElement(PublicFlexibleZoneContent, { zone, matchdayNumber: 7 })));
+    const after = load(renderToStaticMarkup(React.createElement(React.Fragment, null,
+      React.createElement(PublicFlexibleZoneHeading, { zone }),
+      React.createElement(PublicFlexibleZoneContent, { zone, matchdayNumber: 7, showTitle: false }))));
+    assert.equal(after("h2").text(), before("h2").text(), visualFamily);
+    assert.equal(after("h2").attr("class"), before("h2").attr("class"), visualFamily);
+    assert.deepEqual(after("article").map((_, e) => after.html(e)).get(),
+      before("article").map((_, e) => before.html(e)).get(), visualFamily);
+  }
 });
