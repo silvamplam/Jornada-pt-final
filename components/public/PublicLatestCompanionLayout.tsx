@@ -63,6 +63,14 @@ const styles = `
     align-self: start;
   }
 
+  .public-latest-companion-news-slot {
+    display: contents;
+  }
+
+  .public-latest-companion-size {
+    display: none;
+  }
+
   .public-latest-companion-news {
     min-width: 0;
     padding-left: 16px;
@@ -182,6 +190,55 @@ const styles = `
     }
   }
 
+  /* Reserve the companion's actual height before hydration in the stacked layout.
+     The feed cannot size this reservation; a taller ad keeps its own row height. */
+  @media (min-width: 761px) and (max-width: 1100px) {
+    .public-latest-companion-news-slot {
+      display: grid;
+      grid-column: 1 / -1;
+      grid-row: 2;
+      grid-template-columns: subgrid;
+      align-self: start;
+      min-width: 0;
+    }
+
+    .public-latest-companion-size {
+      display: block;
+      grid-column: 1 / -1;
+      grid-row: 1;
+      visibility: hidden;
+      pointer-events: none;
+      padding-top: 18px;
+      border-top: 1px solid transparent;
+    }
+
+    .public-latest-companion-news {
+      display: grid;
+      grid-column: 1;
+      grid-row: 1;
+      grid-template-rows: minmax(0, 1fr);
+      align-self: stretch;
+      min-height: 0;
+      contain: size;
+    }
+
+    .public-latest-companion-news > .public-matchday-news {
+      grid-area: 1 / 1;
+      min-height: 0;
+      overflow: hidden;
+    }
+
+    .public-latest-companion-news .public-news-list {
+      contain: size;
+      overflow: hidden;
+    }
+
+    .public-latest-companion-grid[data-has-latest="true"] > .public-latest-companion-ad {
+      grid-column: 2;
+      grid-row: 2;
+    }
+  }
+
   @media (max-width: 680px) {
     .public-latest-companion-grid,
     .public-latest-companion-grid:not(:has(.public-latest-companion-ad-slot)),
@@ -216,6 +273,21 @@ export default async function PublicLatestCompanionLayout({
     className: "public-latest-companion-ad-slot",
   });
 
+  const companionZone = (
+    <div className="public-latest-companion-zone" data-public-editorial-flow="single">
+      <div className="public-latest-companion-heading" data-public-editorial-heading>
+        <PublicFlexibleZoneHeading zone={zone} />
+      </div>
+      <div className="public-latest-companion-content">
+        <PublicFlexibleZoneContent
+          zone={zone}
+          matchdayNumber={matchdayNumber}
+          showTitle={false}
+        />
+      </div>
+    </div>
+  );
+
   return (
     <PublicMatchdayEditorialSectionFrame kind="latest">
       <section
@@ -229,27 +301,21 @@ export default async function PublicLatestCompanionLayout({
           data-public-editorial-flow="shared"
           data-has-latest={visibleLatestNews.length > 0}
         >
-          <div className="public-latest-companion-zone" data-public-editorial-flow="single">
-            <div className="public-latest-companion-heading" data-public-editorial-heading>
-              <PublicFlexibleZoneHeading zone={zone} />
-            </div>
-            <div className="public-latest-companion-content">
-              <PublicFlexibleZoneContent
-                zone={zone}
-                matchdayNumber={matchdayNumber}
-                showTitle={false}
-              />
-            </div>
-          </div>
+          {companionZone}
 
           {visibleLatestNews.length > 0 ? (
-            <div className="public-latest-companion-news">
-              <PublicLatestNewsBlock
-                items={visibleLatestNews}
-                title={latestNewsTitle}
-                titleColor={latestNewsTitleColor}
-                constrainToCompanionZone
-              />
+            <div className="public-latest-companion-news-slot">
+              <div className="public-latest-companion-size" aria-hidden="true" inert>
+                {companionZone}
+              </div>
+              <div className="public-latest-companion-news">
+                <PublicLatestNewsBlock
+                  items={visibleLatestNews}
+                  title={latestNewsTitle}
+                  titleColor={latestNewsTitleColor}
+                  constrainToCompanionZone
+                />
+              </div>
             </div>
           ) : null}
 
