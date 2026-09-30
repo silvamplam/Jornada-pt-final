@@ -183,7 +183,6 @@ async function readPublicHistoricalDynamicZones(
 
     const complete =
       row.sort_order === zoneIndex + 1
-      && Boolean(row.public_title.trim())
       && editorialVisualFamilyPublicationPositionsAreValid(row.visual_family, positions)
       && sourceItems.every(
         (item) =>
@@ -4198,6 +4197,15 @@ export default async function PublicMatchdayPage({ params, searchParams }: Publi
               }
               zone1Title={context.referenceComposition?.hierarchical_zone_1_title}
               zone2Title={context.referenceComposition?.hierarchical_zone_2_title}
+              wrapLegacySection={
+                useHistoricalDynamicZones
+                  ? undefined
+                  : (children, key) => (
+                    <PublicMatchdayEditorialSectionFrame kind="zone" key={`historical-legacy-${key}`}>
+                      {children}
+                    </PublicMatchdayEditorialSectionFrame>
+                  )
+              }
               wrapVideoSection={
                 useHistoricalDynamicZones
                   ? undefined
