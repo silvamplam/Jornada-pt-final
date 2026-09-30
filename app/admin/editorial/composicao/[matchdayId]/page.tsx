@@ -4268,7 +4268,6 @@ export default async function AdminEditorialCompositionPage({ params, searchPara
 
         const complete =
           zone.sortOrder === zoneIndex + 1
-          && Boolean(zone.publicTitle.trim())
           && editorialVisualFamilyPublicationPositionsAreValid(zone.visualFamily, items.map((item) => item.position))
           && items.every(
             (item) =>
@@ -4282,7 +4281,7 @@ export default async function AdminEditorialCompositionPage({ params, searchPara
         return complete
           ? []
           : [
-              `${zone.publicTitle.trim() || `Zona editorial ${zoneIndex + 1}`} — incompleta: são obrigatórios título, ordem e ${capacity} notícias válidas.`,
+              `${zone.publicTitle.trim() || `Zona editorial ${zoneIndex + 1}`} — incompleta: são obrigatórios ordem e ${capacity} notícias válidas.`,
             ];
       });
 

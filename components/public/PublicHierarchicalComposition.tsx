@@ -37,12 +37,13 @@ type PublicHierarchicalCompositionProps = {
   showEmptySlots?: boolean;
   allowPartialSlots?: boolean;
   ariaLabel?: string;
+  wrapLegacySection?: (children: ReactNode, key: string) => ReactNode;
   wrapVideoSection?: (children: ReactNode, key: string) => ReactNode;
 };
 
 export type PublicHierarchicalPosteriorMomentsProps = Pick<
   PublicHierarchicalCompositionProps,
-  "roundupItems" | "roundupHeading" | "roundupHeadingColor" | "matchdayNumber" | "videoHighlight" | "beyondMatchdayItems"
+  "roundupItems" | "roundupHeading" | "roundupHeadingColor" | "matchdayNumber" | "videoHighlight" | "beyondMatchdayItems" | "wrapLegacySection"
 > & {
   includeV13PreviewStructure?: boolean;
   ownsSectionBoundary?: boolean;
@@ -463,11 +464,28 @@ const hierarchicalCompositionStyles = `
     line-clamp: 3;
   }
 
-  .composition-interpretive-section {
+  .composition-interpretive-section,
+  .composition-interpretive-preview > [data-public-editorial-section-frame="zone"] {
     position: relative;
     min-width: 0;
     padding-top: 32px;
     border-top: 0;
+  }
+
+  .composition-interpretive-preview > [data-public-editorial-section-frame="zone"],
+  .public-hierarchical-posterior-moments > [data-public-editorial-section-frame="zone"] {
+    margin-top: 0;
+  }
+
+  .composition-interpretive-section[data-owns-section-boundary="false"],
+  .public-hierarchical-posterior-moments > [data-public-editorial-section-frame="zone"] {
+    padding-top: 0;
+  }
+
+  .public-hierarchical-composition [data-public-editorial-section-frame="zone"] .public-beyond-matchday-header {
+    padding: 0;
+    border: 0;
+    background: transparent;
   }
 
   .composition-interpretive-preview > .composition-interpretive-section::before,
@@ -915,7 +933,8 @@ const hierarchicalCompositionStyles = `
       --composition-interpretive-preview-gap: 50px;
     }
 
-    .composition-interpretive-section {
+    .composition-interpretive-section,
+    .composition-interpretive-preview > [data-public-editorial-section-frame="zone"] {
       padding-top: 26px;
     }
 
@@ -968,7 +987,8 @@ const hierarchicalCompositionStyles = `
       --composition-interpretive-preview-gap: 38px;
     }
 
-    .composition-interpretive-section {
+    .composition-interpretive-section,
+    .composition-interpretive-preview > [data-public-editorial-section-frame="zone"] {
       padding-top: 22px;
     }
 
@@ -1107,21 +1127,25 @@ function InterpretiveAnalysisSection({
   slotsByKey,
   showEmptySlots,
   heading = "Arbitragem e reações",
+  wrapSection,
 }: {
   slotsByKey: InterpretiveSlotsByKey;
   showEmptySlots: boolean;
   heading?: string | null;
+  wrapSection?: PublicHierarchicalCompositionProps["wrapLegacySection"];
 }) {
   const analysisMainKey = HIERARCHICAL_PUBLIC_INTERPRETIVE_SLOT_MAP.analysis.dominant;
   const analysisMainSlot = slotsByKey.get(analysisMainKey) ?? null;
 
-  return (
+  const section = (
     <section
       className="composition-interpretive-section composition-interpretive-analysis"
+      data-owns-section-boundary={wrapSection ? "false" : undefined}
+      data-public-editorial-flow={wrapSection && heading ? "single" : undefined}
       aria-label={heading ? undefined : "Zona editorial de 6 notícias"}
       aria-labelledby={heading ? "public-interpretive-analysis-title" : undefined}
     >
-      {heading ? <h2 className="composition-interpretive-section-heading" id="public-interpretive-analysis-title">{heading}</h2> : null}
+      {heading ? <h2 className="composition-interpretive-section-heading" data-public-editorial-heading={wrapSection ? true : undefined} id="public-interpretive-analysis-title">{heading}</h2> : null}
       <div className="composition-interpretive-analysis-grid">
         <article className="composition-interpretive-analysis-main" data-editorial-weight="main" data-slot={analysisMainKey}>
           <InterpretiveMedia showEmptySlots={showEmptySlots} slot={analysisMainSlot} slotKey={analysisMainKey} />
@@ -1167,29 +1191,34 @@ function InterpretiveAnalysisSection({
       </div>
     </section>
   );
+  return wrapSection ? wrapSection(section, "zone_1") : section;
 }
 
 function InterpretiveOtherGamesSection({
   slotsByKey,
   showEmptySlots,
   heading = "Outros jogos da jornada",
+  wrapSection,
 }: {
   slotsByKey: InterpretiveSlotsByKey;
   showEmptySlots: boolean;
   heading?: string | null;
+  wrapSection?: PublicHierarchicalCompositionProps["wrapLegacySection"];
 }) {
   const otherFeaturedKey = HIERARCHICAL_PUBLIC_INTERPRETIVE_SLOT_MAP.otherGames.primary;
   const otherFeaturedSlot = slotsByKey.get(otherFeaturedKey) ?? null;
   const otherSecondKey = HIERARCHICAL_PUBLIC_INTERPRETIVE_SLOT_MAP.otherGames.second;
   const otherSecondSlot = slotsByKey.get(otherSecondKey) ?? null;
 
-  return (
+  const section = (
     <section
       className="composition-interpretive-section composition-interpretive-other-games"
+      data-owns-section-boundary={wrapSection ? "false" : undefined}
+      data-public-editorial-flow={wrapSection && heading ? "single" : undefined}
       aria-label={heading ? undefined : "Zona editorial de 5 notícias"}
       aria-labelledby={heading ? "public-interpretive-other-games-title" : undefined}
     >
-      {heading ? <h2 className="composition-interpretive-section-heading" id="public-interpretive-other-games-title">{heading}</h2> : null}
+      {heading ? <h2 className="composition-interpretive-section-heading" data-public-editorial-heading={wrapSection ? true : undefined} id="public-interpretive-other-games-title">{heading}</h2> : null}
       <div className="composition-interpretive-other-games-layout">
         <div className="composition-interpretive-other-left">
           <article className="composition-interpretive-other-featured" data-editorial-weight="featured-primary" data-slot={otherFeaturedKey}>
@@ -1220,6 +1249,7 @@ function InterpretiveOtherGamesSection({
       </div>
     </section>
   );
+  return wrapSection ? wrapSection(section, "zone_2") : section;
 }
 
 export function PublicHierarchicalLiveLayouts({
@@ -1273,9 +1303,18 @@ export function PublicHierarchicalPosteriorMoments({
   beyondMatchdayItems = [],
   includeV13PreviewStructure = false,
   ownsSectionBoundary = true,
+  wrapLegacySection,
   style,
 }: PublicHierarchicalPosteriorMomentsProps) {
   if (roundupItems.length === 0 && beyondMatchdayItems.length === 0) return null;
+
+  const beyondSection = beyondMatchdayItems.length > 0 ? (
+    <PublicBeyondMatchdayNews
+      contextLabel={`ATUALIDADE NO MOMENTO DA JORNADA ${String(matchdayNumber ?? "").padStart(2, "0")}`}
+      items={beyondMatchdayItems}
+      ownsSectionBoundary={!wrapLegacySection}
+    />
+  ) : null;
 
   return (
     <div
@@ -1311,12 +1350,9 @@ export function PublicHierarchicalPosteriorMoments({
           />
         </div>
       ) : null}
-      {beyondMatchdayItems.length > 0 ? (
-        <PublicBeyondMatchdayNews
-          contextLabel={`ATUALIDADE NO MOMENTO DA JORNADA ${String(matchdayNumber ?? "").padStart(2, "0")}`}
-          items={beyondMatchdayItems}
-        />
-      ) : null}
+      {beyondSection && wrapLegacySection
+        ? wrapLegacySection(beyondSection, "beyond")
+        : beyondSection}
     </div>
   );
 }
@@ -1339,6 +1375,7 @@ export default function PublicHierarchicalComposition({
   zone2Title = null,
   showEmptySlots = false,
   ariaLabel = "Composição hierárquica da jornada",
+  wrapLegacySection,
   wrapVideoSection,
 }: PublicHierarchicalCompositionProps) {
   const slotsByKey = new Map(slots.map((slot) => [slot.slot_key, slot] as const));
@@ -1451,6 +1488,7 @@ export default function PublicHierarchicalComposition({
     if (blockKey === "zone_1") {
       return (
         <InterpretiveAnalysisSection
+          wrapSection={wrapLegacySection}
           heading={zone1Title?.trim() || "Arbitragem e Reações"}
           key={blockKey}
           showEmptySlots={showEmptySlots}
@@ -1461,6 +1499,7 @@ export default function PublicHierarchicalComposition({
     if (blockKey === "zone_2") {
       return (
         <InterpretiveOtherGamesSection
+          wrapSection={wrapLegacySection}
           heading={zone2Title?.trim() || "Outros jogos da jornada"}
           key={blockKey}
           showEmptySlots={showEmptySlots}
@@ -1474,6 +1513,7 @@ export default function PublicHierarchicalComposition({
     return (
       <PublicHierarchicalPosteriorMoments
         beyondMatchdayItems={beyondMatchdayItems}
+        wrapLegacySection={wrapLegacySection}
         key={blockKey}
         matchdayNumber={matchdayNumber}
         roundupItems={[]}
@@ -1492,8 +1532,8 @@ export default function PublicHierarchicalComposition({
         {configuredBlocks ?? (
           <>
             {openingBlock}
-            <InterpretiveAnalysisSection showEmptySlots={showEmptySlots} slotsByKey={slotsByKey} />
-            <InterpretiveOtherGamesSection showEmptySlots={showEmptySlots} slotsByKey={slotsByKey} />
+            <InterpretiveAnalysisSection wrapSection={wrapLegacySection} showEmptySlots={showEmptySlots} slotsByKey={slotsByKey} />
+            <InterpretiveOtherGamesSection wrapSection={wrapLegacySection} showEmptySlots={showEmptySlots} slotsByKey={slotsByKey} />
             {wrapVideoSection && hasVideoBlock ? (
               <div
                 className="public-hierarchical-posterior-moments public-hierarchical-framed-video-group"
@@ -1502,6 +1542,7 @@ export default function PublicHierarchicalComposition({
                 {renderVideoBlock("video")}
                 <PublicHierarchicalPosteriorMoments
                   beyondMatchdayItems={beyondMatchdayItems}
+                  wrapLegacySection={wrapLegacySection}
                   matchdayNumber={matchdayNumber}
                   roundupItems={[]}
                   videoHighlight={null}
@@ -1510,6 +1551,7 @@ export default function PublicHierarchicalComposition({
             ) : (
               <PublicHierarchicalPosteriorMoments
                 beyondMatchdayItems={beyondMatchdayItems}
+                wrapLegacySection={wrapLegacySection}
                 matchdayNumber={matchdayNumber}
                 roundupHeading={roundupHeading}
                 roundupHeadingColor={roundupHeadingColor}
