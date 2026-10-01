@@ -1196,8 +1196,11 @@ export default function BatchPreflightClient({
       if (state) next[outputId] = state; else delete next[outputId];
       return next;
     }),
-    prepare: (image, retry) => createBatchImagePreparer({ fetch, storage: window.localStorage,
-      uuid: () => crypto.randomUUID() })(image, retry),
+    prepare: (image, retry) => createBatchImagePreparer({
+      fetch: (input, init) => fetch(input, init),
+      storage: window.localStorage,
+      uuid: () => crypto.randomUUID(),
+    })(image, retry),
   });
   const publicationRequestSequenceRef = useRef(0);
   const latestPublicationFingerprintRef = useRef("");

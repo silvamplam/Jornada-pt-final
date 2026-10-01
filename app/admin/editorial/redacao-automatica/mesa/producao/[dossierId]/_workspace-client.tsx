@@ -1111,6 +1111,13 @@ export function MesaProductionWorkspaceClient({
   const savingProductionRef = useRef(false);
   const [expectedState, setExpectedState] = useState(saveState.stateToken);
   const saveAttempt = useRef<{ fingerprint: string; requestId: string } | null>(null);
+  useEffect(() => {
+    // router.refresh() can replace the Server Component props without remounting
+    // this client workspace. Keep optimistic concurrency aligned with the
+    // authoritative token and never reuse a request id from the previous state.
+    setExpectedState(saveState.stateToken);
+    saveAttempt.current = null;
+  }, [saveState.stateToken]);
   const [productionMessage, setProductionMessage] = useState("");
   const [dirty, setDirty] = useState(false);
   const markProductionDirty = useCallback(() => {

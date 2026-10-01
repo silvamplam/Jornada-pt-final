@@ -21,6 +21,7 @@ const imagePreflightSource = source("lib/redacao-automatica/editorial-batch-imag
 const newsroomSource = source("app/admin/editorial/redacao-automatica/page.tsx");
 const publicationRouteSource = source("app/api/admin/editorial/redacao-automatica/publicacao-lote/route.ts");
 const sourcePackagePageSource = source("app/admin/editorial/redacao-automatica/pacotes/[year]/[month]/[id]/page.tsx");
+const dossierImageConfirmationMigrationSource = source("supabase/migrations/20261001184732_editorial_confirm_dossier_image_security_definer.sql");
 const publicationPanelSource = clientSource.slice(
   clientSource.indexOf("function PublicationPanel"),
   clientSource.indexOf("export default function BatchPreflightClient"),
@@ -81,6 +82,35 @@ test("cada artigo prioriza imagens das fontes congeladas e conserva o banco glob
   assert.match(clientSource, /Não há imagens diretamente ligadas ao ponto de partida deste artigo\./);
   assert.match(clientSource, /"Ver todas as imagens"/);
   assert.match(clientSource, /allowPreservePublished=\{existingOutput\}/);
+  assert.match(
+    clientSource,
+    /fetch: \(input, init\) => fetch\(input, init\)/,
+    "o fetch nativo do browser tem de ser chamado por wrapper para não receber o transport como this",
+  );
+  assert.doesNotMatch(
+    clientSource,
+    /createBatchImagePreparer\(\{\s*fetch,\s*storage:/,
+    "não voltar a passar window.fetch cru para um método do transport",
+  );
+});
+
+test("a confirmação final da imagem tem privilégio estreito sem UPDATE geral da tabela", () => {
+  assert.match(
+    dossierImageConfirmationMigrationSource,
+    /alter function public\.editorial_confirm_dossier_image_v1\(uuid, text\)[\s\S]*?security definer/i,
+  );
+  assert.match(
+    dossierImageConfirmationMigrationSource,
+    /set search_path to ''/i,
+  );
+  assert.match(
+    dossierImageConfirmationMigrationSource,
+    /grant execute on function public\.editorial_confirm_dossier_image_v1\(uuid, text\)[\s\S]*?to service_role/i,
+  );
+  assert.doesNotMatch(
+    dossierImageConfirmationMigrationSource,
+    /grant\s+update\s+on\s+(?:table\s+)?public\.newsroom_editorial_dossier_images/i,
+  );
 });
 
 test("a Publicação em lote preserva o Dossiê até ao sucesso integral", () => {
