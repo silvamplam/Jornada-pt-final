@@ -32,7 +32,7 @@ test("Abertura e Editorial ficam fixos antes do corpo editorial", () => {
   assert.ok(body >= 0);
 });
 
-test("o painel direito usa apenas duas linhas compactas como a Mesa Editorial", () => {
+test("o painel direito mantém as ações compactas e deixa as classificações quebrar linha", () => {
   const modernStyles = client.slice(client.indexOf("/* Mesa histórica modernizada"));
   const toolbarStart = client.indexOf("  const articleToolbar = (");
   const toolbarEnd = client.indexOf("\n\n  const selectionContext", toolbarStart);
@@ -41,8 +41,8 @@ test("o painel direito usa apenas duas linhas compactas como a Mesa Editorial", 
 
   assert.match(modernStyles, /\.hc-desk-toolbar \{[\s\S]*?display: grid;/);
   assert.match(modernStyles, /\.hc-desk-scope \{[\s\S]*?grid-template-columns: repeat\(4,/);
-  assert.match(modernStyles, /\.hc-desk-groups \{[\s\S]*?overflow-x: auto;/);
-  assert.match(modernStyles, /\.hc-desk-filter-row \{[\s\S]*?grid-template-columns: minmax\(0, 1fr\) auto;/);
+  assert.match(modernStyles, /\.hc-desk-groups \{[^}]*flex-wrap: wrap;[^}]*overflow: visible;/);
+  assert.match(modernStyles, /\.hc-desk-filter-row \{\s*display: contents;/);
   assert.match(toolbar, /aria-label="Decisão histórica"[\s\S]*Todos \([\s\S]*Sem decisão \([\s\S]*Bank \([\s\S]*Histórica \(/);
   assert.match(toolbar, /aria-label="Classificação"[\s\S]*setSelectedGroupKey\(group\.key\)/);
   assert.match(toolbar, /candidateSearchOpen \? \([\s\S]*aria-label="Pesquisar artigos"[\s\S]*aria-label="Classificação"/);

@@ -1705,6 +1705,57 @@ const compositionPageStyles = `
       grid-template-columns: 1fr;
     }
   }
+
+  /* Família editorial partilhada com a Mesa Viva; apenas apresentação administrativa. */
+  body { background: #f3f5f6; }
+  .composition-admin-shell { padding: 12px 18px 24px; background: #f3f5f6; color: #17232d; }
+  .composition-admin-shell *, .composition-admin-shell *::before, .composition-admin-shell *::after { box-sizing: border-box; }
+  .composition-admin-hero, .composition-admin-panel, .composition-admin-card { border-color: #d1dbe2; border-radius: 3px; box-shadow: none; }
+  .composition-admin-hero { gap: 12px; align-items: center; padding: 12px 14px; background: #17232d; }
+  .composition-admin-hero p { color: #bdcdd8; font-size: 10px; font-weight: 600; letter-spacing: .06em; }
+  .composition-admin-hero h1 { margin-top: 4px; font-size: 25px; font-weight: 700; }
+  .composition-admin-hero span { margin-top: 5px; color: #bdcdd8; font-size: 12px; }
+  .composition-admin-actions { gap: 4px; }
+  .composition-admin-button { min-height: 30px; padding: 0 9px; border-radius: 3px; font-size: 10px; font-weight: 600; text-transform: none; }
+  .composition-context-selector { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; margin-top: 7px; padding: 8px 0; border: 0; border-bottom: 1px solid #cbd5dc; border-radius: 0; background: transparent; box-shadow: none; }
+  .composition-context-selector > div:first-child { display: none; }
+  .composition-context-selector-form { flex: 1 1 650px; display: flex; gap: 10px; align-items: center; min-width: 0; }
+  .composition-context-selector-field { display: flex; gap: 5px; align-items: center; min-width: 0; }
+  .composition-context-selector-field:last-of-type { flex: 1; }
+  .composition-context-selector-field label { color: #526b7c; font-size: 10px; font-weight: 600; }
+  .composition-context-selector-field select { min-width: 0; min-height: 30px; border-color: #bacbd6; border-radius: 3px; font-size: 12px; }
+  .composition-context-selector-form > button { flex-shrink: 0; border-color: #bacbd6; background: #fff; color: #284d64; }
+  .composition-context-selector > .composition-admin-form { flex: 1 1 100%; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 7px 10px; border: 1px solid #bdcfdb; border-radius: 3px; background: #eaf1f6; }
+  .composition-context-selector > .composition-admin-form .composition-admin-note { margin: 0; color: #405d70; font-size: 12px; }
+  .composition-context-selector > .composition-admin-form .composition-admin-small-button { flex-shrink: 0; min-height: 32px; padding: 0 14px; background: #245575; color: #fff; font-size: 12px; font-weight: 700; text-transform: none; }
+  .composition-admin-layout { gap: 14px; margin-top: 12px; }
+  .composition-admin-panel { padding: 14px; }
+  .composition-admin-panel > header { margin-bottom: 12px; }
+  .composition-admin-panel > header h2 { font-size: 18px; font-weight: 700; }
+  .composition-admin-panel > header p { color: #5b7282; font-size: 12px; }
+  .composition-admin-card > header { padding: 10px 12px; background: #f7f9fa; border-bottom: 1px solid #dbe3e8; }
+  .composition-admin-card > header h3 { color: #2e4b5d; font-size: 14px; font-weight: 700; }
+  .composition-admin-card-body { padding: 12px; }
+  .composition-admin-small-button { min-height: 30px; border-radius: 3px; background: #245575; font-size: 11px; font-weight: 600; }
+  .composition-admin-small-button.secondary { background: #eaf0f4; color: #284d64; }
+  .composition-admin-input { border-radius: 3px; }
+  .composition-admin-note { color: #5d7383; font-size: 12px; line-height: 1.45; }
+  .composition-admin-empty { border-color: #9bb0bf; border-radius: 3px; background: #f7f9fa; color: #5d7383; }
+  .composition-admin-meta { gap: 5px 8px; color: #536d7e; font-size: 10px; font-weight: 600; }
+  .composition-admin-shell :is(.composition-admin-hero, .composition-context-selector, .composition-admin-form) :is(a, button, input, select):focus-visible { outline: 2px solid #245575; outline-offset: 3px; }
+  .composition-admin-hero a:focus-visible { outline-color: #fff; }
+  @media (max-width: 1200px) {
+    .composition-admin-hero { flex-wrap: wrap; }
+    .composition-admin-actions { justify-content: flex-start; }
+  }
+  @media (max-width: 760px) {
+    .composition-admin-shell { padding: 8px 12px 20px; }
+    .composition-admin-hero { align-items: flex-start; }
+    .composition-admin-actions { overflow-x: auto; flex-wrap: wrap; }
+    .composition-context-selector-form { flex-wrap: wrap; gap: 6px 10px; }
+    .composition-context-selector-field:last-of-type { flex-basis: 270px; }
+    .composition-context-selector > .composition-admin-form { align-items: flex-start; }
+  }
 `;
 
 async function readFirst<T>(path: string): Promise<T | null> {
@@ -4766,6 +4817,13 @@ export default async function AdminEditorialCompositionPage({ params, searchPara
             </button>
           </form>
         )}
+        {draftComposition && isPublishedComposition && draftComposition.is_current ? (
+          <ReopenCompositionForm
+            composition={draftComposition}
+            matchdayId={matchday.id}
+            returnTo={returnTo}
+          />
+        ) : null}
       </section>
 
       {presentationMode === "standard" ? (
@@ -5573,11 +5631,6 @@ export default async function AdminEditorialCompositionPage({ params, searchPara
                       <p className="composition-admin-note">
                         Esta é a versão pública e histórica ativa desta jornada.
                       </p>
-                      <ReopenCompositionForm
-                        composition={draftComposition}
-                        matchdayId={matchday.id}
-                        returnTo={returnTo}
-                      />
                     </>
                   ) : null}
 
