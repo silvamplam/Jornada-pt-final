@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
+import ts from "typescript";
 
 import {
   articleClassificationBadgeColors,
@@ -24,7 +25,7 @@ const articleCard = sourceBetween("function ArticleCard", "function Diagnostics"
 const cardFor = sourceBetween("function cardFor", "function renderOpeningWorkspace");
 const placeInDisplaced = sourceBetween("function placeInDisplaced", "function placeInBank");
 
-test("cartão apresenta a classificação legível num cabeçalho que pode quebrar linha", () => {
+test("cartão mantém classificação e data juntas quando o antetítulo quebra linha", () => {
   assert.match(articleCard, /classificationKey: ArticleClassificationKey \| null/u);
   assert.match(
     articleCard,
@@ -40,8 +41,10 @@ test("cartão apresenta a classificação legível num cabeçalho que pode quebr
   );
   assert.match(
     client,
-    /\.thematic-card-top \{[^}]*flex-wrap: wrap;[^}]*\}/u,
+    /\.thematic-card-top \{[^}]*display: grid;[^}]*grid-template-columns: minmax\(0,1fr\) auto auto;[^}]*\}/u,
   );
+  assert.match(client, /@container \(max-width: 300px\) \{\s*\.thematic-card-top \{ grid-template-columns: minmax\(0,1fr\) auto; \}\s*\.thematic-card-label \{ grid-column: 1 \/ -1; \}/u);
+  assert.match(client, /\.thematic-card time \{[^}]*white-space: nowrap;/u);
   assert.match(
     client,
     /\.thematic-classification-badge \{[^}]*display: inline-flex;[^}]*flex: 0 0 auto;[^}]*height: 19px;[^}]*white-space: nowrap;[^}]*\}/u,
@@ -65,20 +68,63 @@ test("badge usa a paleta central sem contaminar o resto do cartão", () => {
   assert.doesNotMatch(client, /\.thematic-card\[data-classification=/u);
 });
 
-test("cartão sem antetítulo mantém a linha vazia sem altura", () => {
+test("cartão sem antetítulo mantém classificação e data na mesma linha", () => {
   assert.match(
     articleCard,
     /<div className="thematic-card-top" data-without-label=\{!item\.label\}>/u,
   );
   assert.match(
     client,
-    /\.thematic-card-top\[data-without-label="true"\] \.thematic-classification-badge \{ position: absolute; z-index: 2; bottom: 100%; left: 0; \}/u,
+    /\.thematic-card-top\[data-without-label="true"\] \{ grid-template-columns: minmax\(0,1fr\) auto; \}/u,
   );
+  assert.doesNotMatch(client, /\.thematic-card-top\[data-without-label="true"\] \.thematic-classification-badge \{[^}]*position: absolute;/u);
 
   const topRule = client.match(/\.thematic-card-top \{([^}]*)\}/u)?.[1];
   assert.ok(topRule);
   assert.doesNotMatch(topRule, /(?:^|;)\s*(?:min-)?height\s*:/u);
   assert.doesNotMatch(topRule, /(?:^|;)\s*padding\s*:/u);
+});
+
+test("a única data do cartão fica depois da classificação na metadata, com o mesmo contrato", () => {
+  const tree = ts.createSourceFile("ArticleCard.tsx", articleCard, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  const dates: ts.JsxElement[] = [];
+  function visit(node: ts.Node) {
+    if (ts.isJsxElement(node) && node.openingElement.tagName.getText(tree) === "time") dates.push(node);
+    ts.forEachChild(node, visit);
+  }
+  visit(tree);
+  assert.equal(dates.length, 1, "A data deve continuar a existir uma única vez no cartão");
+  const date = dates[0];
+  const conditional = date.parent;
+  assert.ok(ts.isConditionalExpression(conditional));
+  assert.equal(conditional.condition.getText(tree), "publishedAt");
+  assert.equal(conditional.whenTrue, date);
+  assert.equal(conditional.whenFalse.kind, ts.SyntaxKind.NullKeyword);
+  const wrapper = conditional.parent;
+  assert.ok(ts.isJsxExpression(wrapper));
+  const metadata = wrapper.parent;
+  assert.ok(ts.isJsxElement(metadata));
+  const className = metadata.openingElement.attributes.properties.find((attribute) => ts.isJsxAttribute(attribute) && attribute.name.getText(tree) === "className");
+  assert.ok(className && ts.isJsxAttribute(className) && className.initializer && ts.isStringLiteral(className.initializer));
+  assert.equal(className.initializer.text, "thematic-card-top");
+  const elements = metadata.children.filter((child) => !ts.isJsxText(child));
+  assert.equal(elements.length, 3, "A metadata contém antetítulo, classificação e data, nesta ordem");
+  assert.ok(ts.isJsxExpression(elements[0]) && elements[0].expression && ts.isConditionalExpression(elements[0].expression));
+  assert.equal(elements[0].expression.condition.getText(tree), "item.label");
+  assert.ok(ts.isJsxElement(elements[1]));
+  assert.match(elements[1].openingElement.getText(tree), /className="thematic-classification-badge"/u);
+  assert.equal(elements[2], wrapper);
+  assert.equal(date.openingElement.attributes.properties.length, 1);
+  const dateTime = date.openingElement.attributes.properties[0];
+  assert.ok(ts.isJsxAttribute(dateTime) && dateTime.initializer && ts.isJsxExpression(dateTime.initializer));
+  assert.equal(dateTime.name.getText(tree), "dateTime");
+  assert.equal(dateTime.initializer.expression?.getText(tree), "item.publishedAt ?? undefined");
+  assert.equal(date.children.length, 1);
+  assert.ok(ts.isJsxExpression(date.children[0]));
+  assert.equal(date.children[0].expression?.getText(tree), "publishedAt");
+  assert.match(articleCard, /const publishedAt = formattedDate\(item\.publishedAt\);/u);
+  assert.match(client, /const dateFormatter = new Intl\.DateTimeFormat\("pt-PT", \{\s*dateStyle: "short",\s*timeStyle: "short",\s*timeZone: "Europe\/Lisbon",\s*\}\);/u);
+  assert.match(client, /function formattedDate\(value: string \| null\): string \| null \{\s*if \(!value\) return null;\s*const date = new Date\(value\);\s*return Number\.isNaN\(date\.getTime\(\)\) \? null : dateFormatter\.format\(date\);\s*\}/u);
 });
 
 test("ação Desalojadas admite Abertura, zonas, Novas e Bank classificado, sem no-op em Desalojadas", () => {
