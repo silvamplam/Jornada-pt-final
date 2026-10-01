@@ -4,6 +4,7 @@ import { fetchSupabaseAdminTable, getSupabaseServiceConfig, writeSupabaseAdmin }
 import { createImageFreezeStorage } from "@/lib/editorial-image-freeze-storage.server";
 import { safeEditorialSourceUrl } from "@/lib/editorial-image-download.server";
 import { prepareProductionImage, type ProductionImageRow } from "@/lib/editorial-production-image-preparation.server";
+import { readProductionSaveState } from "@/lib/redacao-automatica/editorial-dossier-workspace-batch-service";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -29,6 +30,9 @@ export async function POST(request: NextRequest) {
   if (!config) return NextResponse.json({ ok: false }, { status: 503 });
   try {
     if (preparation || (selection && payload.dossierImageId)) {
+      const stateBefore = preparation
+        ? await readProductionSaveState(payload.dossierId).catch(() => null)
+        : null;
       const [row] = await fetchSupabaseAdminTable<ProductionImageRow>(
         `newsroom_editorial_dossier_images?select=id,dossier_id,frozen_url,source_url&id=eq.${payload.dossierImageId}&limit=1`);
       const image = await prepareProductionImage({ dossierId: payload.dossierId ?? row?.dossier_id, imageId: payload.dossierImageId,
@@ -54,6 +58,15 @@ export async function POST(request: NextRequest) {
         await writeSupabaseAdmin("rpc/editorial_confirm_dossier_image_v1", { method: "POST", body: JSON.stringify({
           p_image_id: payload.dossierImageId, p_decision_key: image.decisionKey,
         }) });
+      }
+      if (preparation) {
+        const stateAfter = await readProductionSaveState(payload.dossierId).catch(() => null);
+        console.info("[production-stale-diagnostic] image-prepare", JSON.stringify({
+          dossierId: payload.dossierId,
+          dossierImageId: payload.dossierImageId,
+          before: stateBefore?.stateToken ?? null,
+          after: stateAfter?.stateToken ?? null,
+        }));
       }
       return NextResponse.json({ ok: true, image }, { headers: { "Cache-Control": "private, no-store" } });
     }

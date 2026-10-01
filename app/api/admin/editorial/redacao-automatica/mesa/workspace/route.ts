@@ -21,6 +21,7 @@ import {
   type SaveEditorialDossierWorkspaceArticlePlanInput,
 } from "@/lib/redacao-automatica/editorial-dossier-workspace-editor-service";
 import {
+  readProductionSaveState,
   saveEditorialDossierWorkspaceBatch,
   type SaveEditorialDossierWorkspaceBatchInput,
   type SaveEditorialDossierWorkspaceBatchOutputInput,
@@ -973,6 +974,14 @@ export async function POST(request: Request) {
 
     const result = await saveEditorialDossierWorkspaceBatch(input);
     if (!result.ok) {
+      if (result.error.code === "stale_state") {
+        const current = await readProductionSaveState(input.dossierId).catch(() => null);
+        console.info("[production-stale-diagnostic] save-stale", JSON.stringify({
+          dossierId: input.dossierId,
+          expected: input.expectedState,
+          current: current?.stateToken ?? null,
+        }));
+      }
       return NextResponse.json({
         ok: false,
         ...result.error,

@@ -208,6 +208,11 @@ export default async function ProductionWorkspacePage({
     return <ReadError message="A produção mudou durante a leitura. Recarrega para editar o estado atual." />;
   }
 
+  console.info("[production-stale-diagnostic] page-state", JSON.stringify({
+    dossierId,
+    stateToken: saveState.stateToken,
+  }));
+
   return (
     <main className={styles.shell}>
       <div className={styles.container}>
