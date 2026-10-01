@@ -444,6 +444,19 @@ test("banco comum reúne origens e upload reutiliza signer e writer da foundatio
   assert.doesNotMatch(client, /<a className=\{styles\.addImageChoice\} href="#workspace-images-title">/);
 });
 
+test("router.refresh sincroniza o novo stateToken antes do primeiro Guardar", () => {
+  const client = read("app/admin/editorial/redacao-automatica/mesa/producao/[dossierId]/_workspace-client.tsx");
+  const grouping = read("app/admin/editorial/redacao-automatica/mesa/producao/[dossierId]/_new-output-grouping.tsx");
+
+  assert.match(grouping, /action === "materialize_new_output_groups"[\s\S]*?router\.refresh\(\)/);
+  assert.match(
+    client,
+    /useEffect\(\(\) => \{[\s\S]*?setExpectedState\(saveState\.stateToken\);[\s\S]*?saveAttempt\.current = null;[\s\S]*?\}, \[saveState\.stateToken\]\);/,
+  );
+  assert.match(client, /const fingerprint = JSON\.stringify\(\{ expectedState, outputs \}\)/);
+  assert.match(client, /expectedState,\s*requestId: saveAttempt\.current\.requestId/);
+});
+
 test("slots congelados são a autoridade imediata da contagem depois da materialização", () => {
   const client = read("app/admin/editorial/redacao-automatica/mesa/producao/[dossierId]/_workspace-client.tsx");
 

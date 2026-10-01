@@ -87,6 +87,12 @@ load('supabase/migrations/20260930092202_newsroom_production_images_atomic_save.
 assert protected == execute("select jsonb_object_agg(oid::text,md5(pg_get_functiondef(oid)||coalesce(proacl::text,''))) from pg_proc where proname in ('editorial_confirm_dossier_image_v1','newsroom_save_editorial_dossier_article_plan','newsroom_save_mesa_context_article_plan_v1','newsroom_save_dossier_article_plan_state_v3','newsroom_set_mesa_shared_outputs_v2')")
 print('PASS existing writer definitions and grants unchanged', flush=True)
 
+load('supabase/migrations/20261001184732_editorial_confirm_dossier_image_security_definer.sql')
+assert execute("select case when prosecdef then 't' else 'f' end from pg_proc where oid='public.editorial_confirm_dossier_image_v1(uuid,text)'::regprocedure") == 't'
+assert execute("select has_function_privilege('service_role','public.editorial_confirm_dossier_image_v1(uuid,text)','execute')") == 't'
+assert execute("select has_table_privilege('service_role','public.newsroom_editorial_dossier_images','update')") == 'f'
+print('PASS dossier image confirmation is definer-scoped; service_role still has no table UPDATE', flush=True)
+
 load('.ci/production-images-sql/fixtures.sql')
 passed = 0
 
@@ -124,6 +130,32 @@ def test(name, fn):
     fn()
     passed += 1
     print('PASS', name, flush=True)
+
+
+def direct_confirmation_permission():
+    f = fixture()
+    output = f['outputs'][0]
+    image_id = output['imageChoice']['dossierImageId']
+    decision_key = output['preparedImageDecisionKey']
+    before = execute(f"select frozen_url from public.newsroom_editorial_dossier_images where id='{image_id}'")
+    assert '/editorial/sha256/' not in before
+    try:
+        execute(f"update public.newsroom_editorial_dossier_images set source_url=frozen_url where id='{image_id}'", True)
+    except RuntimeError as error:
+        assert 'permission denied' in str(error), str(error)
+    else:
+        raise AssertionError('service_role unexpectedly gained direct UPDATE')
+    execute(f"select public.editorial_confirm_dossier_image_v1('{image_id}','{decision_key}')", True)
+    row = json.loads(execute(
+        f"select jsonb_build_object('source',source_url,'frozen',frozen_url) "
+        f"from public.newsroom_editorial_dossier_images where id='{image_id}'"
+    ))
+    assert row['source'] == before
+    assert '/editorial/sha256/' in row['frozen']
+    assert execute("select has_table_privilege('service_role','public.newsroom_editorial_dossier_images','update')") == 'f'
+
+
+test('service_role confirms a ready dossier image only through the definer RPC', direct_confirmation_permission)
 
 
 def success():
