@@ -81,6 +81,16 @@ test("cada artigo prioriza imagens das fontes congeladas e conserva o banco glob
   assert.match(clientSource, /Não há imagens diretamente ligadas ao ponto de partida deste artigo\./);
   assert.match(clientSource, /"Ver todas as imagens"/);
   assert.match(clientSource, /allowPreservePublished=\{existingOutput\}/);
+  assert.match(
+    clientSource,
+    /fetch: \(input, init\) => fetch\(input, init\)/,
+    "o fetch nativo do browser tem de ser chamado por wrapper para não receber o transport como this",
+  );
+  assert.doesNotMatch(
+    clientSource,
+    /createBatchImagePreparer\(\{\s*fetch,\s*storage:/,
+    "não voltar a passar window.fetch cru para um método do transport",
+  );
 });
 
 test("a Publicação em lote preserva o Dossiê até ao sucesso integral", () => {
