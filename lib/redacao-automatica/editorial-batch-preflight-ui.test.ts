@@ -21,7 +21,7 @@ const imagePreflightSource = source("lib/redacao-automatica/editorial-batch-imag
 const newsroomSource = source("app/admin/editorial/redacao-automatica/page.tsx");
 const publicationRouteSource = source("app/api/admin/editorial/redacao-automatica/publicacao-lote/route.ts");
 const sourcePackagePageSource = source("app/admin/editorial/redacao-automatica/pacotes/[year]/[month]/[id]/page.tsx");
-const dossierImageConfirmationMigrationSource = source("supabase/migrations/20261001190500_editorial_confirm_dossier_image_security_definer.sql");
+const dossierImageConfirmationMigrationSource = source("supabase/migrations/20261001184732_editorial_confirm_dossier_image_security_definer.sql");
 const publicationPanelSource = clientSource.slice(
   clientSource.indexOf("function PublicationPanel"),
   clientSource.indexOf("export default function BatchPreflightClient"),
