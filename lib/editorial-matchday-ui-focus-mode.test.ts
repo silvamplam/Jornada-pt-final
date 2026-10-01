@@ -93,6 +93,9 @@ test("barra compacta e controlos normais permanecem montados e são acessíveis"
   assert.match(mainMarkup, /<header className="thematic-hero">/);
   assert.match(mainMarkup, /<MatchdayEditorialContextSelector/);
   assert.match(mainMarkup, /<div className="thematic-global-tools">/);
+  assert.match(mainMarkup, /<h1 title=\{focusContext\}>\{focusContext\}<\/h1>/);
+  assert.match(client, /\.thematic-workspace-heading \{ display: none; \}/);
+  assert.match(client, /\.thematic-workspace-body \{[^}]*padding: 0; \}/);
 });
 
 test("Modo foco sai do cabeçalho escuro e fica uma única vez à direita da barra administrativa", () => {

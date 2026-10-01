@@ -229,14 +229,15 @@ const styles = `
   :is(.thematic-faixa-slots, .thematic-candidates-grid) .thematic-image-placeholder { position: absolute; grid-row: 1 / 2; inset: 0; height: 100%; }
   .thematic-card-copy { display: grid; min-width: 0; gap: 1px; }
   .thematic-card > .thematic-card-copy { grid-column: 1 / -1; grid-row: 2; gap: 7px; }
-  .thematic-card-top { position: relative; display: flex; min-width: 0; flex-wrap: wrap; gap: 4px 6px; align-items: center; }
+  .thematic-card { container-type: inline-size; }
+  .thematic-card-top { position: relative; display: grid; grid-template-columns: minmax(0,1fr) auto auto; min-width: 0; gap: 2px 4px; align-items: center; }
   .thematic-card-label { min-width: 0; overflow: hidden; color: #873844; font-size: 10px; font-weight: 700; letter-spacing: .025em; text-overflow: ellipsis; text-transform: uppercase; white-space: nowrap; }
   .thematic-classification-badge { display: inline-flex; flex: 0 0 auto; height: 19px; align-items: center; padding: 1px 5px; border: 1px solid transparent; border-radius: 2px; background: #e2e8f0; color: #000; font-size: 10px; font-weight: 700; line-height: 15px; white-space: nowrap; }
-  /* Without an antetitle, keep the existing empty row at zero height. */
-  .thematic-card-top[data-without-label="true"] .thematic-classification-badge { position: absolute; z-index: 2; bottom: 100%; left: 0; }
+  .thematic-card-top .thematic-classification-badge { justify-self: start; }
+  .thematic-card-top[data-without-label="true"] { grid-template-columns: minmax(0,1fr) auto; }
 
   .thematic-card-title { display: -webkit-box; overflow: hidden; font-size: 16px; line-height: 1.27; -webkit-box-orient: vertical; -webkit-line-clamp: 4; font-family: Georgia, "Times New Roman", serif; font-weight: 700; letter-spacing: -.01em; }
-  .thematic-card time { color: #61717a; font-size: 11px; }
+  .thematic-card time { color: #61717a; font-size: 10px; line-height: 1.2; white-space: nowrap; }
   .thematic-card-menu { grid-column: 3; grid-row: 1; position: static; z-index: 1; align-self: start; }
   .thematic-card-menu summary { display: grid; place-items: center; width: 32px; height: 32px; border: 1px solid #d7e0e9; border-radius: 3px; background: #fff; cursor: pointer; list-style: none; font-weight: 900; font-size: 16px; line-height: 1; }
   .thematic-card-menu summary::-webkit-details-marker { display: none; }
@@ -289,10 +290,10 @@ const styles = `
   .thematic-workspace-stack[data-opening-only="true"] > :not(#thematic-opening-workspace) { display: none; }
   .thematic-opening-only-toggle { width: 100%; min-height: 32px; margin-top: 4px; padding: 4px 6px; border: 1px solid #526174; border-radius: 3px; background: #f7f9fa; color: #284d64; font-size: 11px; cursor: pointer; border-color: #b7c5cf; }
   .thematic-workspace-section { min-width: 0; overflow: visible; border: 0; border-radius: 0; background: #fff; }
-  .thematic-workspace-heading { display: flex; align-items: center; justify-content: space-between; min-height: 26px; gap: 8px; padding: 2px 0 5px; border-bottom: 1px solid #bdcbd4; border-radius: 0; background: #fff; color: #243c4c; }
+  .thematic-workspace-heading { display: none; }
   .thematic-workspace-heading strong { font-size: 13px; letter-spacing: 0; text-transform: none; font-family: Arial, Helvetica, sans-serif; font-weight: 700; }
   .thematic-workspace-heading span { color: #587084; font-size: 10px; font-weight: 600; }
-  .thematic-workspace-body { display: grid; min-width: 0; gap: 8px; padding: 8px 0 0; }
+  .thematic-workspace-body { display: grid; min-width: 0; gap: 8px; padding: 0; }
   .thematic-zone-editor { display: grid; grid-template-columns: minmax(0,1.2fr) minmax(0,.8fr) auto; gap: 6px; align-items: center; padding: 0 0 6px; border: 0; border-radius: 0; background: #fff; border-bottom: 1px solid #e1e6e9; }
   .thematic-zone-editor label { display: grid; min-width: 0; }
   .thematic-zone-editor input, .thematic-zone-editor select { width: 100%; min-width: 0; min-height: 30px; padding: 4px 6px; border: 1px solid #cbd5df; border-radius: 3px; background: #fff; color: #10151b; font: inherit; font-size: 12px; }
@@ -359,7 +360,7 @@ const styles = `
   .thematic-global-tools > .thematic-global-tool:first-child > .thematic-page-structure { width: clamp(660px,50vw,760px); max-width: calc(100vw - 24px); }
   .thematic-video-tool > .thematic-global-tool-body { width: clamp(420px,50vw,720px); max-width: calc(100vw - 170px); }
   .thematic-agenda-tv-tool > .thematic-global-tool-body { width: clamp(500px,56vw,860px); max-width: calc(100vw - 250px); }
-  .thematic-classification-tool > .thematic-global-tool-body { width: clamp(560px,52vw,700px); max-width: calc(100vw - 310px); }
+  .thematic-classification-tool > .thematic-global-tool-body { width: 360px; max-width: calc(100vw - 32px); padding: 10px; border-radius: 5px; }
   .thematic-latest-tool > .thematic-global-tool-body { display: grid; width: clamp(300px,32vw,420px); max-width: calc(100vw - 24px); gap: 8px; }
   .thematic-global-tool-body .video-summary-sync { margin: 0; padding: 7px; }
   .agenda-tv-sync { display: grid; gap: 7px; padding: 7px; border: 1px solid #d8e0e9; border-radius: 7px; background: #f8fafc; }
@@ -544,6 +545,25 @@ const styles = `
     .thematic-shell[data-focus-mode="true"] .thematic-workspace-stack[data-composition-mode$="-only"] .thematic-card { grid-template-rows: auto; }
     .thematic-shell[data-focus-mode="true"] .thematic-workspace-stack[data-composition-mode$="-only"] .thematic-workspace-section:is([data-zone-id], #thematic-opening-workspace) :is(.thematic-image, .thematic-image-placeholder) { height: 144px; }
   }
+  /* Keep classification and date together when the antetitle needs its own row. */
+  @container (max-width: 300px) {
+    .thematic-card-top { grid-template-columns: minmax(0,1fr) auto; }
+    .thematic-card-label { grid-column: 1 / -1; }
+    .thematic-card-top .thematic-classification-badge { min-width: 0; max-width: 100%; height: auto; white-space: normal; }
+  }
+  .thematic-classification-tool { position: relative; }
+  .thematic-classification-tool > .thematic-global-tool-body { right: auto; left: 0; width: 360px; max-width: calc(100vw - 32px); }
+  .thematic-classification-tool > .thematic-global-tool-body > section { position: relative; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 8px !important; padding: 0 !important; }
+  .thematic-classification-tool .thematic-field { min-width: 0; gap: 3px; font-size: 11px; }
+  .thematic-classification-tool .thematic-field :is(input, select) { width: 100%; min-width: 0; height: 32px; padding: 5px 7px; border: 1px solid #cbd5df; border-radius: 3px; background: #fff; color: #172d3a; font: inherit; font-size: 12px; }
+  .thematic-classification-tool > .thematic-global-tool-body > section > label:nth-of-type(-n+2) { grid-column: 1 / -1; }
+  .thematic-classification-tool > .thematic-global-tool-body > section > label:first-of-type + p { position: absolute; top: 0; right: 0; font-size: 10px !important; font-weight: 400 !important; }
+  .thematic-classification-tool > .thematic-global-tool-body > section > label:nth-of-type(3) + p { align-self: center; min-width: 0; font-size: 10px !important; font-weight: 400 !important; line-height: 1.35; }
+  .thematic-classification-tool > .thematic-global-tool-body > section > .thematic-button { grid-column: 1 / -1; justify-self: end; width: auto; min-height: 30px; padding: 5px 9px; border-color: #bacbd5; background: #eaf1f5; color: #284d64; font-size: 11px; font-weight: 600; }
+  .thematic-classification-tool > .thematic-global-tool-body > section > :is(.thematic-message, .thematic-empty) { grid-column: 1 / -1; min-width: 0; }
+  @media (min-width: 581px) and (max-width: 680px) {
+    .thematic-classification-tool > .thematic-global-tool-body { right: 0; left: auto; }
+  }
 `;
 
 const dateFormatter = new Intl.DateTimeFormat("pt-PT", {
@@ -625,9 +645,9 @@ function ArticleCard({ bankItemId, item, classificationKey, placement, selected,
             style={articleClassificationBadgeColors(classificationKey ?? "unclassified")}
             title={`Classificação editorial: ${classificationLabel}`}
           >{classificationLabel}</span>
+          {publishedAt ? <time dateTime={item.publishedAt ?? undefined}>{publishedAt}</time> : null}
         </div>
         <strong className="thematic-card-title" title={item.title ?? undefined}>{item.title ?? "Artigo sem título"}</strong>
-        {publishedAt ? <time dateTime={item.publishedAt ?? undefined}>{publishedAt}</time> : null}
       </div>
       <details
         className="thematic-card-menu"
@@ -929,9 +949,26 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
   const [applyState, setApplyState] = useState<"idle" | "saving" | "refreshing" | "error">("idle");
   const [awaitedPhysicalStateToken, setAwaitedPhysicalStateToken] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const messageTimerRef = useRef<number | null>(null);
   const pageStructureRef = useRef<HTMLDetailsElement>(null);
   const enterFocusButtonRef = useRef<HTMLButtonElement>(null);
   const exitFocusButtonRef = useRef<HTMLButtonElement>(null);
+
+  function showMessage(nextMessage: string, { autoDismiss = false }: { autoDismiss?: boolean } = {}) {
+    if (messageTimerRef.current !== null) window.clearTimeout(messageTimerRef.current);
+    messageTimerRef.current = null;
+    setMessage(nextMessage);
+    if (autoDismiss) {
+      messageTimerRef.current = window.setTimeout(() => {
+        setMessage(null);
+        messageTimerRef.current = null;
+      }, 3500);
+    }
+  }
+
+  useEffect(() => () => {
+    if (messageTimerRef.current !== null) window.clearTimeout(messageTimerRef.current);
+  }, []);
 
   useEffect(() => {
     setPhysicalDesk((current) => {
@@ -941,7 +978,7 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
     if (awaitedPhysicalStateToken === desk.physicalWorkspace.stateToken) {
       setAwaitedPhysicalStateToken(null);
       setApplyState("idle");
-      setMessage("Alterações aplicadas.");
+      showMessage("Alterações aplicadas.", { autoDismiss: true });
     } else if (awaitedPhysicalStateToken === null) {
       setApplyState("idle");
     }
@@ -1097,21 +1134,21 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
   ): PhysicalDeskState | null {
     if (mutationBlocked) {
       setApplyState("error");
-      setMessage("A Mesa está a guardar; aguarde.");
+      showMessage("A Mesa está a guardar; aguarde.");
       return null;
     }
     try {
       const nextState = operation(physicalDesk);
       setPhysicalDesk(nextState);
       setApplyState("idle");
-      setMessage(successMessage);
+      showMessage(successMessage, { autoDismiss: true });
       return nextState;
     } catch (error) {
       setApplyState("error");
       const errorMessage = error instanceof Error
         ? error.message
         : "Não foi possível concluir a alteração.";
-      setMessage(
+      showMessage(
         errorMessage.includes("column-group-incomplete")
           ? "O grupo precisa de pelo menos uma história em cada coluna para ficar ligado."
           : errorMessage.includes("column-group-member-locked")
@@ -1221,7 +1258,7 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
       && source.zoneId !== zoneId
     ) {
       setApplyState("error");
-      setMessage(
+      showMessage(
         "Não é permitido arrastar diretamente entre zonas. Largue primeiro em Desalojadas.",
       );
       return;
@@ -2027,7 +2064,7 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
     if (mutationBlocked) return;
     setPhysicalDesk((state) => undoPhysicalDeskState(state));
     setApplyState("idle");
-    setMessage("Última alteração desfeita.");
+    showMessage("Última alteração desfeita.", { autoDismiss: true });
   }
 
   function changeFocusMode(nextFocusMode: boolean) {
@@ -2041,13 +2078,13 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
     if (mutationBlocked) return;
     setPhysicalDesk((state) => resetPhysicalDeskState(state));
     setApplyState("idle");
-    setMessage("Alterações locais anuladas.");
+    showMessage("Alterações locais anuladas.", { autoDismiss: true });
   }
 
   async function applyChanges() {
     if (!pending || mutationBlocked) return;
     setApplyState("saving");
-    setMessage("A aplicar alterações…");
+    showMessage("A aplicar alterações…");
     try {
       const payload = buildPhysicalDeskApplyPayload(desk.profileKey, physicalDesk);
       const response = await fetch(`/api/admin/editorial/jornada/${desk.matchdayId}/organizar/tematico`, {
@@ -2069,11 +2106,11 @@ export default function MatchdayEditorialThematicDeskClient({ contextSelector, d
       }
       setAwaitedPhysicalStateToken(result.stateToken);
       setApplyState("refreshing");
-      setMessage("Alterações aplicadas. A atualizar a Mesa…");
+      showMessage("Alterações aplicadas. A atualizar a Mesa…");
       router.refresh();
     } catch (error) {
       setApplyState("error");
-      setMessage(error instanceof Error ? error.message : "Não foi possível aplicar as alterações.");
+      showMessage(error instanceof Error ? error.message : "Não foi possível aplicar as alterações.");
     }
   }
 
