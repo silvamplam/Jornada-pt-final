@@ -31,7 +31,7 @@ test("a Composição hierárquica é a única Mesa administrativa visível", () 
 
   assert.match(
     modernStyles,
-    /\.hc-desk-workspace \{[\s\S]*display: grid;[\s\S]*grid-template-columns: minmax\(145px, 170px\) minmax\(0, 1\.08fr\) minmax\(0, 1fr\);/,
+    /\.hc-desk-workspace \{[^}]*display: grid;[^}]*grid-template-columns: 188px minmax\(0, 1\.12fr\) minmax\(0, 1fr\);/,
   );
 
   assert.match(

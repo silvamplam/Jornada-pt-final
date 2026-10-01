@@ -10,9 +10,20 @@ const route = readFileSync(
   "app/api/admin/editorial/composicao/route.ts",
   "utf8",
 );
+const page = readFileSync(
+  "app/admin/editorial/composicao/[matchdayId]/page.tsx",
+  "utf8",
+);
 const modernStyles = client.slice(
   client.indexOf("/* Mesa histórica modernizada"),
 );
+
+function cssRule(selector: string, css = modernStyles) {
+  const escapedSelector = selector.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const match = css.match(new RegExp(`(?:^|[{}])\\s*${escapedSelector}\\s*\\{([^{}]*)\\}`));
+  assert.ok(match, `regra CSS em falta: ${selector}`);
+  return match[1];
+}
 
 function sourceBetween(source: string, startNeedle: string, endNeedle: string) {
   const start = source.indexOf(startNeedle);
@@ -25,7 +36,7 @@ function sourceBetween(source: string, startNeedle: string, endNeedle: string) {
 test("a Mesa Histórica está dividida em rail, zona ativa e candidatos", () => {
   assert.match(
     modernStyles,
-    /\.hc-desk-workspace \{[\s\S]*?display: grid;[\s\S]*?grid-template-columns: minmax\(145px, 170px\) minmax\(0, 1\.08fr\) minmax\(0, 1fr\);/,
+    /\.hc-desk-workspace \{[^}]*display: grid;[^}]*grid-template-columns: 188px minmax\(0, 1\.12fr\) minmax\(0, 1fr\);/,
   );
   assert.match(client, /<aside className="hc-zone-rail" aria-label="Zonas da Composição">/);
   assert.match(client, /<section className="hc-desk-map" aria-label="Zona ativa da Composição"/);
@@ -52,15 +63,23 @@ test("a rail é navegação vertical e mudar zona não altera o plano", () => {
   assert.doesNotMatch(pendingCount, /activeWorkspaceKey|focusMode|historicalDecisionFilter|selectedGroupKey|search/);
 });
 
-test("centro e candidatos usam três cartões por linha no desktop", () => {
-  assert.match(
-    modernStyles,
-    /\.hc-desk-list \{[\s\S]*?grid-template-columns: repeat\(3, minmax\(0, 1fr\)\);/,
-  );
-  assert.match(
-    modernStyles,
-    /\.hc-desk-slots,[\s\S]*?\.hc-desk-slots-faixa \{[\s\S]*?grid-template-columns: repeat\(3, minmax\(0, 1fr\)\);/,
-  );
+test("workspace usa duas colunas e ganha uma terceira em ecrãs largos; candidatos mantêm duas", () => {
+  assert.match(cssRule(".hc-desk-list"), /grid-template-columns: repeat\(2, minmax\(0, 1fr\)\);/);
+  const slots = ".hc-desk-slots, .hc-desk-slots-4, .hc-desk-slots-5, .hc-desk-slots-6, .hc-desk-slots-faixa";
+  assert.match(cssRule(slots), /grid-template-columns: repeat\(2, minmax\(0, 1fr\)\);/);
+  const wideStart = modernStyles.indexOf("@media (min-width: 1600px)");
+  assert.ok(wideStart >= 0);
+  const wideStyles = modernStyles.slice(wideStart, modernStyles.indexOf("@media", wideStart + 1));
+  assert.match(cssRule(slots, wideStyles), /grid-template-columns: repeat\(3, minmax\(0, 1fr\)\);/);
+  assert.match(cssRule(".hc-desk-row"), /grid-template-columns: 104px minmax\(0, 1fr\);/);
+  assert.match(cssRule(".hc-desk-list"), /grid-auto-rows: 124px;/);
+  assert.match(cssRule(".hc-desk-row"), /grid-template-rows: 28px 80px;[^}]*height: 124px;/);
+  assert.match(cssRule(".hc-desk-row-image"), /grid-column: 1;[^}]*grid-row: 2;[^}]*height: 80px;/);
+  assert.match(cssRule(".hc-desk-row > .hc-desk-copy"), /display: contents;/);
+  assert.match(cssRule(".hc-desk-row > .hc-desk-copy > .hc-desk-meta"), /grid-column: 1 \/ -1;[^}]*grid-row: 1;[^}]*height: 28px;/);
+  assert.match(cssRule(".hc-desk-row > .hc-desk-copy > strong"), /grid-column: 2;[^}]*grid-row: 2;[^}]*max-height: 80px;/);
+  assert.match(cssRule(".hc-desk-copy strong"), /overflow: hidden;[^}]*-webkit-line-clamp: 4;/);
+  assert.match(cssRule(".hc-desk-card-media"), /height: clamp\(128px, 11vw, 176px\);/);
   assert.match(client, /activeWorkspaceKey === "opening" && openingSection/);
   assert.match(client, /activeDynamicZone \?/);
   assert.match(client, /activeWorkspaceKey === "editorial"/);
@@ -95,6 +114,11 @@ test("o topo dos candidatos tem duas linhas, lupa e nenhuma ordenação visível
   assert.match(toolbar, /className="hc-desk-visible-selection"/);
   assert.doesNotMatch(toolbar, /hc-desk-toolbar-status|hc-desk-selection-actions|aria-label="Ordenação"/);
   assert.doesNotMatch(client, /articleOrder|setArticleOrder|Mais recentes|Mais antigos/);
+  assert.match(cssRule(".hc-desk-groups"), /flex-wrap: wrap;/);
+  assert.match(cssRule(".hc-desk-groups"), /overflow: visible;/);
+  assert.match(cssRule(".hc-desk-groups button"), /flex: 0 0 auto;/);
+  assert.match(cssRule(".hc-desk-groups button"), /white-space: nowrap;/);
+  assert.match(cssRule(".hc-desk-toolbar.selection-mode"), /overflow: visible;/);
 });
 
 test("checkbox e ação do cartão ficam estruturalmente sobre a imagem", () => {
@@ -104,11 +128,11 @@ test("checkbox e ação do cartão ficam estruturalmente sobre a imagem", () => 
   );
   assert.match(
     modernStyles,
-    /\.hc-desk-row-image > input \{[\s\S]*?position: absolute;[\s\S]*?top: 9px;[\s\S]*?left: 9px;/,
+    /\.hc-desk-row-image > input \{[^}]*position: absolute;[^}]*top: 6px;[^}]*left: 6px;/,
   );
   assert.match(
     modernStyles,
-    /\.hc-desk-card button \{[\s\S]*?position: absolute;[\s\S]*?top: 9px;[\s\S]*?right: 9px;/,
+    /\.hc-desk-card button \{[^}]*position: absolute;[^}]*top: 6px;[^}]*right: 6px;/,
   );
 });
 
@@ -131,6 +155,9 @@ test("centro e painel direito têm scroll independente sem medições frágeis",
   assert.match(modernStyles, /\.hc-desk-scroll \{[\s\S]*?min-height: 0;[\s\S]*?overflow-y: auto;/);
   assert.match(modernStyles, /\.hc-zone-rail \{[\s\S]*?min-height: 0;[\s\S]*?overflow-y: auto;/);
   assert.doesNotMatch(client, /ResizeObserver|addEventListener\(["']resize|offsetHeight|clientHeight/);
+  assert.match(cssRule(".hc-desk-scroll"), /overscroll-behavior: contain;[^}]*scrollbar-gutter: stable;/);
+  assert.match(cssRule(".hc-desk-map"), /overscroll-behavior: contain;[^}]*scrollbar-gutter: stable;/);
+  assert.match(cssRule(".hc-desk-map:focus-visible, .hc-desk-scroll:focus-visible"), /outline: 2px solid/);
 });
 
 test("Modo foco é local, persistente e não entra no dirty state nem no payload", () => {
@@ -152,22 +179,34 @@ test("Modo foco é local, persistente e não entra no dirty state nem no payload
   assert.match(changeFocusMode, /setFocusMode\(nextFocusMode\)/);
   assert.doesNotMatch(changeFocusMode, /setPlan|commit\(|fetch\(|router\./);
   assert.doesNotMatch(applyChanges, /focusMode|focus_mode|activeWorkspaceKey|historicalDecisionFilter|selectedGroupKey|search/);
-  assert.match(modernStyles, /\.hc-desk-shell\[data-focus-mode="true"\] \.hc-desk-top-tools \{[\s\S]*?display: grid;/);
+  assert.match(modernStyles, /\.hc-desk-shell\[data-focus-mode="true"\] \.hc-desk-top-tools \{\s*display: none;/);
+  assert.match(cssRule('.hc-desk-shell[data-focus-mode="true"] .hc-desk-map-heading'), /display: none;/);
+  assert.match(cssRule(".hc-desk-map-heading"), /display: flex;/);
+  assert.match(client, /<header className="hc-focus-bar" hidden=\{!focusMode\}>/);
+  assert.match(client, /Jornada \{String\(matchdayNumber\)\.padStart\(2, "0"\)\} · \{activeWorkspaceLabel\}/);
   assert.match(modernStyles, /\.hc-desk-shell\[data-focus-mode="true"\] \.hc-focus-entry \{[\s\S]*?display: none;/);
   assert.match(modernStyles, /\.composition-admin-shell-desk:has\(> \.hc-desk-shell\[data-focus-mode="true"\]\)/);
 });
 
-test("os menus superiores seguem a hierarquia visual da Editorial também em foco", () => {
+test("os quatro menus ficam disponíveis no modo normal e recolhidos no modo compacto", () => {
   const topTools = sourceBetween(
     client,
     '      <div className="hc-desk-tools hc-desk-top-tools"',
     "\n      {selectionContext}",
   );
 
-  assert.match(modernStyles, /\.hc-desk-top-tools \{[\s\S]*?grid-template-columns: repeat\(4, max-content\) minmax\(0, 1fr\);[\s\S]*?border: 1px solid #d7e0e9;[\s\S]*?background: #ffffff;/);
-  assert.match(modernStyles, /\.hc-desk-top-tools > \.hc-desk-tool > summary \{[\s\S]*?min-height: 30px;[\s\S]*?letter-spacing: \.055em;/);
+  assert.match(cssRule(".hc-desk-top-tools"), /grid-template-columns: repeat\(4, max-content\) minmax\(0, 1fr\);[^}]*border: 0;[^}]*border-bottom: 1px solid #cbd5dc;[^}]*background: transparent;/);
+  assert.match(cssRule(".hc-desk-top-tools > .hc-desk-tool > summary"), /min-height: 30px;[^}]*letter-spacing: 0;[^}]*text-transform: none;/);
   assert.match(modernStyles, /\.hc-desk-top-tools > \.hc-desk-tool > summary::after/);
   assert.match(topTools, /<summary>Página e blocos<\/summary>[\s\S]*?\{children\}[\s\S]*?Modo foco/);
+  assert.match(page, /className="hc-desk-tool hc-desk-video-tool" name="composition-tools">\s*<summary>Vídeo \+ Destaque<\/summary>/);
+  assert.match(page, /className="hc-desk-tool hc-desk-publish-tool" name="composition-tools">\s*<summary>Publicar composição<\/summary>/);
+  assert.match(page, /className="hc-desk-tool hc-desk-preview-tool" name="composition-tools">\s*<summary>Pré-visualização<\/summary>/);
+  assert.match(cssRule(".hc-desk-top-tools"), /display: grid;/);
+  const compactToolRules = [...modernStyles.matchAll(/([^{}]+)\{([^{}]*)\}/g)]
+    .filter((match) => match[1].includes('[data-focus-mode="true"]') && match[1].includes(".hc-desk-top-tools"));
+  assert.equal(compactToolRules.length, 1, "Nenhum breakpoint deve voltar a mostrar os menus em modo compacto");
+  assert.match(compactToolRules[0][2], /display: none;/);
   assert.match(client, /\.hc-desk-preview-tool\[open\] > \.hc-desk-tool-body/);
 });
 
