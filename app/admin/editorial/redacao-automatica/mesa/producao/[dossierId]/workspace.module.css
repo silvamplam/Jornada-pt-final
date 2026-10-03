@@ -2157,6 +2157,40 @@
   box-shadow: 0 8px 24px rgb(35 55 82 / 4%);
 }
 
+.productionLayout,
+.productionSidebar {
+  min-width: 0;
+}
+
+/* Preserve the cards' existing columns; stack actions when they no longer fit. */
+@media (min-width: 1366px) {
+  .productionLayout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) clamp(240px, calc(100vw - 1126px), 300px);
+    gap: 12px;
+    align-items: start;
+  }
+
+  .productionSidebar {
+    position: sticky;
+    top: 14px;
+    margin-top: 14px;
+  }
+
+  .productionSidebar .productionActions {
+    margin-top: 0;
+  }
+
+  .productionSidebar .productionActionButtons {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .productionLayout .planEditor .planFields:not([data-context-mode="contexts"]) {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
 .productionActions header h2,
 .productionActions header p {
   margin: 0;

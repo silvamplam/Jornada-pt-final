@@ -1458,7 +1458,7 @@ export function MesaProductionWorkspaceClient({
         ) : null}
       </section>)}
 
-      {newOutputGrouping?.state === "planned" ? null : <>
+      {newOutputGrouping?.state === "planned" ? null : <div className={styles.productionLayout}>
       <form
         id={PRODUCTION_FORM_ID}
         className={styles.articlesSection}
@@ -1546,6 +1546,7 @@ export function MesaProductionWorkspaceClient({
 
       </form>
 
+      <aside className={styles.productionSidebar} aria-label="Ações da Produção">
       <ProductionActions
         key={packageVersion}
         dossierId={dossier.id}
@@ -1555,13 +1556,14 @@ export function MesaProductionWorkspaceClient({
         saveDisabled={productionSaveDisabled(savingProduction, visibleCards, imagePreparationByCard)}
         packageVersion={packageVersion}
       />
-      </>}
-      <AbandonProduction dossierId={dossier.id} />
       {productionMessage ? (
         <p className={styles.productionMessage} role="status" aria-live="polite">
           {productionMessage}
         </p>
       ) : null}
+      </aside>
+      </div>}
+      <AbandonProduction dossierId={dossier.id} />
     </>
   );
 }
