@@ -153,7 +153,8 @@
 }
 
 .newOutputPlanner > .outputCount > button,
-.groupingToolbar button {
+.groupingToolbar button,
+.materializeGroups {
   min-height: 34px;
   padding: 7px 11px;
   border: 1px solid #aebcaf;
@@ -382,7 +383,7 @@
   margin-bottom: 11px;
 }
 
-.groupingToolbar .materializeGroups {
+.materializeGroups {
   margin-left: auto;
   border-color: #27643b;
   color: #fff;
@@ -2155,6 +2156,36 @@
   border-radius: 9px;
   background: #ffffff;
   box-shadow: 0 8px 24px rgb(35 55 82 / 4%);
+}
+
+.productionLayout,
+.productionSidebar {
+  min-width: 0;
+}
+
+/* Preserve the cards' existing columns; stack actions when they no longer fit. */
+@media (min-width: 1366px) {
+  .productionLayout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) clamp(240px, calc(100vw - 1126px), 300px);
+    gap: 12px;
+    align-items: start;
+  }
+
+  .productionSidebar {
+    position: sticky;
+    top: 14px;
+    margin-top: 14px;
+  }
+
+  .productionSidebar .productionActions {
+    margin-top: 0;
+  }
+
+  .productionSidebar .productionActionButtons {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 .productionActions header h2,
