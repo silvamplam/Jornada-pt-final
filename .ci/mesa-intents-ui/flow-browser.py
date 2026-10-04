@@ -117,11 +117,11 @@ with sync_playwright() as pw:
                 card=theme_region.locator('section').filter(has_text='Milan / Amorim')
                 theme_new=0 if page.get_by_label('Número de novos artigos para material solto',exact=True).count() else target_new
                 card.get_by_label('Novos artigos',exact=True).fill(str(theme_new))
-                card.get_by_role('button',name=re.compile(r'^Confirmar \d+ novos? artigos?$')).click()
+                card.get_by_role('button',name='Definir quantidade',exact=True).click()
                 expect(page.get_by_text('Quantidade do Tema guardada.',exact=True)).to_be_visible()
             loose=page.get_by_label('Número de novos artigos para material solto',exact=True)
             if loose.count():
-                loose.fill(str(target_new));loose.locator('..').locator('..').get_by_role('button',name=re.compile(r'^Confirmar \d+ novos? artigos?$')).click()
+                loose.fill(str(target_new));page.get_by_role('button',name='Definir objetivo',exact=True).click()
                 expect(page.get_by_text('Planeamento guardado.',exact=True)).to_be_visible()
             label=f'Confirmar {target_new} '+('novo artigo' if target_new==1 else 'novos artigos')
             page.get_by_role('button',name=label,exact=True).click()

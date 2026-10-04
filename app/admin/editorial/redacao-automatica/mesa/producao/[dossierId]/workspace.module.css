@@ -153,7 +153,8 @@
 }
 
 .newOutputPlanner > .outputCount > button,
-.groupingToolbar button {
+.groupingToolbar button,
+.materializeGroups {
   min-height: 34px;
   padding: 7px 11px;
   border: 1px solid #aebcaf;
@@ -382,7 +383,7 @@
   margin-bottom: 11px;
 }
 
-.groupingToolbar .materializeGroups {
+.materializeGroups {
   margin-left: auto;
   border-color: #27643b;
   color: #fff;
@@ -2184,10 +2185,6 @@
   .productionSidebar .productionActionButtons {
     display: grid;
     grid-template-columns: minmax(0, 1fr);
-  }
-
-  .productionLayout .planEditor .planFields:not([data-context-mode="contexts"]) {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
 

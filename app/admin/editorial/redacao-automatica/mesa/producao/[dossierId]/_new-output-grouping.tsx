@@ -29,15 +29,6 @@ type GroupingAction =
 
 type PendingCommand = Readonly<{ signature: string; commandId: string }>;
 
-function quantityConfirmationLabel(value: string, savedCount: number | null): string {
-  const count = Number(value);
-  if (!value.trim() || !Number.isSafeInteger(count) || count < 0) return "Confirmar quantidade";
-  const articles = `${count} ${count === 1 ? "novo artigo" : "novos artigos"}`;
-  return count === savedCount
-    ? `${articles} ${count === 1 ? "guardado" : "guardados"}`
-    : `Confirmar ${articles}`;
-}
-
 export function NewOutputGroupingPlanner({
   initialGrouping,
   fixtureMode = false,
@@ -205,7 +196,7 @@ export function NewOutputGroupingPlanner({
                   || Number(themeValues[theme.themeId]) < 0 || Number(themeValues[theme.themeId]) > 30
                   || Number(themeValues[theme.themeId]) === theme.targetCount}
                 onClick={() => void command("set_theme_new_count", [], theme.themeId)}
-              >{quantityConfirmationLabel(themeValues[theme.themeId] ?? "", theme.targetCount)}</button>
+              >Definir quantidade</button>
               <small>Os novos artigos partem deste Tema; não é necessário distribuir as fontes.</small>
             </section>)}
           </div> : null}
@@ -230,7 +221,7 @@ export function NewOutputGroupingPlanner({
                   || Number(targetValue) < 0 || Number(targetValue) > Math.min(30, grouping.looseSourceIds.length)
                   || Number(targetValue) === grouping.targetCount}
                 onClick={() => void command("set_new_output_target")}
-              >{quantityConfirmationLabel(targetValue, grouping.targetCount)}</button>
+              >Definir objetivo</button>
             </div>
             {grouping.targetCount !== null ? (
               <p className={gap === 0 ? styles.groupingReady : styles.groupingGuidance} role="status">

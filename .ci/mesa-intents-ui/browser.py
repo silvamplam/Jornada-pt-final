@@ -103,10 +103,10 @@ with sync_playwright() as playwright:
 
     def theme_card():return page.get_by_label('Temas desta Produção').locator('section').filter(has_text='Milan / Amorim')
     def set_theme_count(value):
-        card=theme_card();card.get_by_label('Novos artigos',exact=True).fill(str(value));card.get_by_role('button',name=re.compile(r'^Confirmar \d+ novos? artigos?$')).click()
+        card=theme_card();card.get_by_label('Novos artigos',exact=True).fill(str(value));card.get_by_role('button',name='Definir quantidade',exact=True).click()
         expect(page.get_by_text('Quantidade do Tema guardada.',exact=True)).to_be_visible()
     def set_loose_target(value):
-        field=page.get_by_label('Número de novos artigos para material solto',exact=True);field.fill(str(value));field.locator('..').locator('..').get_by_role('button',name=re.compile(r'^Confirmar \d+ novos? artigos?$')).click()
+        page.get_by_label('Número de novos artigos para material solto',exact=True).fill(str(value));page.get_by_role('button',name='Definir objetivo',exact=True).click()
         expect(page.get_by_text('Planeamento guardado.',exact=True)).to_be_visible()
     def merge_groups(count):
         checks=page.locator('ol').get_by_role('checkbox');assert checks.count()>=count
