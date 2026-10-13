@@ -2258,17 +2258,19 @@ export default function HierarchicalCompositionDeskClient({
   }
 
   function removeDynamicZone(clientId: string) {
-    if (plan.dynamicZones.find((zone) => zone.clientId === clientId)?.columnGroup) {
-      setMessage("Desagrupa as colunas antes de apagar uma zona."); return;
-    }
-    const index = plan.dynamicZones.findIndex((zone) => zone.clientId === clientId);
-    if (index < 0) return;
+    const selectedZone = plan.dynamicZones.find((zone) => zone.clientId === clientId);
+    if (!selectedZone) return;
+    const columnGroup = columnGroupForZone(columnGroupsForPlan(), clientId);
+    const removedIds = new Set(columnGroup?.zoneIds ?? [clientId]);
+    const removedIndexes = plan.dynamicZones.flatMap((zone, index) => removedIds.has(zone.clientId) ? [index] : []);
+    if (removedIndexes.length === 0) return;
+    const firstIndex = Math.min(...removedIndexes);
+    const removedBeforeVideo = removedIndexes.filter((index) => index < plan.settings.videoPosition).length;
     const dynamicZones = renumberAutomaticDynamicZoneTitles(
-      plan.dynamicZones.filter((zone) => zone.clientId !== clientId),
+      plan.dynamicZones.filter((zone) => !removedIds.has(zone.clientId)),
     );
     const videoPosition = Math.min(
-      plan.settings.videoPosition
-        - (index < plan.settings.videoPosition ? 1 : 0),
+      plan.settings.videoPosition - removedBeforeVideo,
       dynamicZones.length,
     );
     commit(
@@ -2280,13 +2282,16 @@ export default function HierarchicalCompositionDeskClient({
           videoPosition: Math.max(videoPosition, 0),
         },
       },
-      "Zona editorial retirada. As notícias regressaram ao reservatório.",
+      columnGroup
+        ? "Grupo de cinco colunas retirado. As notícias regressaram ao reservatório."
+        : "Zona editorial retirada. As notícias regressaram ao reservatório.",
     );
-    const fallback = dynamicZones[Math.min(index, Math.max(0, dynamicZones.length - 1))];
+    const fallback = dynamicZones[Math.min(firstIndex, Math.max(0, dynamicZones.length - 1))];
     setActiveWorkspaceKey(fallback ? `dynamic:${fallback.clientId}` : "opening");
-    setSelectedReorderBlockKey((current) =>
-      current === `dynamic:${clientId}` ? null : current,
-    );
+    setSelectedReorderBlockKey((current) => {
+      if (!current?.startsWith("dynamic:")) return current;
+      return removedIds.has(current.slice("dynamic:".length)) ? null : current;
+    });
     setSelectedBankItemIds([]);
   }
 
@@ -2954,15 +2959,19 @@ export default function HierarchicalCompositionDeskClient({
                   setIsApplying(true);
                   try {
                     const body = new FormData();
-                    body.set("action_type", "import_column_groups"); body.set("matchday_id", matchdayId); body.set("composition_id", compositionId);
+                    body.set("action_type", "import_viva_zones"); body.set("matchday_id", matchdayId); body.set("composition_id", compositionId);
                     body.set("expected_column_groups_json", JSON.stringify(columnGroupsForPlan(basePlan.dynamicZones)));
                     const response = await fetch("/api/admin/editorial/composicao", { method: "POST", body });
-                    const result = await response.json();
+                    const result = await response.json() as { ok?: boolean; importedZoneCount?: number; message?: string };
                     if (!response.ok || !result.ok) throw new Error(result.message ?? "Importação recusada.");
+                    if ((result.importedZoneCount ?? 0) === 0) {
+                      setMessage(result.message ?? "Todas as zonas da Viva já estão nesta composição.");
+                      return;
+                    }
                     window.location.reload();
                   } catch (error) { setMessage(error instanceof Error ? error.message : "Importação recusada."); }
                   finally { setIsApplying(false); }
-                }}>Importar grupos da Viva</button>
+                }}>Importar zonas da Viva</button>
               </div>
 
               <div className="hc-page-structure-row fixed">
@@ -3030,7 +3039,7 @@ export default function HierarchicalCompositionDeskClient({
                         type="button"
                         onClick={() => removeDynamicZone(zone.clientId)}
                       >
-                        Remover
+                        {columnGroupForZone(columnGroupsForPlan(), zone.clientId) ? "Remover grupo" : "Remover"}
                       </button>
                     </div>
                   </div>

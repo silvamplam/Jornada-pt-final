@@ -3874,21 +3874,31 @@ export async function POST(request: Request) {
     }
   }
 
-  if (actionType === "import_column_groups") {
+  if (actionType === "import_viva_zones") {
     if (!(await hasAuthenticatedAdminSession())) return Response.json({ ok: false, message: "É necessária uma sessão administrativa válida." }, { status: 401 });
     try {
       const compositionId = cleanText(formData.get("composition_id"));
       if (!matchdayId || !compositionId || !UUID_PATTERN.test(matchdayId) || !UUID_PATTERN.test(compositionId)) throw new Error("invalid-context");
       const expected = parseEditorialColumnGroups(JSON.parse(cleanText(formData.get("expected_column_groups_json")) ?? "[]"));
-      await writeSupabaseAdmin("rpc/import_historical_column_groups_v31", { method: "POST", body: JSON.stringify({
-        p_matchday_id: matchdayId, p_composition_id: compositionId, p_expected_column_groups: expected,
-      }) });
-      return Response.json({ ok: true });
+      const rows = await writeSupabaseAdminReturning<{ imported_zone_count: number }>("rpc/import_historical_viva_zones_v32", {
+        method: "POST",
+        body: JSON.stringify({
+          p_matchday_id: matchdayId,
+          p_composition_id: compositionId,
+          p_expected_column_groups: expected,
+        }),
+      });
+      const importedZoneCount = Number(rows[0]?.imported_zone_count ?? 0);
+      return Response.json({
+        ok: true,
+        importedZoneCount,
+        message: importedZoneCount === 0
+          ? "Todas as zonas da Viva já estão nesta composição."
+          : `${importedZoneCount} ${importedZoneCount === 1 ? "zona importada" : "zonas importadas"} da Viva.`,
+      });
     } catch (error) {
-      const raw = error instanceof Error ? error.message : "";
-      return Response.json({ ok: false, message: raw.includes("concurrent-write") ? "Os grupos mudaram. Recarrega a Mesa."
-        : raw.includes("story-already-used") ? "Há notícias do grupo já usadas na Histórica. Retira essas colocações antes de importar."
-        : "Não foi possível importar os grupos. Confirma a migration e a capacidade da composição." }, { status: 409 });
+      const message = error instanceof Error ? error.message : "Não foi possível importar as zonas da Viva.";
+      return Response.json({ ok: false, message }, { status: 400 });
     }
   }
 
