@@ -1,16 +1,24 @@
 import "server-only";
 
+import { ligaPortugalMatchUrl } from "@/lib/matchday-agenda-tv-sources";
 import {
   currentLigaPortugalCompetitionUrl,
   ligaPortugalMatchdayUrl,
   ligaPortugalSeasonUrl,
+  parseLigaPortugalMatchTeams,
+  parseLigaPortugalMatchVideoDiscoveries,
   parseVsportsMatchdayDiscoveries,
+  parseVsportsMatchTeams,
+  sameVideoSummaryMatchTeams,
   vsportsMatchUrls,
+  type VideoSummaryMatchTeams,
   type VsportsVideoSummaryDiscovery,
 } from "@/lib/vsports-video-summary-discovery";
 
 const VSPORTS_HOME = "https://vsports.pt/";
-const MAX_HTML_BYTES = 2_000_000;
+const MAX_VSPORTS_HTML_BYTES = 2_000_000;
+const MAX_LIGA_PORTUGAL_HTML_BYTES = 3_000_000;
+const MAX_LIGA_PORTUGAL_MATCHES = 12;
 
 export type VsportsMatchdayDiscoveryResult = Readonly<{
   supported: boolean;
@@ -21,9 +29,10 @@ export type VsportsMatchdayDiscoveryResult = Readonly<{
 
 type LoaderDependencies = Readonly<{
   fetchHtml: (url: string) => Promise<string>;
+  fetchLigaPortugalHtml: (url: string) => Promise<string>;
 }>;
 
-async function fetchHtml(url: string) {
+async function fetchHtmlWithLimit(url: string, maxBytes: number, errorPrefix: string) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 15_000);
   try {
@@ -36,15 +45,23 @@ async function fetchHtml(url: string) {
         "User-Agent": "Jornada.pt video-summary discovery/1.0",
       },
     });
-    if (!response.ok) throw new Error(`vsports-http-${response.status}`);
+    if (!response.ok) throw new Error(`${errorPrefix}-http-${response.status}`);
     const length = Number(response.headers.get("content-length") ?? 0);
-    if (length > MAX_HTML_BYTES) throw new Error("vsports-response-too-large");
+    if (length > maxBytes) throw new Error(`${errorPrefix}-response-too-large`);
     const html = await response.text();
-    if (Buffer.byteLength(html, "utf8") > MAX_HTML_BYTES) throw new Error("vsports-response-too-large");
+    if (Buffer.byteLength(html, "utf8") > maxBytes) throw new Error(`${errorPrefix}-response-too-large`);
     return html;
   } finally {
     clearTimeout(timeout);
   }
+}
+
+async function fetchHtml(url: string) {
+  return fetchHtmlWithLimit(url, MAX_VSPORTS_HTML_BYTES, "vsports");
+}
+
+async function fetchLigaPortugalHtml(url: string) {
+  return fetchHtmlWithLimit(url, MAX_LIGA_PORTUGAL_HTML_BYTES, "liga-portugal");
 }
 
 function uniqueDiscoveries(items: VsportsVideoSummaryDiscovery[]) {
@@ -53,23 +70,68 @@ function uniqueDiscoveries(items: VsportsVideoSummaryDiscovery[]) {
   ).values());
 }
 
+type MissingMatchPage = Readonly<{
+  teams: VideoSummaryMatchTeams;
+  items: VsportsVideoSummaryDiscovery[];
+}>;
+
 async function discoverMissingMatchPages(
   matchdayHtml: string,
   indexedItems: VsportsVideoSummaryDiscovery[],
+  input: Readonly<{ seasonLabel: string; matchdayNumber: number }>,
   dependencies: LoaderDependencies,
 ) {
+  const allMatchUrls = vsportsMatchUrls(matchdayHtml);
   const indexedMatchUrls = new Set(indexedItems.flatMap((item) => item.matchUrl ? [item.matchUrl] : []));
-  const fallbackMatchUrls = vsportsMatchUrls(matchdayHtml).filter((url) => !indexedMatchUrls.has(url));
+  const fallbackMatchUrls = allMatchUrls.filter((url) => !indexedMatchUrls.has(url));
   if (fallbackMatchUrls.length === 0) return [];
 
-  const loaded = await Promise.allSettled(fallbackMatchUrls.map(async (url) => (
-    parseVsportsMatchdayDiscoveries(await dependencies.fetchHtml(url))
-  )));
-  return loaded.flatMap((result) => result.status === "fulfilled" ? result.value : []);
+  const loaded = await Promise.allSettled(fallbackMatchUrls.map(async (url): Promise<MissingMatchPage | null> => {
+    const html = await dependencies.fetchHtml(url);
+    const teams = parseVsportsMatchTeams(html);
+    if (!teams) return null;
+    return {
+      teams,
+      items: parseVsportsMatchdayDiscoveries(html),
+    };
+  }));
+
+  const resolvedPages = loaded.flatMap((result) => (
+    result.status === "fulfilled" && result.value ? [result.value] : []
+  ));
+  const fallbackItems = resolvedPages.flatMap((page) => page.items);
+  const unresolved = resolvedPages.map((page) => page.teams);
+  if (unresolved.length === 0) return fallbackItems;
+
+  const matchCount = Math.min(Math.max(allMatchUrls.length, 1), MAX_LIGA_PORTUGAL_MATCHES);
+  for (let matchIndex = 1; matchIndex <= matchCount && unresolved.length > 0; matchIndex += 1) {
+    const sourcePageUrl = ligaPortugalMatchUrl({
+      seasonLabel: input.seasonLabel,
+      matchdayNumber: input.matchdayNumber,
+      matchIndex,
+    });
+
+    let officialHtml: string;
+    try {
+      officialHtml = await dependencies.fetchLigaPortugalHtml(sourcePageUrl);
+    } catch {
+      continue;
+    }
+
+    const officialTeams = parseLigaPortugalMatchTeams(officialHtml);
+    if (!officialTeams) continue;
+    const unresolvedIndex = unresolved.findIndex((teams) => sameVideoSummaryMatchTeams(teams, officialTeams));
+    if (unresolvedIndex < 0) continue;
+
+    fallbackItems.push(...parseLigaPortugalMatchVideoDiscoveries(officialHtml, sourcePageUrl));
+    unresolved.splice(unresolvedIndex, 1);
+  }
+
+  return fallbackItems;
 }
 
 export function createVsportsMatchdayDiscoveryLoader(
-  dependencies: LoaderDependencies = { fetchHtml },
+  dependencies: LoaderDependencies = { fetchHtml, fetchLigaPortugalHtml },
 ) {
   return async function discoverVsportsMatchday(input: {
     competitionSlug: string;
@@ -102,7 +164,12 @@ export function createVsportsMatchdayDiscoveryLoader(
 
     const matchdayHtml = await dependencies.fetchHtml(matchdayUrl);
     const indexedItems = parseVsportsMatchdayDiscoveries(matchdayHtml);
-    const fallbackItems = await discoverMissingMatchPages(matchdayHtml, indexedItems, dependencies);
+    const fallbackItems = await discoverMissingMatchPages(
+      matchdayHtml,
+      indexedItems,
+      { seasonLabel: input.seasonLabel, matchdayNumber: input.matchdayNumber },
+      dependencies,
+    );
     return {
       supported: true,
       matchdayUrl,
