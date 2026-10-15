@@ -17,6 +17,11 @@ export type VsportsVideoSummaryDiscovery = Readonly<{
   playableMediaUrl: string | null;
 }>;
 
+export type VideoSummaryMatchTeams = Readonly<{
+  home: string;
+  away: string;
+}>;
+
 export function missingVsportsMatchIds(
   expectedMatchIds: string[],
   discoveredMatchIds: Array<string | null>,
@@ -98,6 +103,39 @@ export function vsportsMatchUrls(html: string) {
   return Array.from(new Set(urls));
 }
 
+function canonicalTeamLabel(value: string) {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/gu, "")
+    .toLocaleLowerCase("pt-PT")
+    .replace(/\b(?:fc|sc|ac|cf|sad)\b/gu, " ")
+    .replace(/[^a-z0-9]+/gu, " ")
+    .trim()
+    .replace(/\s+/gu, " ");
+}
+
+export function sameVideoSummaryMatchTeams(
+  first: VideoSummaryMatchTeams,
+  second: VideoSummaryMatchTeams,
+) {
+  return canonicalTeamLabel(first.home) === canonicalTeamLabel(second.home)
+    && canonicalTeamLabel(first.away) === canonicalTeamLabel(second.away);
+}
+
+export function parseVsportsMatchTeams(html: string): VideoSummaryMatchTeams | null {
+  const title = load(html)("title").first().text().trim();
+  const match = /^(.+?)\s+(\d+)\s*-\s*(\d+)\s+(.+)$/u.exec(title);
+  if (!match) return null;
+  return { home: match[1].trim(), away: match[4].trim() };
+}
+
+export function parseLigaPortugalMatchTeams(html: string): VideoSummaryMatchTeams | null {
+  const title = load(html)("title").first().text().trim();
+  const match = /^Liga Portugal\s*-\s*(.+?)\s*-\s*(.+)$/iu.exec(title);
+  if (!match) return null;
+  return { home: match[1].trim(), away: match[2].trim() };
+}
+
 function itemId(sourceUrl: string, fallback: string) {
   try {
     const url = new URL(sourceUrl, VSPORTS_ORIGIN);
@@ -139,6 +177,83 @@ function officialEmbedFromItem(dataEmbed: string | undefined, sourceItemId: stri
   if (iframeItemId && iframeItemId !== sourceItemId) return null;
   if (scriptItemId && scriptItemId !== sourceItemId) return null;
   return embedUrl;
+}
+
+type NuxtRecord = Record<string, unknown>;
+
+function asNuxtRecord(value: unknown): NuxtRecord | null {
+  return value !== null && typeof value === "object" && !Array.isArray(value)
+    ? value as NuxtRecord
+    : null;
+}
+
+function resolveNuxtValue(data: readonly unknown[], value: unknown) {
+  return typeof value === "number"
+    && Number.isInteger(value)
+    && value >= 0
+    && value < data.length
+    ? data[value]
+    : value;
+}
+
+function nuxtString(data: readonly unknown[], value: unknown) {
+  const resolved = resolveNuxtValue(data, value);
+  return typeof resolved === "string" ? resolved : null;
+}
+
+export function parseLigaPortugalMatchVideoDiscoveries(
+  html: string,
+  sourcePageUrl: string,
+) {
+  const $ = load(html);
+  const payload = $("#__NUXT_DATA__").first().html();
+  if (!payload) return [];
+
+  let data: unknown;
+  try {
+    data = JSON.parse(payload);
+  } catch {
+    return [];
+  }
+  if (!Array.isArray(data)) return [];
+
+  const discoveries: VsportsVideoSummaryDiscovery[] = [];
+  for (const raw of data) {
+    const candidate = asNuxtRecord(raw);
+    if (!candidate || !("vsportsId" in candidate) || !("title" in candidate) || !("url" in candidate)) continue;
+
+    const sourceItemId = nuxtString(data, candidate.vsportsId)?.trim() ?? "";
+    const title = nuxtString(data, candidate.title)?.trim() ?? "";
+    const sourceUrl = absoluteVsportsUrl(nuxtString(data, candidate.url));
+    if (!/^\d+$/u.test(sourceItemId) || !title || !sourceUrl) continue;
+
+    const iframeText = nuxtString(data, candidate.iframeText) ?? undefined;
+    const officialEmbed = officialEmbedFromItem(iframeText, sourceItemId);
+    const thumbnailUrl = absoluteHttpUrl(
+      nuxtString(data, candidate.background)
+      ?? nuxtString(data, candidate.thumbnailLandscape)
+      ?? nuxtString(data, candidate.thumbnailPortrait),
+    );
+    const publishedAt = nuxtString(data, candidate.publishedAt)
+      ?? nuxtString(data, candidate.createdAt);
+
+    discoveries.push({
+      sourceItemId,
+      title,
+      sourceUrl,
+      matchUrl: sourcePageUrl,
+      thumbnailUrl,
+      publishedAt,
+      youtubeVideoId: null,
+      youtubeUrl: null,
+      vsportsEmbedUrl: officialEmbed,
+      playableMediaUrl: officialEmbed,
+    });
+  }
+
+  return Array.from(new Map(
+    discoveries.map((item) => [item.sourceItemId, item] as const),
+  ).values());
 }
 
 export function parseVsportsMatchdayDiscoveries(html: string) {
