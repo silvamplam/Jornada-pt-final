@@ -1818,7 +1818,7 @@ export default function HierarchicalCompositionDeskClient({
     blockOrder: initialBlockOrder,
     videoPosition: initialVideoPosition,
   } satisfies CompositionSettings;
-  const [basePlan] = useState(() =>
+  const [basePlan, setBasePlan] = useState(() =>
     initialPlan(slots, auxiliaryItems, editorial, initialSettings, initialDynamicZones),
   );
   const [plan, setPlan] = useState(() =>
@@ -2703,6 +2703,14 @@ export default function HierarchicalCompositionDeskClient({
       }
 
       setSelectedBankItemIds([]);
+
+      if (planned.length === 0) {
+        setBasePlan(plan);
+        setHistory([]);
+        setMessage("Montagem guardada.");
+        return;
+      }
+
       allowProgrammaticUnloadRef.current = true;
       window.location.reload();
     }
