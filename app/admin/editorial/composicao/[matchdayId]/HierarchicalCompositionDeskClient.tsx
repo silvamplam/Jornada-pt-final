@@ -2076,10 +2076,13 @@ export default function HierarchicalCompositionDeskClient({
     return count;
   }, [basePlan, plan]);
 
+  const allowProgrammaticUnloadRef = useRef(false);
+
   useEffect(() => {
     if (pendingCount === 0) return;
 
     const warn = (event: BeforeUnloadEvent) => {
+      if (allowProgrammaticUnloadRef.current) return;
       event.preventDefault();
       event.returnValue = "";
     };
@@ -2700,6 +2703,7 @@ export default function HierarchicalCompositionDeskClient({
       }
 
       setSelectedBankItemIds([]);
+      allowProgrammaticUnloadRef.current = true;
       window.location.reload();
     }
     catch {
