@@ -18,6 +18,7 @@ import {
 const VSPORTS_HOME = "https://vsports.pt/";
 const MAX_VSPORTS_HTML_BYTES = 2_000_000;
 const MAX_LIGA_PORTUGAL_HTML_BYTES = 3_000_000;
+const MIN_LIGA_PORTUGAL_MATCHES = 9;
 const MAX_LIGA_PORTUGAL_MATCHES = 12;
 
 export type VsportsMatchdayDiscoveryResult = Readonly<{
@@ -129,7 +130,10 @@ async function discoverMissingMatchPages(
   }));
   if (unresolved.length === 0) return fallbackItems;
 
-  const matchCount = Math.min(Math.max(allMatchUrls.length, 1), MAX_LIGA_PORTUGAL_MATCHES);
+  const matchCount = Math.min(
+    Math.max(allMatchUrls.length, MIN_LIGA_PORTUGAL_MATCHES),
+    MAX_LIGA_PORTUGAL_MATCHES,
+  );
   for (let matchIndex = 1; matchIndex <= matchCount && unresolved.length > 0; matchIndex += 1) {
     const sourcePageUrl = ligaPortugalMatchUrl({
       seasonLabel: input.seasonLabel,
