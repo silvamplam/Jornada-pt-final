@@ -36,7 +36,10 @@ function nuxtFixture() {
     "2026-10-09T20:35:22.987Z",
     iframe,
   ];
-  return `<html><head><title>${officialTitle}</title></head><body><script type="application/json" id="__NUXT_DATA__">${JSON.stringify(data)}</script></body></html>`;
+  const payload = JSON.stringify(data)
+    .replace(/</gu, "\\u003C")
+    .replace(/>/gu, "\\u003E");
+  return `<html><head><title>${officialTitle}</title></head><body><script type="application/json" id="__NUXT_DATA__">${payload}</script></body></html>`;
 }
 
 test("relaciona o título VSPORTS do jogo com a página oficial da Liga Portugal", () => {
