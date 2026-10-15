@@ -85,7 +85,27 @@ export function ligaPortugalMatchdayUrl(seasonHtml: string, matchdayNumber: numb
   return absoluteVsportsUrl(href);
 }
 
+export function vsportsMatchUrls(html: string) {
+  const $ = load(html);
+  const urls = [
+    ...$('a[href*="/vsports/jogo/"]')
+      .map((_index, element) => absoluteVsportsUrl($(element).attr("href")))
+      .get(),
+    ...$('[data-match*="/vsports/jogo/"]')
+      .map((_index, element) => absoluteVsportsUrl($(element).attr("data-match")))
+      .get(),
+  ].filter((value): value is string => Boolean(value));
+  return Array.from(new Set(urls));
+}
+
 function itemId(sourceUrl: string, fallback: string) {
+  try {
+    const url = new URL(sourceUrl, VSPORTS_ORIGIN);
+    const pathId = url.pathname.match(/\/(?:vod|embd)\/(\d+)(?:\/|$)/u)?.[1];
+    if (pathId) return pathId;
+  } catch {
+    // Continue with the legacy VSPORTS slug and YouTube fallbacks.
+  }
   return sourceUrl.match(/-(\d+)(?:[/?#]|$)/u)?.[1]
     ?? youtubeVideoId(sourceUrl)
     ?? fallback;
@@ -115,11 +135,10 @@ function officialEmbedFromItem(dataEmbed: string | undefined, sourceItemId: stri
     }
   }
 
-  return embedItemId === sourceItemId
-    && iframeItemId === sourceItemId
-    && scriptItemId === sourceItemId
-    ? embedUrl
-    : null;
+  if (embedItemId !== sourceItemId) return null;
+  if (iframeItemId && iframeItemId !== sourceItemId) return null;
+  if (scriptItemId && scriptItemId !== sourceItemId) return null;
+  return embedUrl;
 }
 
 export function parseVsportsMatchdayDiscoveries(html: string) {
@@ -129,7 +148,7 @@ export function parseVsportsMatchdayDiscoveries(html: string) {
   $("a.video-btn[data-title]").each((index, element) => {
     const anchor = $(element);
     const title = anchor.attr("data-title")?.trim() || anchor.find("img[alt]").attr("alt")?.trim() || "";
-    const sourceUrl = absoluteVsportsUrl(anchor.attr("data-share") ?? anchor.attr("data-src"));
+    const sourceUrl = absoluteVsportsUrl(anchor.attr("data-share") ?? anchor.attr("data-src") ?? anchor.attr("href"));
     if (!title || !sourceUrl) return;
     const card = anchor.closest(".card");
     const sourceItemId = itemId(sourceUrl, `card-${index}`);
