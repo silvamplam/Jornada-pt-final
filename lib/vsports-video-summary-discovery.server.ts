@@ -70,6 +70,29 @@ function uniqueDiscoveries(items: VsportsVideoSummaryDiscovery[]) {
   ).values());
 }
 
+function lookupTokens(value: string) {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/gu, "")
+    .toLocaleLowerCase("pt-PT")
+    .replace(/\b(?:fc|sc|ac|cf|cd|cp|sad|da|de|do|das|dos)\b/gu, " ")
+    .replace(/[^a-z0-9]+/gu, " ")
+    .trim()
+    .split(/\s+/u)
+    .filter(Boolean);
+}
+
+function discoveryBelongsToMatch(
+  discovery: VsportsVideoSummaryDiscovery,
+  teams: VideoSummaryMatchTeams,
+) {
+  const titleTokens = new Set(lookupTokens(discovery.title));
+  return [teams.home, teams.away].every((team) => {
+    const teamTokens = lookupTokens(team);
+    return teamTokens.length > 0 && teamTokens.every((token) => titleTokens.has(token));
+  });
+}
+
 type MissingMatchPage = Readonly<{
   teams: VideoSummaryMatchTeams;
   items: VsportsVideoSummaryDiscovery[];
@@ -123,7 +146,9 @@ async function discoverMissingMatchPages(
     const unresolvedIndex = unresolved.findIndex((teams) => sameVideoSummaryMatchTeams(teams, officialTeams));
     if (unresolvedIndex < 0) continue;
 
-    fallbackItems.push(...parseLigaPortugalMatchVideoDiscoveries(officialHtml, sourcePageUrl));
+    const officialItems = parseLigaPortugalMatchVideoDiscoveries(officialHtml, sourcePageUrl)
+      .filter((item) => discoveryBelongsToMatch(item, officialTeams));
+    fallbackItems.push(...officialItems);
     unresolved.splice(unresolvedIndex, 1);
   }
 
