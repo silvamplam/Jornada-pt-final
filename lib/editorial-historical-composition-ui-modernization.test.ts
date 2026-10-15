@@ -210,6 +210,20 @@ test("os quatro menus ficam disponíveis no modo normal e recolhidos no modo com
   assert.match(client, /\.hc-desk-preview-tool\[open\] > \.hc-desk-tool-body/);
 });
 
+test("guardar apenas settings e zonas dinâmicas atualiza o baseline sem reload", () => {
+  const applyChanges = sourceBetween(
+    client,
+    "  async function applyChanges() {",
+    "\n\n  function renderCard",
+  );
+
+  assert.match(client, /const \[basePlan, setBasePlan\] = useState\(\(\) =>\s*initialPlan\(slots, auxiliaryItems, editorial, initialSettings, initialDynamicZones\),\s*\);/);
+  assert.match(
+    applyChanges,
+    /setSelectedBankItemIds\(\[\]\);\s*if \(planned\.length === 0\) \{\s*setBasePlan\(plan\);\s*setHistory\(\[\]\);\s*setMessage\("Montagem guardada\."\);\s*return;\s*\}\s*allowProgrammaticUnloadRef\.current = true;\s*window\.location\.reload\(\);/,
+  );
+});
+
 test("Guardar montagem e a RPC transacional conservam o contrato", () => {
   const applyChanges = sourceBetween(
     client,
