@@ -15,9 +15,9 @@ export function youtubeVideoId(value?: string | null) {
     }
 
     if (
-      hostname === "youtube.com" ||
-      hostname === "m.youtube.com" ||
-      hostname === "music.youtube.com" ||
+      hostname === "youtube.com" || 
+      hostname === "m.youtube.com" || 
+      hostname === "music.youtube.com" || 
       hostname === "youtube-nocookie.com"
     ) {
       if (parsed.pathname === "/watch") {
@@ -50,14 +50,19 @@ export function vsportsEmbedUrl(value?: string | null) {
   if (!cleanValue) return null;
 
   try {
-    const parsed = new URL(cleanValue);
+    const parsed = new URL(cleanValue.startsWith("//") ? `https:${cleanValue}` : cleanValue);
     const hostname = parsed.hostname.toLowerCase().replace(/^www\./, "");
+    const allowedPath = hostname === "vsports.pt"
+      ? parsed.pathname.startsWith("/vsports/embd/")
+      : hostname === "ligaportugal.vsports.pt"
+        ? parsed.pathname.startsWith("/embd/") || parsed.pathname.startsWith("/vsports/embd/")
+        : false;
+
     if (
       parsed.protocol !== "https:"
-      || hostname !== "vsports.pt"
       || parsed.username
       || parsed.password
-      || !parsed.pathname.startsWith("/vsports/embd/")
+      || !allowedPath
     ) {
       return null;
     }

@@ -8,6 +8,7 @@ import {
   ligaPortugalSeasonUrl,
   missingVsportsMatchIds,
   parseVsportsMatchdayDiscoveries,
+  vsportsMatchUrls,
 } from "./vsports-video-summary-discovery";
 
 const home = '<a href="/vsports/competicao/i-liga/31/">Liga Portugal Betclic</a>';
@@ -118,16 +119,61 @@ test("rejeita data-embed cujo iframe ou script não pertença ao mesmo VOD", () 
   assert.equal(item?.playableMediaUrl, null);
 });
 
-test("o player VSPORTS só aceita HTTPS e a origem/path oficial sem credentials", () => {
+test("descobre links de jogos da jornada mesmo quando o índice não tem vídeo desse jogo", () => {
+  const html = `
+    <a href="/vsports/jogo/i-liga/moreirense-gil-vicente/30416">Moreirense 0-1 Gil Vicente</a>
+    ${vsportsCard({
+      id: "131001",
+      title: "Liga Portugal Betclic (8ªJ): Resumo Braga 1-3 Sporting",
+      sourcePath: "/vsports/vod/liga-portugal-betclic-jornada-8-resumo-braga-1-3-sporting-131001",
+      embedPath: "/vsports/embd/liga-portugal-betclic-8-j-resumo-braga-1-3-sporting-131001",
+      matchPath: "/vsports/jogo/i-liga/braga-sporting/30417",
+    })}
+  `;
+  assert.deepEqual(vsportsMatchUrls(html), [
+    "https://vsports.pt/vsports/jogo/i-liga/moreirense-gil-vicente/30416",
+    "https://vsports.pt/vsports/jogo/i-liga/braga-sporting/30417",
+  ]);
+});
+
+test("aceita o circuito oficial ligaportugal.vsports.pt usado fora do índice normal da jornada", () => {
+  const html = `
+    <div class="card">
+      <a
+        class="video-btn"
+        data-title="Liga Portugal Betclic (8ªJ): Resumo Moreirense FC 0-1 Gil Vicente FC"
+        data-share="https://ligaportugal.vsports.pt/vod/131111/m/30416/nfg/abcdef"
+        data-match="/vsports/jogo/i-liga/moreirense-gil-vicente/30416"
+        data-embed="&lt;iframe id=&quot;vsports-embd-131111&quot; src=&quot;//ligaportugal.vsports.pt/embd/131111/m/30416/nfg/abcdef?autostart=false&quot;&gt;&lt;/iframe&gt;"
+      ></a>
+    </div>
+  `;
+  const item = parseVsportsMatchdayDiscoveries(html)[0];
+  assert.equal(item?.sourceItemId, "131111");
+  assert.equal(item?.sourceUrl, "https://ligaportugal.vsports.pt/vod/131111/m/30416/nfg/abcdef");
+  assert.equal(
+    item?.vsportsEmbedUrl,
+    "https://ligaportugal.vsports.pt/embd/131111/m/30416/nfg/abcdef?autostart=false",
+  );
+  assert.equal(item?.playableMediaUrl, item?.vsportsEmbedUrl);
+});
+
+test("o player VSPORTS só aceita HTTPS e origens/paths oficiais sem credentials", () => {
   assert.equal(
     vsportsEmbedUrl("https://vsports.pt/vsports/embd/resumo-130983?autostart=false"),
     "https://vsports.pt/vsports/embd/resumo-130983?autostart=false",
   );
+  assert.equal(
+    vsportsEmbedUrl("//ligaportugal.vsports.pt/embd/131111/m/30416/nfg/abcdef?autostart=false"),
+    "https://ligaportugal.vsports.pt/embd/131111/m/30416/nfg/abcdef?autostart=false",
+  );
   for (const invalid of [
     "http://vsports.pt/vsports/embd/resumo-130983",
     "https://evil.example/vsports/embd/resumo-130983",
+    "https://evil.vsports.pt/embd/130983",
     "https://user:pass@vsports.pt/vsports/embd/resumo-130983",
     "https://vsports.pt/vsports/vod/resumo-130983",
+    "https://ligaportugal.vsports.pt/vod/131111/m/30416/nfg/abcdef",
   ]) {
     assert.equal(vsportsEmbedUrl(invalid), null, invalid);
   }

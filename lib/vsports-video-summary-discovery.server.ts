@@ -5,6 +5,7 @@ import {
   ligaPortugalMatchdayUrl,
   ligaPortugalSeasonUrl,
   parseVsportsMatchdayDiscoveries,
+  vsportsMatchUrls,
   type VsportsVideoSummaryDiscovery,
 } from "@/lib/vsports-video-summary-discovery";
 
@@ -46,6 +47,27 @@ async function fetchHtml(url: string) {
   }
 }
 
+function uniqueDiscoveries(items: VsportsVideoSummaryDiscovery[]) {
+  return Array.from(new Map(
+    items.map((item) => [`${item.sourceItemId}:${item.sourceUrl}`, item] as const),
+  ).values());
+}
+
+async function discoverMissingMatchPages(
+  matchdayHtml: string,
+  indexedItems: VsportsVideoSummaryDiscovery[],
+  dependencies: LoaderDependencies,
+) {
+  const indexedMatchUrls = new Set(indexedItems.flatMap((item) => item.matchUrl ? [item.matchUrl] : []));
+  const fallbackMatchUrls = vsportsMatchUrls(matchdayHtml).filter((url) => !indexedMatchUrls.has(url));
+  if (fallbackMatchUrls.length === 0) return [];
+
+  const loaded = await Promise.allSettled(fallbackMatchUrls.map(async (url) => (
+    parseVsportsMatchdayDiscoveries(await dependencies.fetchHtml(url))
+  )));
+  return loaded.flatMap((result) => result.status === "fulfilled" ? result.value : []);
+}
+
 export function createVsportsMatchdayDiscoveryLoader(
   dependencies: LoaderDependencies = { fetchHtml },
 ) {
@@ -79,10 +101,12 @@ export function createVsportsMatchdayDiscoveryLoader(
     }
 
     const matchdayHtml = await dependencies.fetchHtml(matchdayUrl);
+    const indexedItems = parseVsportsMatchdayDiscoveries(matchdayHtml);
+    const fallbackItems = await discoverMissingMatchPages(matchdayHtml, indexedItems, dependencies);
     return {
       supported: true,
       matchdayUrl,
-      items: parseVsportsMatchdayDiscoveries(matchdayHtml),
+      items: uniqueDiscoveries([...indexedItems, ...fallbackItems]),
       reason: "ok",
     };
   };
