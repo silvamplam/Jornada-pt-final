@@ -1,0 +1,103 @@
+name: Apply publicacao livre fix
+
+on:
+  push:
+    branches:
+      - jornada-composicao-publicacao-livre-20261016
+
+permissions:
+  contents: write
+
+jobs:
+  apply-fix:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: jornada-composicao-publicacao-livre-20261016
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Apply publication freedom fix
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          p = Path('app/admin/editorial/composicao/[matchdayId]/page.tsx')
+          s = p.read_text()
+          s = s.replace('  HIERARCHICAL_COMPOSITION_MOMENTS,\n', '')
+          s = s.replace('import { editorialVisualFamilyCapacity } from "@/lib/editorial-visual-families";\n', '')
+          old = '''  const historicalDynamicOpeningKeys = [\n    "dominant_main",\n    "other_chronicle_1",\n    "other_chronicle_2",\n    "other_chronicle_3",\n  ] as const;\n\n  const historicalDynamicOpeningByKey =\n    new Map(\n      hierarchicalSlots.map(\n        (slot) => [slot.slot_key, slot] as const,\n      ),\n    );\n\n  const historicalDynamicMissingOpening =\n    historicalDynamicOpeningKeys.filter((slotKey) => {\n      const slot =\n        historicalDynamicOpeningByKey.get(slotKey);\n\n      return !(\n        slot\n        && slot.label_snapshot?.trim()\n        && slot.title_snapshot?.trim()\n        && slot.subtitle_snapshot?.trim()\n        && slot.image_url_snapshot?.trim()\n        && slot.link_url_snapshot?.trim()\n      );\n    });\n'''
+          new = '''  const historicalDynamicOpeningByKey =\n    new Map(\n      hierarchicalSlots.map(\n        (slot) => [slot.slot_key, slot] as const,\n      ),\n    );\n\n  const historicalDynamicMainOpening =\n    historicalDynamicOpeningByKey.get("dominant_main") ?? null;\n  const historicalDynamicMainOpeningValid = Boolean(\n    historicalDynamicMainOpening\n    && historicalDynamicMainOpening.label_snapshot?.trim()\n    && historicalDynamicMainOpening.title_snapshot?.trim()\n    && historicalDynamicMainOpening.subtitle_snapshot?.trim()\n    && historicalDynamicMainOpening.image_url_snapshot?.trim()\n    && historicalDynamicMainOpening.link_url_snapshot?.trim(),\n  );\n'''
+          if old not in s:
+              raise SystemExit('admin opening block not found')
+          s = s.replace(old, new)
+          old = '''  const historicalDynamicZoneWarnings =\n    historicalDynamicZones\n      .slice()\n      .sort((left, right) => left.sortOrder - right.sortOrder)\n      .flatMap((zone, zoneIndex) => {\n        const capacity =\n          editorialVisualFamilyCapacity(\n            zone.visualFamily,\n          );\n\n        const items =\n          zone.items\n            .slice()\n            .sort(\n              (left, right) =>\n                left.position - right.position,\n            );\n\n        const complete =\n          zone.sortOrder === zoneIndex + 1\n          && editorialVisualFamilyPublicationPositionsAreValid(zone.visualFamily, items.map((item) => item.position))\n          && items.every(\n            (item) =>\n              Boolean(item.label?.trim())\n              && Boolean(item.title?.trim())\n              && Boolean(item.subtitle?.trim())\n              && Boolean(item.imageUrl?.trim())\n              && Boolean(item.linkUrl?.trim()),\n          );\n\n        return complete\n          ? []\n          : [\n              `${zone.publicTitle.trim() || `Zona editorial ${zoneIndex + 1}`} — incompleta: são obrigatórios ordem e ${capacity} notícias válidas.`,\n            ];\n      });\n'''
+          new = '''  const historicalDynamicZoneWarnings =\n    historicalDynamicZones\n      .slice()\n      .sort((left, right) => left.sortOrder - right.sortOrder)\n      .flatMap((zone, zoneIndex) => {\n        const items =\n          zone.items\n            .slice()\n            .sort(\n              (left, right) =>\n                left.position - right.position,\n            );\n\n        const complete =\n          zone.sortOrder === zoneIndex + 1\n          && items.length > 0\n          && editorialVisualFamilyPublicationPositionsAreValid(zone.visualFamily, items.map((item) => item.position))\n          && items.every(\n            (item) =>\n              Boolean(item.label?.trim())\n              && Boolean(item.title?.trim())\n              && Boolean(item.subtitle?.trim())\n              && Boolean(item.imageUrl?.trim())\n              && Boolean(item.linkUrl?.trim()),\n          );\n\n        return complete\n          ? []\n          : [\n              `${zone.publicTitle.trim() || `Zona editorial ${zoneIndex + 1}`} — incompleta: mantém pelo menos uma notícia válida, sem posições duplicadas ou fora do layout.`,\n            ];\n      });\n'''
+          if old not in s:
+              raise SystemExit('admin zone block not found')
+          s = s.replace(old, new)
+          s = s.replace('''    ...(historicalDynamicMissingOpening.length > 0\n      ? [\n          `Abertura — em falta: ${historicalDynamicMissingOpening.map(\n            hierarchicalSlotLabel,\n          ).join(", ")}.`,\n        ]\n      : []),\n''', '''    ...(!historicalDynamicMainOpeningValid\n      ? ["Abertura — em falta: Manchete."]\n      : []),\n''')
+          old = '''  const compositionSummary = presentationMode === "hierarchical"\n    ? [\n        ...HIERARCHICAL_COMPOSITION_MOMENTS.map((moment) => ({\n          label: moment.title,\n          value: moment.slots.filter((slot) => selectedHierarchicalSlotKeys.has(slot.key)).length,\n        })),\n'''
+          new = '''  const compositionSummary = presentationMode === "hierarchical"\n    ? hasHistoricalDynamicZones\n      ? [\n          {\n            label: "Abertura",\n            value: [\n              "dominant_main",\n              "other_chronicle_1",\n              "other_chronicle_2",\n              "other_chronicle_3",\n            ].filter((slotKey) => selectedHierarchicalSlotKeys.has(slotKey)).length,\n          },\n          ...historicalDynamicZones\n            .slice()\n            .sort((left, right) => left.sortOrder - right.sortOrder)\n            .map((zone, zoneIndex) => ({\n              label: zone.publicTitle.trim() || `Zona editorial ${zoneIndex + 1}`,\n              value: zone.items.length,\n            })),\n'''
+          if old not in s:
+              raise SystemExit('composition summary start not found')
+          s = s.replace(old, new)
+          marker = '''        {\n          label: "Para lá da Jornada",\n          value: hierarchicalBeyondMatchdayItems.length,\n        },\n      ]\n    : compositionSections.map((section) => ({\n'''
+          replacement = '''        {\n          label: "Para lá da Jornada",\n          value: hierarchicalBeyondMatchdayItems.length,\n        },\n      ]\n      : [\n          ...HIERARCHICAL_COMPOSITION_DESK_SECTIONS.map((section) => ({\n            label: section.title,\n            value: section.slots.filter((slot) => selectedHierarchicalSlotKeys.has(slot.key)).length,\n          })),\n          {\n            label: "Para lá da Jornada",\n            value: hierarchicalBeyondMatchdayItems.length,\n          },\n        ]\n    : compositionSections.map((section) => ({\n'''
+          if marker not in s:
+              raise SystemExit('composition summary end not found')
+          s = s.replace(marker, replacement, 1)
+          p.write_text(s)
+
+          p = Path('lib/editorial-visual-families.ts')
+          s = p.read_text().replace('    allowsPartialPublication: false,\n', '    allowsPartialPublication: true,\n', 1)
+          p.write_text(s)
+
+          p = Path('app/api/admin/editorial/composicao/route.ts')
+          s = p.read_text()
+          s = s.replace('''const HISTORICAL_DYNAMIC_PUBLICATION_CAPACITY = {\n  six_news: 6,\n  six_news_1_2_3: 6,\n  five_news_balanced: 5,\n  five_news_secondary: 5,\n  five_news_column: 5,\n} as const;\n\n''', '')
+          s = s.replace('''const HISTORICAL_DYNAMIC_OPENING_KEYS = [\n  "dominant_main",\n  "other_chronicle_1",\n  "other_chronicle_2",\n  "other_chronicle_3",\n] as const;\n''', '''const HISTORICAL_DYNAMIC_OPENING_KEYS = [\n  "dominant_main",\n] as const;\n''')
+          s = s.replace('''      `Completa os 4 lugares da Abertura antes de publicar. Em falta: ${missingOpening.map(\n        hierarchicalSlotLabel,\n      ).join(", ")}.`,\n''', '''      `Completa a manchete da Abertura antes de publicar. Em falta: ${missingOpening.map(\n        hierarchicalSlotLabel,\n      ).join(", ")}.`,\n''')
+          s = s.replace('''    const capacity =\n      HISTORICAL_DYNAMIC_PUBLICATION_CAPACITY[\n        zone.visual_family\n      ];\n\n''', '')
+          s = s.replace('''    const validItems =\n      editorialVisualFamilyPublicationPositionsAreValid(zone.visual_family, zoneItems.map((item) => item.position))\n      && zoneItems.every(\n''', '''    const validItems =\n      zoneItems.length > 0\n      && editorialVisualFamilyPublicationPositionsAreValid(zone.visual_family, zoneItems.map((item) => item.position))\n      && zoneItems.every(\n''')
+          s = s.replace('''        `Completa a zona editorial ${zoneIndex + 1} antes de publicar: ${capacity} notícias válidas são obrigatórias.`,\n''', '''        `Revê a zona editorial ${zoneIndex + 1}: mantém pelo menos uma notícia válida, sem posições duplicadas ou fora do layout.`,\n''')
+          p.write_text(s)
+
+          p = Path('lib/editorial-visual-families.test.ts')
+          s = p.read_text()
+          s = s.replace('  editorialVisualFamilyCapacity,\n', '  editorialVisualFamilyCapacity,\n  editorialVisualFamilyPublicationPositionsAreValid,\n')
+          marker = 'test("perfil legacy continua limitado às três famílias anteriores", () => {\n'
+          insert = '''test("todas as famílias flexíveis permitem publicação parcial sem perder posições", () => {\n  for (const family of EDITORIAL_VISUAL_FAMILIES) {\n    assert.equal(editorialVisualFamilyPublicationPositionsAreValid(family, [1]), true);\n    assert.equal(editorialVisualFamilyPublicationPositionsAreValid(family, [1, 1]), false);\n    assert.equal(editorialVisualFamilyPublicationPositionsAreValid(family, [editorialVisualFamilyCapacity(family) + 1]), false);\n  }\n});\n\n'''
+          if insert not in s:
+              s = s.replace(marker, insert + marker, 1)
+          p.write_text(s)
+
+          p = Path('lib/public-historical-contract-legacy.test.tsx')
+          s = p.read_text()
+          s = s.replace('test("título opcional não dispensa snapshots, posições, família ou ordem", async () => {', 'test("título opcional e ocupação parcial não dispensam snapshots, posições válidas, família ou ordem", async () => {')
+          s = s.replace('''  const missing = rows(); missing.items.pop();\n  assert.equal((await readZones(missing))[0].complete, false);\n''', '''  const partial = rows(); partial.items.pop();\n  assert.equal((await readZones(partial))[0].complete, true);\n''')
+          s = s.replace('''  const keys = ["dominant_main", "other_chronicle_1", "other_chronicle_2", "other_chronicle_3"];\n''', '''  const keys = ["dominant_main"];\n''')
+          s = s.replace('''      HISTORICAL_DYNAMIC_OPENING_KEYS: keys, HISTORICAL_DYNAMIC_PUBLICATION_CAPACITY: { six_news: 6 },\n''', '''      HISTORICAL_DYNAMIC_OPENING_KEYS: keys,\n''')
+          append = '''\n\ntest("composição histórica dinâmica publica por estrutura real e não pelos antigos cinco momentos", () => {\n  const summary = fragment(adminPage, 'const compositionSummary = presentationMode === "hierarchical"', 'const bankSavedCount =');\n  assert.match(summary, /hasHistoricalDynamicZones/);\n  assert.match(summary, /historicalDynamicZones/);\n  assert.match(summary, /label: "Abertura"/);\n  assert.doesNotMatch(summary, /HIERARCHICAL_COMPOSITION_MOMENTS/);\n\n  const validation = fragment(adminPage, 'const historicalDynamicZoneWarnings =', 'const publicationValidation =');\n  assert.match(validation, /items\\.length > 0/);\n});\n'''
+          if 'composição histórica dinâmica publica por estrutura real' not in s:
+              s += append
+          p.write_text(s)
+          PY
+
+      - run: npm ci --no-audit --no-fund
+      - run: npx tsx --test lib/editorial-visual-families.test.ts lib/public-historical-contract-legacy.test.tsx
+      - name: Commit fix
+        shell: bash
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add app/admin/editorial/composicao/[matchdayId]/page.tsx app/api/admin/editorial/composicao/route.ts lib/editorial-visual-families.ts lib/editorial-visual-families.test.ts lib/public-historical-contract-legacy.test.tsx
+          git commit -m "Fix: libertar publicação da composição dinâmica"
+          git push origin HEAD:jornada-composicao-publicacao-livre-20261016
