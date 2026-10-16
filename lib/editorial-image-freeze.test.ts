@@ -162,3 +162,58 @@ test("migration promotion requires unique explicit review bound to article, orig
   assert.equal(imageMigrationSummary(invalid,[]).hosts["invalid-url"],1);
   assert.doesNotMatch(imageReviewHtml(invalid,[]),/href="javascript:/);
 });
+
+test("image/jpg JPEG alias is accepted and canonicalized; fake or mismatched bytes still fail",async()=>{
+  const bytes=await picture("red");
+  assert.equal(await validateEditorialImageBytes(bytes,"image/jpg"),"jpg");
+  await assert.rejects(validateEditorialImageBytes(await sharp(bytes).png().toBuffer(),"image/jpg"),/invalid-format/);
+  await assert.rejects(validateEditorialImageBytes(Buffer.from("<html>bad</html>"),"image/jpg"));
+});
+
+test("failed acquisition becomes terminal; explicit revision works, stale claim expires, live claim cannot be stolen",async()=>{
+  const f=await fixture();const download=f.transport.download;
+  f.transport.fail=async(key)=>{const d=f.decisions.get(key)!;if(d.state==="acquiring"&&!d.image)d.state="failed";};
+  f.transport.download=async()=>{throw Error("network");};
+  await assert.rejects(freezeEditorialImage("failed",source,f.transport),/network/);
+  assert.equal(f.decisions.get("failed")?.state,"failed");
+  await assert.rejects(freezeEditorialImage("failed",source,f.transport),/acquisition-incomplete/);
+  f.transport.download=download;
+  await freezeEditorialImage("explicit-revision",source,f.transport);
+  assert.equal(f.decisions.get("explicit-revision")?.state,"ready");
+  f.decisions.set("stale",{key:"stale",sourceUrl:source,state:"acquiring",image:null,createdAt:new Date(Date.now()-180000).toISOString()});
+  await assert.rejects(freezeEditorialImage("stale",source,f.transport),/acquisition-incomplete/);
+  assert.equal(f.decisions.get("stale")?.state,"failed");
+  f.decisions.set("live",{key:"live",sourceUrl:source,state:"acquiring",image:null,createdAt:new Date().toISOString()});
+  await assert.rejects(freezeEditorialImage("live",source,f.transport),/acquisition-in-progress/);
+  assert.equal(f.decisions.get("live")?.state,"acquiring");
+});
+
+test("ready receipt must still have original and all four previews; missing preview recovers exact bytes",async()=>{
+  const f=await fixture();const image=await freezeEditorialImage("checked",source,f.transport);
+  f.objects.delete(editorialPreviewPath(image.path,960)!);
+  await freezeEditorialImage("checked",source,f.transport);
+  assert.equal(f.state.downloads,1);assert.ok(f.objects.has(editorialPreviewPath(image.path,960)!));
+  f.objects.delete(image.path);
+  await assert.rejects(freezeEditorialImage("checked",source,f.transport),/acquisition-incomplete/);
+  assert.equal(f.state.downloads,1);
+});
+
+test("Storage existence/receipt cannot rehabilitate a local copy with known social provenance",async()=>{
+  const local=`${origin}/storage/v1/object/public/editorial-images/editorial/sha256/${"a".repeat(64)}.jpg`;
+  let calls=0;
+  const storage=createImageFreezeStorage({url:origin,serviceRoleKey:"test-key"},async input=>{
+    calls++;assert.match(String(input),/editorial_image_decisions/);
+    return Response.json([{source_url:"https://img.iol.pt/preset/6ad13331d34e53c759c76a1a/og/maisfutebol",image:{publicUrl:local}}]);
+  });
+  await assert.rejects(storage.registerLocal(local),/image-social-provenance/);
+  assert.equal(calls,1);
+});
+
+test("ready social decision without a separately resolved acquisition cannot become authority",async()=>{
+  const f=await fixture();const image=await freezeEditorialImage("original",source,f.transport);
+  const social="https://img.iol.pt/preset/6ad13331d34e53c759c76a1a/og/maisfutebol";
+  f.decisions.set("old-social",{key:"old-social",sourceUrl:social,state:"ready",image});
+  await assert.rejects(freezeEditorialImage("old-social",social,f.transport),/image-social-provenance/);
+  assert.equal(f.decisions.get("old-social")?.state,"ready");assert.ok(f.objects.has(image.path));
+  await assert.rejects(freezeEditorialImage("new-social",social,f.transport),/image-social-provenance/);
+});

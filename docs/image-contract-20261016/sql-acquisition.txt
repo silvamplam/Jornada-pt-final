@@ -1,0 +1,34 @@
+BEGIN
+ALTER TABLE
+CREATE FUNCTION
+COMMIT
+BEGIN
+SET
+INSERT 0 1
+UPDATE 1
+DO
+INSERT 0 1
+INSERT 0 1
+UPDATE 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 4
+UPDATE 1
+ editorial_confirm_dossier_image_v1 
+------------------------------------
+ 
+(1 row)
+
+ editorial_confirm_dossier_image_v1 
+------------------------------------
+ 
+(1 row)
+
+INSERT 0 1
+DO
+                                                                                       result                                                                                        
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ PASS: failed terminal; immutable ready; real source NULL provenance confirmed; local article published; original and four preview object records; idempotent confirm; ACL preserved
+(1 row)
+
+ROLLBACK

@@ -32,10 +32,11 @@ export function productionImageCandidate<T extends ProductionCandidate>(
 export function productionImageSelection(input: {
   candidate: ProductionCandidate | null; explicitChoice: string | null;
   destination: "new" | "update"; prepared?: PreparedImageChoice; origin?: string;
+  requirePreparation?: boolean;
   fallback?: ProductionImageSelection;
 }): ProductionImageSelection {
   const { candidate, explicitChoice, destination, prepared, origin } = input;
-  if (candidate && editorialImageOriginalPath(prepared?.publicUrl ?? candidate.frozenUrl, origin)) {
+  if (candidate && (!input.requirePreparation || prepared) && editorialImageOriginalPath(prepared?.publicUrl ?? candidate.frozenUrl, origin)) {
     return { value: `dossier_image:${candidate.id}`, decisionKey: prepared?.decisionKey ?? null,
       automatic: explicitChoice === null, publicUrl: prepared?.publicUrl ?? candidate.frozenUrl };
   }

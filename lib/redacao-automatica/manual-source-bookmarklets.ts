@@ -88,6 +88,23 @@ function manualSourceBookmarkletRuntime() {
   function extractedImage(root: Element | null) {
     var articleImage = root ? imageFrom(root) : "";
     if (articleImage) return articleImage;
+    var structuredImage = "";
+    function visitArticle(value: any, depth: number) {
+      if (!value || depth > 8 || structuredImage) return;
+      if (Array.isArray(value)) { value.forEach(function (item) { visitArticle(item, depth + 1); }); return; }
+      if (typeof value !== "object") return;
+      var types = Array.isArray(value["@type"]) ? value["@type"] : [value["@type"]];
+      if (types.some(function (type: string) { return /^(NewsArticle|Article|ReportageNewsArticle|BlogPosting)$/.test(type); })) {
+        var image = Array.isArray(value.image) ? value.image[0] : value.image;
+        structuredImage = absoluteHttpUrl(image && typeof image === "object" ? image.contentUrl || image.url : image);
+      }
+      visitArticle(value["@graph"], depth + 1);
+      visitArticle(value.mainEntity, depth + 1);
+    }
+    Array.prototype.forEach.call(document.querySelectorAll("script[type='application/ld+json']"), function (script: Element) {
+      try { visitArticle(JSON.parse(script.textContent || ""), 0); } catch (_) { /* Ignore malformed metadata. */ }
+    });
+    if (structuredImage) return structuredImage;
     var meta = document.querySelector("meta[property='og:image'],meta[name='twitter:image'],meta[property='twitter:image']");
     return absoluteHttpUrl(meta && meta.getAttribute("content")) || imageFrom(null);
   }

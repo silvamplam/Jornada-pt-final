@@ -38,6 +38,10 @@ export function useProductionImagePreparation(dossierId: string, candidate: Prod
         setStatus({ identity, busy: false, error: "" });
       }
     }).catch(error => {
+      if (current && attempt.count > 0 && !revisionKey && error instanceof Error && error.message === "image-acquisition-incomplete") {
+        setAttempt(previous => ({ ...previous, identity, revisionKey: crypto.randomUUID() }));
+        return;
+      }
       if (current) setStatus({ identity, busy: false, error: productionImageError(error instanceof Error ? error.message : "") });
     });
     return () => { current = false; };
@@ -46,7 +50,7 @@ export function useProductionImagePreparation(dossierId: string, candidate: Prod
     result,
     busy: enabled && (status.identity === identity ? status.busy : needsPreparation && !result),
     error: status.identity === identity ? status.error : "",
-    retry: () => setAttempt(previous => ({ ...previous, count: previous.count + 1 })),
+    retry: () => setAttempt(previous => ({ count: previous.count + 1, identity })),
     reacquire: () => setAttempt(previous => ({ count: previous.count + 1, identity, revisionKey: crypto.randomUUID() })),
   };
 }

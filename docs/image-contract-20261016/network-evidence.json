@@ -1,0 +1,46 @@
+{
+  "observedAt": "2026-10-16T16:04:16.451Z",
+  "pageUrl": "https://maisfutebol.iol.pt/benfica/celtic/liga-europa-benfica-celtic-4-1-cronica",
+  "resolved": "https://img.iol.pt/image/id/6ad13331d34e53c759c76a1a/",
+  "images": [
+    {
+      "name": "social",
+      "sourceUrl": "https://img.iol.pt/preset/6ad13331d34e53c759c76a1a/og/maisfutebol",
+      "finalUrl": "https://img.iol.pt/preset/6ad13331d34e53c759c76a1a/og/maisfutebol",
+      "status": 200,
+      "redirected": false,
+      "contentType": "image/jpeg",
+      "bytes": 191672,
+      "width": 1200,
+      "height": 630,
+      "format": "jpeg",
+      "sha256": "c6b80bdf9f82bfd1ae5d4883c3da518b5e1632758a6d058f0c039ba350c071eb"
+    },
+    {
+      "name": "article",
+      "sourceUrl": "https://img.iol.pt/image/id/6ad13331d34e53c759c76a1a/",
+      "finalUrl": "https://img.iol.pt/image/id/6ad13331d34e53c759c76a1a/",
+      "status": 200,
+      "redirected": false,
+      "contentType": "image/webp",
+      "bytes": 207852,
+      "width": 1280,
+      "height": 720,
+      "format": "webp",
+      "sha256": "c012110e5fede55c711d98fa553afdc8850c3077459f8079e9177fe55acd5d58"
+    },
+    {
+      "name": "rewritten",
+      "sourceUrl": "https://img.iol.pt/image/id/6ad13331d34e53c759c76a1a/1024.jpg",
+      "finalUrl": "https://img.iol.pt/image/id/6ad13331d34e53c759c76a1a/1024.jpg",
+      "status": 200,
+      "redirected": false,
+      "contentType": "image/jpeg",
+      "bytes": 131612,
+      "width": 1024,
+      "height": 576,
+      "format": "jpeg",
+      "sha256": "7b9e38ec8d2d31ff5388fee52eb76f51501b58c4381ab1ec7af5da0fb052b394"
+    }
+  ]
+}

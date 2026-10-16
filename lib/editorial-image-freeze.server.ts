@@ -3,19 +3,21 @@ import { ensureEditorialImagePreviews } from "./editorial-image-preview-generati
 import { PUBLIC_EDITORIAL_PREVIEW_WIDTHS } from "./editorial-image-preview";
 import type { EditorialPreviewStorage } from "./editorial-image-preview-storage.server";
 import { validateEditorialImageBytes } from "./editorial-image-download.server";
+import { isSocialImageRendition } from "./editorial-image-source.server";
 
-export type FrozenImage = { path: string; sha256: string; byteSize: number; contentType: string; publicUrl: string };
-export type ImageDecision = { key: string; sourceUrl: string; state: "acquiring" | "candidate" | "ready"; image: FrozenImage | null };
+export type FrozenImage = { path: string; sha256: string; byteSize: number; contentType: string; publicUrl: string; acquisitionUrl?: string };
+export type ImageDecision = { key: string; sourceUrl: string; state: "acquiring" | "candidate" | "ready" | "failed"; image: FrozenImage | null; createdAt?: string };
 export interface ImageFreezeTransport {
   origin: string;
   previews: EditorialPreviewStorage;
   claim(key: string, sourceUrl: string): Promise<{ owned: boolean; decision: ImageDecision }>;
   bind(key: string, image: FrozenImage): Promise<void>;
   finish(key: string, image: FrozenImage): Promise<void>;
+  fail?(key: string, code: string): Promise<void>;
   writeOriginal(image: FrozenImage, bytes: Uint8Array): Promise<"created" | "exists">;
   originalExists(path: string): Promise<boolean>;
   recoverCandidateBytes?(image: FrozenImage): Promise<Uint8Array>;
-  download(sourceUrl: string): Promise<{ bytes: Uint8Array; contentType: string }>;
+  download(sourceUrl: string): Promise<{ bytes: Uint8Array; contentType: string; finalUrl?: string }>;
 }
 export function frozenImageForBytes(bytes: Uint8Array, extension: string, origin: string): FrozenImage {
   const sha256 = createHash("sha256").update(bytes).digest("hex");
@@ -31,15 +33,33 @@ export async function freezeEditorialImage(key: string, sourceUrl: string, trans
   if (!/^[a-zA-Z0-9:_.-]{1,200}$/.test(key)) throw new Error("image-invalid-decision-key");
   const { owned, decision } = await transport.claim(key, sourceUrl);
   if (decision.sourceUrl !== sourceUrl) throw new Error("image-decision-source-conflict");
-  if (decision.state === "ready" && decision.image) return decision.image;
+  if (decision.image && isSocialImageRendition(sourceUrl)
+    && (!decision.image.acquisitionUrl || isSocialImageRendition(decision.image.acquisitionUrl))) {
+    throw new Error("image-social-provenance");
+  }
+  if (decision.state === "failed") throw new Error("image-acquisition-incomplete");
+  if (!owned && decision.state === "acquiring" && !decision.image) {
+    if (decision.createdAt && Date.now() - Date.parse(decision.createdAt) < 120000) throw new Error("image-acquisition-in-progress");
+    await transport.fail?.(key, "image-acquisition-expired");
+    throw new Error("image-acquisition-incomplete");
+  }
   let image = decision.image;
   let bytes: Uint8Array | undefined;
   if (owned) {
-    const downloaded = await transport.download(sourceUrl);
-    bytes = downloaded.bytes;
-    const extension = await validateEditorialImageBytes(bytes, downloaded.contentType);
-    image = frozenImageForBytes(bytes, extension, transport.origin);
-    await transport.bind(key, image);
+    try {
+      const downloaded = await transport.download(sourceUrl);
+      if (isSocialImageRendition(sourceUrl) && (!downloaded.finalUrl || isSocialImageRendition(downloaded.finalUrl))) {
+        throw new Error("image-social-provenance");
+      }
+      bytes = downloaded.bytes;
+      const extension = await validateEditorialImageBytes(bytes, downloaded.contentType);
+      image = { ...frozenImageForBytes(bytes, extension, transport.origin),
+        ...(downloaded.finalUrl ? { acquisitionUrl: downloaded.finalUrl } : {}) };
+      await transport.bind(key, image);
+    } catch (error) {
+      await transport.fail?.(key, error instanceof Error ? error.message.split(":")[0] : "image-acquisition-failed");
+      throw error;
+    }
     await transport.writeOriginal(image, bytes);
   } else if (!image || !await transport.originalExists(image.path)) {
     if (!image || !transport.recoverCandidateBytes) {

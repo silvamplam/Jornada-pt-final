@@ -194,6 +194,17 @@ test("handshake aceita a origem canónica www e o apex sem perder o payload", as
   }
 });
 
+test("artigo com imagem carregada por JS usa NewsArticle.image antes de og:image", async () => {
+  const social="https://img.iol.pt/preset/6ad13331d34e53c759c76a1a/og/maisfutebol";
+  const actual="https://img.iol.pt/image/id/6ad13331d34e53c759c76a1a/";
+  const setup=harness({selection:"Texto selecionado do artigo, sem elemento img no corpo.",
+    querySelector:selector=>selector.includes("og:image")?{getAttribute:()=>social}:null,
+    querySelectorAll:selector=>selector.includes("application/ld+json")?[{textContent:JSON.stringify({"@type":"NewsArticle",image:{url:actual},publisher:{logo:"/logo.png"}})}]:[],
+  });
+  await execute(SEND_TO_JORNADA_BOOKMARKLET,setup);
+  assert.equal((setup.payloads[0] as Record<string,unknown>).imageUrl,actual);
+});
+
 test("imagem direta usa currentSrc antes de src e resolve URL relativa", async () => {
   const chosen = image("/responsive/current.webp", "/fallback/src.jpg");
   const setup = harness({ contentType: "image/webp", images: [chosen] });
