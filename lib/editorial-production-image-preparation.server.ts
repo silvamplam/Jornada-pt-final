@@ -6,6 +6,21 @@ import { safeEditorialSourceUrl } from "./editorial-image-download.server";
 export type ProductionImageRow = { id: string; dossier_id: string; frozen_url: string; source_url: string | null };
 export type PreparedProductionImage = { publicUrl: string; decisionKey: string | null; sha256: string | null };
 
+export function normalizeProductionImageSource(value: string) {
+  try {
+    const url = new URL(value);
+    if (url.protocol === "https:" && url.hostname.toLowerCase() === "img.iol.pt") {
+      const match = url.pathname.match(/^\/preset\/([0-9a-f]{24})\/og\/[^/]+\/?$/iu);
+      if (match) {
+        return `https://img.iol.pt/image/id/${match[1]}/1024.jpg`;
+      }
+    }
+  } catch {
+    return value;
+  }
+  return value;
+}
+
 export async function prepareProductionImage(
   input: { dossierId: string; imageId: string; revisionKey?: string },
   transport: {
@@ -18,11 +33,13 @@ export async function prepareProductionImage(
 ): Promise<PreparedProductionImage> {
   const row = await transport.readImage(input.imageId);
   if (!row || row.dossier_id !== input.dossierId) throw new Error("image-not-in-dossier");
-  if (!input.revisionKey && editorialImageOriginalPath(row.frozen_url, transport.origin)) {
+  const rawSource = row.source_url ?? row.frozen_url;
+  const source = normalizeProductionImageSource(rawSource);
+  const normalizedSourceChanged = source !== rawSource;
+  if (!input.revisionKey && !normalizedSourceChanged && editorialImageOriginalPath(row.frozen_url, transport.origin)) {
     await transport.registerLocal(row.frozen_url);
     return { publicUrl: row.frozen_url, decisionKey: null, sha256: null };
   }
-  const source = row.source_url ?? row.frozen_url;
   safeEditorialSourceUrl(source);
   const prefix = `production-image-v1:${row.id}:${createHash("sha256").update(source).digest("hex")}`;
   // The durable identity belongs to the dossier image/source, not a browser or
