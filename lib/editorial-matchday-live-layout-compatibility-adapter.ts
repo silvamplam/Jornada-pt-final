@@ -83,13 +83,6 @@ export function buildLiveLayoutLegacyCompatibility(
     projection.push({ matchdayId: cleanMatchdayId, legacyZoneKey, zoneId });
   }
 
-  for (const key of EXPECTED_LEGACY_ZONE_KEYS) {
-    if (!projectedKeys.has(key)) return adapterError("projection-key-missing");
-  }
-  if (projection.length !== EXPECTED_LEGACY_ZONE_KEY_SET.size) {
-    return adapterError("projection-cardinality-invalid");
-  }
-
   projection.sort((left, right) => (
     EXPECTED_LEGACY_ZONE_KEYS.indexOf(left.legacyZoneKey)
     - EXPECTED_LEGACY_ZONE_KEYS.indexOf(right.legacyZoneKey)
@@ -97,11 +90,15 @@ export function buildLiveLayoutLegacyCompatibility(
   const additionalPhysicalZoneIds = zones
     .filter((zone) => !projectedZoneIds.has(zone.id))
     .map((zone) => zone.id);
+  const hasCompleteLegacyProjection =
+    projection.length === EXPECTED_LEGACY_ZONE_KEY_SET.size
+    && EXPECTED_LEGACY_ZONE_KEYS.every((key) => projectedKeys.has(key));
 
   return {
-    compatibility: additionalPhysicalZoneIds.length === 0
-      ? "representable"
-      : "notLegacyRepresentable",
+    compatibility:
+      hasCompleteLegacyProjection && additionalPhysicalZoneIds.length === 0
+        ? "representable"
+        : "notLegacyRepresentable",
     projection,
     additionalPhysicalZoneIds,
   };
