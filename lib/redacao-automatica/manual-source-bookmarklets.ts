@@ -86,8 +86,10 @@ function manualSourceBookmarkletRuntime() {
   }
 
   function extractedImage(root: Element | null) {
+    var articleImage = root ? imageFrom(root) : "";
+    if (articleImage) return articleImage;
     var meta = document.querySelector("meta[property='og:image'],meta[name='twitter:image'],meta[property='twitter:image']");
-    return absoluteHttpUrl(meta && meta.getAttribute("content")) || imageFrom(root) || imageFrom(null);
+    return absoluteHttpUrl(meta && meta.getAttribute("content")) || imageFrom(null);
   }
 
   function dateOnly(value: unknown) {
