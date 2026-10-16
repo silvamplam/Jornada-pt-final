@@ -29,13 +29,14 @@ function setup(prepare: Parameters<typeof createBatchImageSelector>[0]["prepare"
   const states = new Map<string, BatchImagePreparation>();
   const selector = createBatchImageSelector({ origin, read: () => source,
     write(next) { source = next; saved = JSON.stringify(next); },
-    state(output, state) { if (state) states.set(output, state); else states.delete(output); }, prepare });
+    state(output, state) { if (state) states.set(output, state); else states.delete(output); },
+    prepare: (image, retry) => image.imageUrl.startsWith(origin) ? Promise.resolve(image.imageUrl) : prepare(image, retry) });
   return { selector, states, read: () => source, write: (next: EditorialBatchTransferSourcePackage) => { source = next; },
     reload: () => parseEditorialBatchTransferSourcePackage(saved)!, url: (output: number) => editorialBatchOutputImage(source, id(output))?.imageUrl };
 }
 const articles = [10, 11].map((n, index) => ({ outputId: id(n), index: index + 1 }));
 
-test("A–E: original, cruzada, partilhada e independente; locais nunca fazem preparação", async () => {
+test("A–E: original, cruzada, partilhada e independente; locais validadas mantêm a URL", async () => {
   const f = setup(async () => { throw Error("não deve preparar local"); });
   await f.selector.select(id(10), choice(30)); assert.equal(f.url(10), local(30));
   await f.selector.select(id(10), choice(31)); assert.equal(f.url(10), local(31));
@@ -141,12 +142,14 @@ function transportFixture(results: { status?: number; body: unknown }[]) {
 const external = { id: id(32), imageUrl: "https://source.example/external.jpg", dossierId: id(2), dossierImageId: id(32) };
 const ready = { body: { ok: true, image: { publicUrl: local(32) } } };
 
-test("clique externo pede confirmação explícita ao freeze existente; local zero fetch/decisão", async () => {
-  const f = transportFixture([ready]); const prepare = createBatchImagePreparer(f.transport);
+test("clique valida também local do Dossiê; upload sem dossierImageId mantém zero fetch", async () => {
+  const f = transportFixture([ready, ready]); const prepare = createBatchImagePreparer(f.transport);
+  assert.equal(await prepare({ ...external, dossierImageId: null, imageUrl: local(32) }, false), local(32));
+  assert.equal(f.calls.length, 0);
   assert.equal(await prepare({ ...external, imageUrl: local(32) }, false), local(32));
-  assert.equal(f.calls.length, 0); assert.equal(f.storage.size, 0);
+  assert.equal(f.calls.length, 1); assert.equal(f.storage.size, 0);
   assert.equal(await prepare(external, false), local(32));
-  assert.deepEqual(f.calls[0], { select: true, confirm: true, sourceUrl: external.imageUrl, dossierId: id(2), dossierImageId: id(32) });
+  assert.deepEqual(f.calls[1], { select: true, confirm: true, sourceUrl: external.imageUrl, dossierId: id(2), dossierImageId: id(32) });
 });
 
 test("retry de preview/confirm reutiliza decisão legacy inclusive após navegação", async () => {

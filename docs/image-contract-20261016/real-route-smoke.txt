@@ -1,0 +1,12 @@
+{"case":"legacy-external","fixture":"real-observed-bytes","state":"ready","sha256":"c012110e5fede55c711d98fa553afdc8850c3077459f8079e9177fe55acd5d58","originalBytes":207852,"previews":[320,640,960,1280],"preflight":true,"downloads":1}
+{"case":true,"fixture":"real-observed-bytes","state":"ready","sha256":"c012110e5fede55c711d98fa553afdc8850c3077459f8079e9177fe55acd5d58","originalBytes":207852,"previews":[320,640,960,1280],"preflight":true,"downloads":1}
+{"case":"missing-provenance","fixture":"real-observed-bytes","state":"ready","sha256":"c012110e5fede55c711d98fa553afdc8850c3077459f8079e9177fe55acd5d58","originalBytes":207852,"previews":[320,640,960,1280],"preflight":true,"downloads":1}
+✔ route freeze: old real dossier shape -> source page -> validated bytes -> ready -> confirmation -> batch preflight (1251.3599ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 1
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2234.8479

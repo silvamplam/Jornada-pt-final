@@ -82,6 +82,15 @@ test("reload/retry sem localStorage reutiliza a mesma decisão e zero novo downl
   assert.deepEqual(afterReload,first);assert.equal(f.state.downloads.length,1);
 });
 
+test("decisão ready v1 legítima é reutilizada depois de validar a origem",async()=>{
+  const f=await fixture();const first=await f.prepare();
+  const previous=f.decisions.get(first.decisionKey!)!;
+  const legacyKey=first.decisionKey!.replace("production-image-v2:","production-image-v1:");
+  f.decisions.delete(first.decisionKey!);f.decisions.set(legacyKey,{...previous,key:legacyKey});
+  const reused=await f.prepare();assert.equal(reused.decisionKey,legacyKey);
+  assert.equal(reused.publicUrl,first.publicUrl);assert.equal(f.state.downloads.length,1);
+});
+
 test("imagem já local e upload manual não voltam a ser adquiridos",async()=>{
   const f=await fixture();const first=await f.prepare();
   f.rows.get(id(11))!.frozen_url=first.publicUrl;
@@ -89,6 +98,14 @@ test("imagem já local e upload manual não voltam a ser adquiridos",async()=>{
   const upload={id:id(500),frozenUrl:first.publicUrl};
   const choice=productionImageCandidate([upload],[],`dossier_image:${upload.id}`,"new");
   assert.equal(productionImageSelection({candidate:choice,explicitChoice:`dossier_image:${upload.id}`,destination:"new",origin}).value,`dossier_image:${upload.id}`);
+});
+
+test("Produção não seleciona cópia local antes de o servidor validar a proveniência",async()=>{
+  const f=await fixture();const prepared=await f.prepare();
+  const candidate={id:id(11),frozenUrl:prepared.publicUrl};
+  const input={candidate,explicitChoice:`dossier_image:${candidate.id}`,destination:"new" as const,origin,requirePreparation:true};
+  assert.equal(productionImageSelection(input).value,"unselected");
+  assert.equal(productionImageSelection({...input,prepared}).publicUrl,prepared.publicUrl);
 });
 
 test("várias candidatas e zero candidatas: nenhuma seleção automática; escolha manual prepara só uma",async()=>{
@@ -166,7 +183,7 @@ test("preparação de Produção conserva confirm=false; confirmação exige sel
   const route=readFileSync("app/api/admin/editorial/images/freeze/route.ts","utf8");
   assert.match(route,/payload\.confirm !== false/);
   assert.match(route,/selection && \(preparation \|\| payload\.confirm !== true\)/);
-  assert.match(route,/if \(selection && image\.decisionKey\)/);
+  assert.match(route,/if \(\(selection \|\| payload\.confirm === true\) && image\.decisionKey\)/);
   const ui=readFileSync("app/admin/editorial/redacao-automatica/mesa/producao/[dossierId]/_production-image-preparation.ts","utf8");
   assert.match(ui,/confirm: false/);assert.doesNotMatch(ui,/localStorage/);
 });

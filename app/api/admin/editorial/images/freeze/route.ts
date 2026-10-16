@@ -2,7 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { ADMIN_SESSION_COOKIE, verifyAdminSession } from "@/lib/admin-session";
 import { fetchSupabaseAdminTable, getSupabaseServiceConfig, writeSupabaseAdmin } from "@/lib/supabase";
 import { createImageFreezeStorage } from "@/lib/editorial-image-freeze-storage.server";
-import { safeEditorialSourceUrl } from "@/lib/editorial-image-download.server";
+import { downloadFrozenEditorialImage, safeEditorialSourceUrl } from "@/lib/editorial-image-download.server";
+import { resolveEditorialImageSource } from "@/lib/editorial-image-source.server";
+import { freezeEditorialImage } from "@/lib/editorial-image-freeze.server";
+import { editorialImageOriginalPath } from "@/lib/editorial-image-authority";
 import { prepareProductionImage, type ProductionImageRow } from "@/lib/editorial-production-image-preparation.server";
 
 export const runtime = "nodejs";
@@ -15,7 +18,7 @@ export async function POST(request: NextRequest) {
   const preparation = payload?.prepare === true;
   const selection = payload?.select === true;
   const uuid = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i;
-  if (!payload || (selection && (preparation || payload.confirm !== true)) || (preparation
+  if (!payload || (payload.dossierImageId && !uuid.test(payload.dossierImageId)) || (selection && (preparation || payload.confirm !== true)) || (preparation
     ? !uuid.test(payload.dossierId ?? "") || !uuid.test(payload.dossierImageId ?? "")
       || payload.confirm !== false || (payload.revisionKey !== undefined && !uuid.test(payload.revisionKey))
     : selection && payload.dossierImageId
@@ -28,17 +31,31 @@ export async function POST(request: NextRequest) {
   const config = getSupabaseServiceConfig();
   if (!config) return NextResponse.json({ ok: false }, { status: 503 });
   try {
-    if (preparation || (selection && payload.dossierImageId)) {
+    if (preparation || payload.dossierImageId) {
       const [row] = await fetchSupabaseAdminTable<ProductionImageRow>(
-        `newsroom_editorial_dossier_images?select=id,dossier_id,frozen_url,source_url&id=eq.${payload.dossierImageId}&limit=1`);
+        `newsroom_editorial_dossier_images?select=id,dossier_id,frozen_url,source_url,newsroom_article_id&id=eq.${payload.dossierImageId}&limit=1`);
+      if (!row || (payload.dossierId && row.dossier_id !== payload.dossierId)) throw new Error("image-not-in-dossier");
+      // Close interrupted attempts for this candidate when it is revisited;
+      // never change ready/candidate bytes or delete historical decisions.
+      const storage = createImageFreezeStorage(config);
+      await storage.expireAcquisitions(`production-image-v1:${row.id}:`);
+      await storage.expireAcquisitions(`production-image-v2:${row.id}:`);
+      const resolveSource = async (source: string) => {
+        const [article] = row?.newsroom_article_id ? await fetchSupabaseAdminTable<{ original_url: string; image_url: string | null }>(
+          `newsroom_articles?select=original_url,image_url&id=eq.${row.newsroom_article_id}&limit=1`) : [];
+        // Some legacy local rows never recorded source_url. Recover their
+        // provenance from the linked newsroom article before trusting Storage.
+        const provenance = editorialImageOriginalPath(source, config.url) && article?.image_url ? article.image_url : source;
+        return resolveEditorialImageSource(provenance, article?.original_url);
+      };
       const image = await prepareProductionImage({ dossierId: payload.dossierId ?? row?.dossier_id, imageId: payload.dossierImageId,
-        revisionKey: payload.revisionKey }, {
+        revisionKey: payload.revisionKey ?? (!preparation && !selection && uuid.test(payload.decisionKey ?? "") ? payload.decisionKey : undefined) }, {
         origin: config.url,
         async readImage() { return row ?? null; },
         async latestDecision(prefix) {
           // The former review panel used browser-held decision keys. Reuse only
           // an existing decision for this row's real source, never a supplied URL.
-          if (selection && payload.decisionKey && row) {
+          if (selection && payload.decisionKey?.startsWith(prefix) && row) {
             const [previous] = await fetchSupabaseAdminTable<{ decision_key: string }>(
               `editorial_image_decisions?select=decision_key&decision_key=eq.${encodeURIComponent(payload.decisionKey)}`
               + `&source_url=eq.${encodeURIComponent(row.source_url ?? row.frozen_url)}&limit=1`);
@@ -47,29 +64,26 @@ export async function POST(request: NextRequest) {
           return (await fetchSupabaseAdminTable<{ decision_key: string }>(
             `editorial_image_decisions?select=decision_key&decision_key=like.${encodeURIComponent(prefix)}*&order=created_at.desc,decision_key.desc&limit=1`))[0]?.decision_key ?? null;
         },
-        freeze: (key, source) => createImageFreezeStorage(config).freeze(key, source),
-        registerLocal: (url) => createImageFreezeStorage(config).registerLocal(url),
+        resolveSource,
+        freeze: (key, source, acquisitionUrl) => freezeEditorialImage(key, source, {
+          ...storage.transport,
+          download: async () => downloadFrozenEditorialImage(acquisitionUrl ?? await resolveSource(source)),
+        }),
+        registerLocal: (url) => storage.registerLocal(url),
       });
-      if (selection && image.decisionKey) {
+      if ((selection || payload.confirm === true) && image.decisionKey) {
         await writeSupabaseAdmin("rpc/editorial_confirm_dossier_image_v1", { method: "POST", body: JSON.stringify({
           p_image_id: payload.dossierImageId, p_decision_key: image.decisionKey,
         }) });
       }
       return NextResponse.json({ ok: true, image }, { headers: { "Cache-Control": "private, no-store" } });
     }
-    let sourceUrl = typeof payload.sourceUrl === "string" ? payload.sourceUrl : "";
-    if (payload.dossierImageId) {
-      if (!/^[a-f0-9-]{36}$/.test(payload.dossierImageId)) throw new Error("image-invalid-id");
-      const [row] = await fetchSupabaseAdminTable<{ frozen_url: string; source_url: string | null }>(
-        `newsroom_editorial_dossier_images?select=frozen_url,source_url&id=eq.${payload.dossierImageId}&limit=1`);
-      if (!row) throw new Error("image-not-found");
-      sourceUrl = row.source_url ?? row.frozen_url;
-    }
+    const sourceUrl = typeof payload.sourceUrl === "string" ? payload.sourceUrl : "";
     safeEditorialSourceUrl(sourceUrl);
-    const image = await createImageFreezeStorage(config).freeze(payload.decisionKey, sourceUrl);
-    if (payload.confirm === true && payload.dossierImageId) {
-      await writeSupabaseAdmin("rpc/editorial_confirm_dossier_image_v1", { method: "POST", body: JSON.stringify({ p_image_id: payload.dossierImageId, p_decision_key: payload.decisionKey }) });
-    }
+    const image = await freezeEditorialImage(payload.decisionKey, sourceUrl, {
+      ...createImageFreezeStorage(config).transport,
+      download: async () => downloadFrozenEditorialImage(await resolveEditorialImageSource(sourceUrl)),
+    });
     return NextResponse.json({ ok: true, image }, { headers: { "Cache-Control": "private, no-store" } });
   } catch (error) {
     const detail = error instanceof Error ? error.message.split(":")[0] : "image-freeze-failed";

@@ -494,11 +494,11 @@ function PlanEditor({
     return () => onImagePreparationChange(cardKey, false);
   }, [cardKey, preparation.busy, onImagePreparationChange]);
   const [lastReadyImage, setLastReadyImage] = useState<Record<"new" | "update", ProductionImageSelection>>(() => ({
-    new: productionImageSelection({ candidate: productionImageCandidate(images, [], imageChoices.new, "new"), explicitChoice: imageChoices.new, destination: "new" }),
-    update: productionImageSelection({ candidate: productionImageCandidate(images, [], imageChoices.update, "update"), explicitChoice: imageChoices.update, destination: "update" }),
+    new: productionImageSelection({ candidate: productionImageCandidate(images, [], imageChoices.new, "new"), explicitChoice: imageChoices.new, destination: "new", requirePreparation: !plan?.editorialArticleId }),
+    update: productionImageSelection({ candidate: productionImageCandidate(images, [], imageChoices.update, "update"), explicitChoice: imageChoices.update, destination: "update", requirePreparation: !plan?.editorialArticleId }),
   }));
   const selection = productionImageSelection({ candidate, explicitChoice: imageChoices[destination], destination,
-    prepared: preparation.result, fallback: lastReadyImage[destination] });
+    prepared: preparation.result, fallback: lastReadyImage[destination], requirePreparation: !plan?.editorialArticleId });
   const selectedImage = selection.value;
   useEffect(() => {
     if (savedImageConfirmation) {

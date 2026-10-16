@@ -5,6 +5,7 @@ import { editorialImageOriginalPath } from "./editorial-image-authority";
 import { editorialStorageOrigin, PUBLIC_EDITORIAL_PREVIEW_WIDTHS } from "./editorial-image-preview";
 import { ensureEditorialImagePreviews } from "./editorial-image-preview-generation.server";
 import { createHash } from "node:crypto";
+import { isSocialImageRendition, resolveEditorialImageSource } from "./editorial-image-source.server";
 
 export function createImageFreezeStorage(config: { url: string; serviceRoleKey: string }, fetcher: typeof fetch = fetch) {
   const origin = editorialStorageOrigin(config.url);
@@ -26,17 +27,23 @@ export function createImageFreezeStorage(config: { url: string; serviceRoleKey: 
       body: JSON.stringify({ public_url: image.publicUrl, storage_path: image.path, sha256: image.sha256, byte_size: image.byteSize, content_type: image.contentType }) });
   }
   const transport: ImageFreezeTransport = {
-    origin, previews, download: downloadFrozenEditorialImage,
+    origin, previews, download: async source => downloadFrozenEditorialImage(await resolveEditorialImageSource(source)),
     async claim(key, sourceUrl) {
       const rows = await json("editorial_image_decisions?on_conflict=decision_key", { method: "POST",
         headers: { Prefer: "resolution=ignore-duplicates,return=representation" }, body: JSON.stringify({ decision_key: key, source_url: sourceUrl }) });
       const owned = rows.length === 1;
       const row = owned ? rows[0] : (await json(`editorial_image_decisions?decision_key=eq.${encodeURIComponent(key)}&limit=1`))[0];
       if (!row) throw new Error("image-decision-missing");
-      return { owned, decision: { key: row.decision_key, sourceUrl: row.source_url, state: row.state, image: row.image } as ImageDecision };
+      return { owned, decision: { key: row.decision_key, sourceUrl: row.source_url, state: row.state, image: row.image, createdAt: row.created_at } as ImageDecision };
     },
     async bind(key, image) {
-      await json(`editorial_image_decisions?decision_key=eq.${encodeURIComponent(key)}`, { method: "PATCH", body: JSON.stringify({ image, state: "candidate" }) });
+      const rows = await json(`editorial_image_decisions?decision_key=eq.${encodeURIComponent(key)}&state=eq.acquiring&image=is.null`, {
+        method: "PATCH", headers: { Prefer: "return=representation" }, body: JSON.stringify({ image, state: "candidate" }) });
+      if (rows.length !== 1) throw new Error("image-acquisition-incomplete");
+    },
+    async fail(key, code) {
+      await json(`editorial_image_decisions?decision_key=eq.${encodeURIComponent(key)}&state=eq.acquiring&image=is.null`, {
+        method: "PATCH", body: JSON.stringify({ state: "failed", failure_code: code.slice(0, 120) }) });
     },
     async finish(key, image) {
       await register(image);
@@ -59,11 +66,26 @@ export function createImageFreezeStorage(config: { url: string; serviceRoleKey: 
   };
   return {
     transport,
+    async expireAcquisitions(prefix: string) {
+      await json(`editorial_image_decisions?decision_key=like.${encodeURIComponent(prefix)}*`
+        + `&state=eq.acquiring&image=is.null&created_at=lt.${encodeURIComponent(new Date(Date.now() - 120000).toISOString())}`, {
+        method: "PATCH", body: JSON.stringify({ state: "failed", failure_code: "image-acquisition-expired" }) });
+    },
     freeze: (key: string, source: string) => freezeEditorialImage(key, source, transport),
     async registerLocal(url: string) {
       const path = editorialImageOriginalPath(url, origin);
       if (!path) throw new Error("image-materialization-required");
-      if ((await json(`editorial_image_assets?public_url=eq.${encodeURIComponent(url)}&select=public_url&limit=1`)).length) return;
+      const provenance = await json(`editorial_image_decisions?image->>publicUrl=eq.${encodeURIComponent(url)}&select=source_url,image`);
+      if (provenance.some((row: { source_url: string; image: FrozenImage }) => isSocialImageRendition(row.source_url)
+        && (!row.image.acquisitionUrl || isSocialImageRendition(row.image.acquisitionUrl)))) {
+        throw new Error("image-social-provenance: Prepare a imagem a partir do artigo original.");
+      }
+      if ((await json(`editorial_image_assets?public_url=eq.${encodeURIComponent(url)}&select=public_url&limit=1`)).length) {
+        if (!await transport.originalExists(path)) throw new Error("image-local-original-missing");
+        const result = await ensureEditorialImagePreviews(path, previews, undefined, PUBLIC_EDITORIAL_PREVIEW_WIDTHS);
+        if (!result.ok) throw new Error("image-previews-incomplete");
+        return;
+      }
       const bytes = await previews.readOriginal(path);
       const extension = await validateEditorialImageBytes(bytes);
       const sha256 = createHash("sha256").update(bytes).digest("hex");

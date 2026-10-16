@@ -5,7 +5,7 @@ import { request as httpsRequest } from "node:https";
 import sharp from "sharp";
 import { EDITORIAL_PREVIEW_MAX_BYTES, EDITORIAL_PREVIEW_MAX_PIXELS } from "./editorial-image-preview-generator.server";
 
-const TYPES: Record<string, string> = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp", "image/avif": "avif" };
+const TYPES: Record<string, string> = { "image/jpeg": "jpg", "image/jpg": "jpg", "image/png": "png", "image/webp": "webp", "image/avif": "avif" };
 export function safeEditorialSourceUrl(value: string): URL {
   const url = new URL(value);
   const host = url.hostname.toLowerCase().replace(/\.$/, "");
@@ -46,7 +46,8 @@ export type EditorialImageNetwork = {
   resolve(hostname: string): Promise<{ address: string; family: number }[]>;
   request: typeof httpRequest;
 };
-export async function downloadFrozenEditorialImage(sourceUrl: string, network?: EditorialImageNetwork) {
+/** Shared bounded, DNS-pinned transport for image bytes and their source page. */
+export async function downloadEditorialResource(sourceUrl: string, types: readonly string[], maxBytes: number, network?: EditorialImageNetwork) {
   const signal = AbortSignal.timeout(15000);
   let url = safeEditorialSourceUrl(sourceUrl);
   for (let redirect = 0; redirect <= 3; redirect++) {
@@ -63,20 +64,20 @@ export async function downloadFrozenEditorialImage(sourceUrl: string, network?: 
         signal, agent: false, family: pinned.family,
         // No second DNS lookup: the validated address is the address connected to.
         lookup: (_host, _options, callback) => callback(null, pinned.address, pinned.family),
-        headers: { Accept: Object.keys(TYPES).join(","), "User-Agent": "Jornada.pt editorial image freeze" },
+        headers: { Accept: types.join(","), "User-Agent": "Jornada.pt editorial image freeze" },
       }, response => {
         const status = response.statusCode ?? 0;
         if ([301,302,303,307,308].includes(status) && response.headers.location) {
           response.destroy(); resolve({ location: response.headers.location }); return;
         }
         const contentType = (response.headers["content-type"] ?? "").split(";")[0].trim().toLowerCase();
-        if (status !== 200 || !TYPES[contentType] || Number(response.headers["content-length"]) > EDITORIAL_PREVIEW_MAX_BYTES) {
+        if (status !== 200 || !types.includes(contentType) || Number(response.headers["content-length"]) > maxBytes) {
           response.destroy(); reject(new Error(`image-response-invalid:${status}:${contentType}`)); return;
         }
         const chunks: Buffer[] = []; let size = 0;
         response.on("data", (chunk: Buffer) => {
           size += chunk.length;
-          if (size > EDITORIAL_PREVIEW_MAX_BYTES) { response.destroy(); reject(new Error("image-invalid-byte-size")); }
+          if (size > maxBytes) { response.destroy(); reject(new Error("image-invalid-byte-size")); }
           else chunks.push(chunk);
         });
         response.on("error", reject);
@@ -85,8 +86,13 @@ export async function downloadFrozenEditorialImage(sourceUrl: string, network?: 
       req.on("error", reject); req.end();
     });
     if ("location" in result) { url = safeEditorialSourceUrl(new URL(result.location, url).href); continue; }
-    const extension = await validateEditorialImageBytes(result.bytes, result.contentType);
-    return { sourceUrl, finalUrl: url.href, bytes: result.bytes, extension, contentType: result.contentType };
+    return { sourceUrl, finalUrl: url.href, bytes: result.bytes, contentType: result.contentType };
   }
   throw new Error("image-too-many-redirects");
+}
+
+export async function downloadFrozenEditorialImage(sourceUrl: string, network?: EditorialImageNetwork) {
+  const result = await downloadEditorialResource(sourceUrl, Object.keys(TYPES), EDITORIAL_PREVIEW_MAX_BYTES, network);
+  const extension = await validateEditorialImageBytes(result.bytes, result.contentType);
+  return { ...result, extension, contentType: result.contentType === "image/jpg" ? "image/jpeg" : result.contentType };
 }

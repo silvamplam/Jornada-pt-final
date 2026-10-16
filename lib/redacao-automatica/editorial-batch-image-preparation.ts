@@ -16,7 +16,7 @@ export function createBatchImagePreparer(transport: {
   origin?: string;
 }) {
   return async (image: BatchImageCandidate, retry: boolean): Promise<string> => {
-    if (editorialImageOriginalPath(image.imageUrl, transport.origin)) return image.imageUrl;
+    if (!image.dossierImageId && editorialImageOriginalPath(image.imageUrl, transport.origin)) return image.imageUrl;
     const cacheKey = `jornada:image-decision:${image.dossierImageId ?? image.imageUrl}`;
     let decisionKey = transport.storage.getItem(cacheKey) ?? (image.dossierImageId ? "" : transport.uuid());
     if (!image.dossierImageId) transport.storage.setItem(cacheKey, decisionKey);
@@ -73,7 +73,7 @@ export function createBatchImageSelector(ports: {
       if (imageId && !image) return;
       const token = Symbol();
       latest.set(outputId, token);
-      if (!image || editorialImageOriginalPath(image.imageUrl, ports.origin)) {
+      if (!image) {
         ports.write(withEditorialBatchOutputImageChoice(source, outputId, imageId));
         setState(outputId, null);
         return;
