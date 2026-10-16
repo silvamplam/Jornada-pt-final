@@ -48,7 +48,6 @@ import PublicFlexibleZoneLayout, {
   createPublicFlexibleZone,
   type PublicFlexibleZone,
 } from "@/components/public/PublicFlexibleZoneLayout";
-import { editorialVisualFamilyCapacity } from "@/lib/editorial-visual-families";
 import {
   isHistoricalBankItemEligible,
   isHistoricalInheritedBankItem,
@@ -4272,9 +4271,6 @@ export default async function AdminEditorialCompositionPage({ params, searchPara
   const missingHierarchicalEditorialFields = missingHierarchicalCompositionEditorialFields(hierarchicalEditorial);
   const historicalDynamicOpeningKeys = [
     "dominant_main",
-    "other_chronicle_1",
-    "other_chronicle_2",
-    "other_chronicle_3",
   ] as const;
 
   const historicalDynamicOpeningByKey =
@@ -4304,11 +4300,6 @@ export default async function AdminEditorialCompositionPage({ params, searchPara
       .slice()
       .sort((left, right) => left.sortOrder - right.sortOrder)
       .flatMap((zone, zoneIndex) => {
-        const capacity =
-          editorialVisualFamilyCapacity(
-            zone.visualFamily,
-          );
-
         const items =
           zone.items
             .slice()
@@ -4319,6 +4310,7 @@ export default async function AdminEditorialCompositionPage({ params, searchPara
 
         const complete =
           zone.sortOrder === zoneIndex + 1
+          && items.length > 0
           && editorialVisualFamilyPublicationPositionsAreValid(zone.visualFamily, items.map((item) => item.position))
           && items.every(
             (item) =>
@@ -4332,7 +4324,7 @@ export default async function AdminEditorialCompositionPage({ params, searchPara
         return complete
           ? []
           : [
-              `${zone.publicTitle.trim() || `Zona editorial ${zoneIndex + 1}`} — incompleta: são obrigatórios ordem e ${capacity} notícias válidas.`,
+              `${zone.publicTitle.trim() || `Zona editorial ${zoneIndex + 1}`} — incompleta: mantém pelo menos uma notícia válida, sem posições duplicadas ou fora do layout.`,
             ];
       });
 

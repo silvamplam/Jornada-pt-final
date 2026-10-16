@@ -3543,19 +3543,8 @@ type HistoricalDynamicPublicationItemRow = {
   link_url_snapshot: string | null;
 };
 
-const HISTORICAL_DYNAMIC_PUBLICATION_CAPACITY = {
-  six_news: 6,
-  six_news_1_2_3: 6,
-  five_news_balanced: 5,
-  five_news_secondary: 5,
-  five_news_column: 5,
-} as const;
-
 const HISTORICAL_DYNAMIC_OPENING_KEYS = [
   "dominant_main",
-  "other_chronicle_1",
-  "other_chronicle_2",
-  "other_chronicle_3",
 ] as const;
 
 async function validateHistoricalDynamicPublication(
@@ -3609,18 +3598,13 @@ async function validateHistoricalDynamicPublication(
 
   if (missingOpening.length > 0) {
     throw new CompositionPublicationError(
-      `Completa os 4 lugares da Abertura antes de publicar. Em falta: ${missingOpening.map(
+      `Completa a manchete da Abertura antes de publicar. Em falta: ${missingOpening.map(
         hierarchicalSlotLabel,
       ).join(", ")}.`,
     );
   }
 
   zones.forEach((zone, zoneIndex) => {
-    const capacity =
-      HISTORICAL_DYNAMIC_PUBLICATION_CAPACITY[
-        zone.visual_family
-      ];
-
     const zoneItems =
       items
         .filter((item) => item.zone_id === zone.id)
@@ -3633,7 +3617,8 @@ async function validateHistoricalDynamicPublication(
       zone.sort_order === zoneIndex + 1;
 
     const validItems =
-      editorialVisualFamilyPublicationPositionsAreValid(zone.visual_family, zoneItems.map((item) => item.position))
+      zoneItems.length > 0
+      && editorialVisualFamilyPublicationPositionsAreValid(zone.visual_family, zoneItems.map((item) => item.position))
       && zoneItems.every(
         (item) =>
           Boolean(item.label_snapshot?.trim())
@@ -3648,7 +3633,7 @@ async function validateHistoricalDynamicPublication(
       || !validItems
     ) {
       throw new CompositionPublicationError(
-        `Completa a zona editorial ${zoneIndex + 1} antes de publicar: ${capacity} notícias válidas são obrigatórias.`,
+        `Revê a zona editorial ${zoneIndex + 1}: mantém pelo menos uma notícia válida, sem posições duplicadas ou fora do layout.`,
       );
     }
   });
