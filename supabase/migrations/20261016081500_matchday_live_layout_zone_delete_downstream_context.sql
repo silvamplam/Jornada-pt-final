@@ -32,28 +32,23 @@ begin
     raise exception 'matchday-live-layout-zone-delete-downstream-anchor-missing';
   end if;
 
-  -- Already corrected: preserve idempotence if a reconciled environment has
-  -- the fixed ordering before this forward migration is replayed.
   if v_downstream_position < v_delete_position then
     return;
   end if;
 
-  -- Remove the existing downstream entry point from after the zone delete.
-  v_rewritten := pg_catalog.overlay(
+  v_rewritten := overlay(
     v_definition
     placing ''
     from v_downstream_position
     for pg_catalog.char_length(v_downstream_marker)
   );
 
-  -- Recompute the delete position after removing the later marker and move the
-  -- same protected block so the zone delete itself is inside BEGIN/EXCEPTION.
   v_delete_position := pg_catalog.strpos(v_rewritten, v_delete_marker);
   if v_delete_position = 0 then
     raise exception 'matchday-live-layout-zone-delete-downstream-delete-lost';
   end if;
 
-  v_rewritten := pg_catalog.overlay(
+  v_rewritten := overlay(
     v_rewritten
     placing v_downstream_marker
     from v_delete_position
@@ -63,13 +58,6 @@ begin
   execute v_rewritten;
 end;
 $patch_physical_zone_delete$;
-
-revoke all on function
-  jornada_private.apply_matchday_live_layout_physical_workspace_v20_core_impl(
-    uuid,text,text,jsonb,jsonb,jsonb,integer,
-    jsonb,jsonb,jsonb,jsonb,jsonb,jsonb
-  )
-from public, anon, authenticated, service_role;
 
 -- Prove that the guard still exists and that only the ordering inside the
 -- authoritative physical implementation changed.
