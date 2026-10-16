@@ -75,15 +75,33 @@ test("sexta zona permanece visivel e torna o legacy nao representavel", () => {
   );
 });
 
-test("mapping legacy ausente falha fechado", () => {
-  assert.throws(
-    () => buildLiveLayoutLegacyCompatibility(
-      MATCHDAY_ID,
-      Array.from({ length: 5 }, (_, index) => zone(index)),
-      Array.from({ length: 4 }, (_, index) => projectionRow(index)),
-    ),
-    /matchday-live-layout-compatibility-projection-key-missing/,
+test("projection legacy parcial continua legivel mas deixa de ser representavel", () => {
+  const compatibility = buildLiveLayoutLegacyCompatibility(
+    MATCHDAY_ID,
+    Array.from({ length: 5 }, (_, index) => zone(index)),
+    Array.from({ length: 4 }, (_, index) => projectionRow(index)),
   );
+
+  assert.equal(compatibility.compatibility, "notLegacyRepresentable");
+  assert.equal(compatibility.projection.length, 4);
+  assert.deepEqual(compatibility.additionalPhysicalZoneIds, [zone(4).id]);
+  assert.throws(
+    () => liveLayoutZoneIdForLegacyZoneKey(compatibility, profile.zones[4].key),
+    /matchday-live-layout-compatibility-legacy-zone-not-mapped/,
+  );
+});
+
+test("sem projection legacy o workspace fisico continua legivel", () => {
+  const zones = Array.from({ length: 5 }, (_, index) => zone(index));
+  const compatibility = buildLiveLayoutLegacyCompatibility(
+    MATCHDAY_ID,
+    zones,
+    [],
+  );
+
+  assert.equal(compatibility.compatibility, "notLegacyRepresentable");
+  assert.deepEqual(compatibility.projection, []);
+  assert.deepEqual(compatibility.additionalPhysicalZoneIds, zones.map((item) => item.id));
 });
 
 test("mapping duplicado ou cruzado falha fechado", () => {
