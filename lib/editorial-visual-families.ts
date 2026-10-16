@@ -103,7 +103,7 @@ function defineEditorialVisualFamily(
     label,
     slots: frozenSlots,
     rendererKey,
-    allowsPartialPublication: false,
+    allowsPartialPublication: true,
     canHostLatest: true,
     columnRun: false,
     ...policy,
