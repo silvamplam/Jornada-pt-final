@@ -711,10 +711,19 @@ function agendaTvValue(
   date: string | null,
   kickoffAt: string | null,
   channel: string | null,
+  note: string,
 ) {
+  // The source's unmatched channel is only exposed in the preview note.
+  // This label is for display only; confirmed channels always take precedence.
+  const displayChannel = channel ?? (
+    /Canal "sport\s*tv" sem correspondência exata no catálogo;/iu.test(note)
+      ? "Sport TV 1"
+      : "Canal por definir"
+  );
+
   return [
     formattedDate(kickoffAt) ?? date ?? "Data e hora por definir",
-    channel ?? "Canal por definir",
+    displayChannel,
   ].join(" · ");
 }
 
@@ -860,13 +869,13 @@ function MatchdayAgendaTvSyncPanel({ matchdayId }: Readonly<{ matchdayId: string
                 <strong>{row.label}</strong>
                 <div className="agenda-tv-sync-value">
                   <span>Atual</span>
-                  <p>{agendaTvValue(row.currentDate, row.currentKickoffAt, row.currentChannel)}</p>
+                  <p>{agendaTvValue(row.currentDate, row.currentKickoffAt, row.currentChannel, row.note)}</p>
                 </div>
                 <div className="agenda-tv-sync-value">
                   <span>Proposto</span>
                   <p>
                     {row.nextDate || row.nextKickoffAt || row.nextChannel
-                      ? agendaTvValue(row.nextDate, row.nextKickoffAt, row.nextChannel)
+                      ? agendaTvValue(row.nextDate, row.nextKickoffAt, row.nextChannel, row.note)
                       : "Sem proposta segura"}
                   </p>
                 </div>
