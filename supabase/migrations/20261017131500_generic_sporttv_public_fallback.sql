@@ -8,7 +8,7 @@ begin
   select channel.id
     into v_generic_channel_id
   from public.broadcast_channels as channel
-  where lower(regexp_replace(channel.name, '[^a-z0-9]+', '', 'g')) = 'sporttv'
+  where regexp_replace(lower(channel.name), '[^a-z0-9]+', '', 'g') = 'sporttv'
   order by channel.created_at asc, channel.id asc
   limit 1;
 
