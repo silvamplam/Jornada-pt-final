@@ -94,14 +94,33 @@ const CHANNEL_VISUAL_CONFIG = new Map<string, BroadcastChannelLogoVisualConfig>(
   ["dazn 3", { opticalScale: 0.82, contrastMode: "standard" }]
 ]);
 
+function compactChannelKey(name: string) {
+  return name
+    .trim()
+    .toLocaleLowerCase("pt-PT")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9+]+/g, "");
+}
+
+export function publicBroadcastChannelDisplayName(
+  name: string | null | undefined
+): string | null {
+  const exactName = name?.trim();
+  if (!exactName) return null;
+  return compactChannelKey(exactName) === "sporttv" ? "Sport TV 1" : exactName;
+}
+
 export function isSportTvBroadcastChannel(name: string | null | undefined): boolean {
-  const channelKey = name?.trim().toLocaleLowerCase("pt-PT") ?? "";
+  const displayName = publicBroadcastChannelDisplayName(name);
+  const channelKey = displayName?.toLocaleLowerCase("pt-PT") ?? "";
   return /^sport tv(?: [1-7]|\+)$/.test(channelKey);
 }
 
 export function getPublicBroadcastMatchMetaScale(name: string | null | undefined): number {
-  if (isSportTvBroadcastChannel(name)) return 1;
-  const channelKey = name?.trim().toLocaleLowerCase("pt-PT") ?? "";
+  const displayName = publicBroadcastChannelDisplayName(name);
+  if (isSportTvBroadcastChannel(displayName)) return 1;
+  const channelKey = displayName?.toLocaleLowerCase("pt-PT") ?? "";
   return MATCH_META_CHANNEL_SCALE.get(channelKey) ?? MATCH_META_DEFAULT_SCALE;
 }
 
@@ -109,7 +128,8 @@ export function getPublicBroadcastLogoUrl(
   name: string | null | undefined,
   logoUrl: string | null | undefined
 ): string | null | undefined {
-  const channelKey = name?.trim().toLocaleLowerCase("pt-PT") ?? "";
+  const displayName = publicBroadcastChannelDisplayName(name);
+  const channelKey = displayName?.toLocaleLowerCase("pt-PT") ?? "";
   return CANONICAL_CHANNEL_LOGO_URL.get(channelKey) ?? logoUrl;
 }
 
@@ -127,7 +147,7 @@ export function resolveBroadcastChannelLogoPresentation(
   name: string | null | undefined,
   logoUrl: string | null | undefined
 ): BroadcastChannelLogoPresentation {
-  const exactName = name?.trim();
+  const exactName = publicBroadcastChannelDisplayName(name);
   if (!exactName) return { kind: "hidden" };
 
   const candidateUrl = getPublicBroadcastLogoUrl(exactName, logoUrl)?.trim();
