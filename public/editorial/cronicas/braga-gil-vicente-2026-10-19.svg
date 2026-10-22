@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="675" viewBox="0 0 1200 675" role="img" aria-label="SC BRAGA 1 : 2 GIL VICENTE">
+<defs><linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#0b1220"/><stop offset="1" stop-color="#172639"/></linearGradient><linearGradient id="g1" x1="0" y1="0" x2="1" y2="0"><stop stop-color="#bf3046"/><stop offset="1" stop-color="#2e79b7"/></linearGradient><pattern id="lines" width="40" height="40" patternUnits="userSpaceOnUse"><path d="M40 0H0V40" fill="none" stroke="#ffffff" stroke-opacity=".05"/></pattern></defs>
+<rect width="1200" height="675" fill="url(#bg)"/><rect width="1200" height="675" fill="url(#lines)"/>
+<path d="M-60 560L570 -90H810L170 675Z" fill="#bf3046" opacity=".10"/><path d="M610 675L1250 0H1390L830 675Z" fill="#2e79b7" opacity=".13"/>
+<rect x="42" y="45" width="1116" height="585" rx="15" fill="none" stroke="#e8f2fb" stroke-opacity=".30" stroke-width="2"/>
+<rect x="86" y="83" width="10" height="46" fill="#bf3046"/>
+<text x="116" y="103" font-family="Arial, Helvetica, sans-serif" fill="#eff7ff" font-size="30" letter-spacing="5" font-weight="700">JORNADA</text><text x="116" y="132" font-family="Arial" fill="#96aabd" font-size="16" letter-spacing="3">CRÓNICA DE JOGO</text>
+<text x="1100" y="112" text-anchor="end" font-family="Arial" fill="#c5d5e4" font-size="20" letter-spacing="2">19 OUT 2026</text>
+<line x1="90" y1="166" x2="1110" y2="166" stroke="#d7e7f4" stroke-opacity=".25"/>
+<text x="600" y="224" text-anchor="middle" font-family="Arial" font-size="23" fill="#afc4d7" letter-spacing="3">LIGA PORTUGAL · 2.ª JORNADA EM ATRASO</text>
+<text x="600" y="335" text-anchor="middle" font-family="Arial Black, Arial" font-weight="900" font-size="120" fill="#fff" letter-spacing="3">1 : 2</text>
+<rect x="456" y="366" width="288" height="5" rx="2" fill="url(#g1)"/>
+<text x="310" y="435" text-anchor="middle" font-family="Arial" fill="white" font-weight="700" font-size="43">SC BRAGA</text><text x="890" y="435" text-anchor="middle" font-family="Arial" fill="white" font-weight="700" font-size="43">GIL VICENTE</text>
+<circle cx="600" cy="417" r="12" fill="#d8e6f1" opacity=".5"/>
+<path d="M90 530H1110" stroke="#b4c8d8" stroke-opacity=".25"/>
+<text x="600" y="568" text-anchor="middle" font-family="Arial" font-size="21" fill="#d6e8f5">Gil Vicente virou o resultado na segunda parte</text>
+<text x="600" y="604" text-anchor="middle" font-family="Arial" font-size="13" fill="#94a9bb" letter-spacing="2">ILUSTRAÇÃO GRÁFICA ORIGINAL · NÃO É FOTOGRAFIA DO ENCONTRO</text>
+</svg>
