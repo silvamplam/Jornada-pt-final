@@ -1,0 +1,49 @@
+name: Preparar fotografias reais das cronicas
+on:
+  push:
+    branches: [imagens-cronicas-20261022]
+permissions:
+  contents: read
+jobs:
+  fotografias:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Descarregar fotografias dos encontros e conferir ficheiros
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import os, urllib.request, imghdr, zipfile
+          from urllib.parse import quote
+          images = [
+              ("FC_Porto_PSV", "https://sportal365images.com/process/smp-images-production/abola.pt/20102026/defdbcd5-85a8-43b8-b49b-bc946d9ec7ce.jpg?operations=scale%28860%3A574%29", "A Bola — foto Catarina Morais/Kapta+"),
+              ("Sporting_LASK", "https://sportal365images.com/process/smp-images-production/abola.pt/21102026/f91900aa-d79a-49b1-a9bf-6af63b4a620b.jpg?operations=scale%28860%3A574%29", "A Bola — foto Miguel Nunes"),
+              ("Braga_Gil_Vicente", "https://sportal365images.com/process/smp-images-production/abola.pt/19102026/d1e28f03-48a6-4541-bef5-536543d1a7b8.jpg?operations=crop%2877%3A0%3A2270%3A1462%29", "A Bola — foto Hugo Delgado/Lusa"),
+          ]
+          os.makedirs("fotos", exist_ok=True)
+          credits=[]
+          for name,url,author in images:
+              req=urllib.request.Request(url, headers={"User-Agent":"Mozilla/5.0 (compatible; Jornalista/1.0)","Referer":"https://www.abola.pt/","Accept":"image/avif,image/webp,image/png,image/jpeg,image/*;q=0.8"})
+              try:
+                  with urllib.request.urlopen(req,timeout=30) as resp:
+                      data=resp.read(8*1024*1024)
+                      mimetype=resp.headers.get("Content-Type","")
+              except Exception as err:
+                  raise RuntimeError(f"Nao foi possivel transferir {name} de A Bola: {err}")
+              kind=imghdr.what(None,data)
+              if kind not in {"jpeg","png","webp"} or len(data)<20000:
+                  raise RuntimeError(f"Imagem invalida {name}: MIME={mimetype}, formato={kind}, bytes={len(data)}")
+              ext={"jpeg":"jpg","png":"png","webp":"webp"}[kind]
+              dest=f"fotos/{name}.{ext}"
+              with open(dest,"wb") as fp:fp.write(data)
+              credits.append(f"{dest} | {author}\n{url}\n")
+              print(f"{name}: {len(data)} bytes, tipo {kind}")
+          with open("fotos/CREDITOS_E_FONTES.txt","w") as fp:
+              fp.write("Fotografias reais dos encontros de 19 a 21 de outubro de 2026. Direitos de autor reservados aos autores/agencias. A disponibilidade online nao atribui licenca de republicacao.\n\n"+"\n".join(credits))
+          PY
+      - name: ZIP descarregavel das tres fotografias
+        uses: actions/upload-artifact@v4
+        with:
+          name: Fotografias_Reais_Cronicas_Jornada
+          path: fotos/
+          if-no-files-found: error
+          retention-days: 7
